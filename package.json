@@ -1,0 +1,25 @@
+{
+  "name": "htmlbin",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Agent-first HTML hosting. Drop HTML, get a URL. htmlbin.dev",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail",
+    "db:apply:local": "wrangler d1 execute htmlbin-db --local --file=./schema.sql",
+    "db:apply:remote": "wrangler d1 execute htmlbin-db --remote --file=./schema.sql",
+    "setup": "node scripts/setup.mjs",
+    "typecheck": "tsc --noEmit",
+    "test:e2e": "BASE_URL=http://localhost:8787 ./scripts/agent-e2e.sh"
+  },
+  "dependencies": {
+    "hono": "4.6.14"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "4.20250109.0",
+    "typescript": "5.7.2",
+    "wrangler": "3.99.0"
+  }
+}

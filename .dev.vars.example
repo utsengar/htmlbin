@@ -1,0 +1,10 @@
+# Copy to .dev.vars (gitignored) and fill in.
+# wrangler picks these up automatically for `wrangler dev`.
+
+# Random 32+ char string. Generate with:  openssl rand -hex 32
+TOKEN_PEPPER="REPLACE_ME_WITH_A_LONG_RANDOM_STRING"
+
+# Cloudflare Turnstile secret key.
+# For local dev, the Cloudflare-provided always-passes test secret is:
+#   1x0000000000000000000000000000000AA
+TURNSTILE_SECRET_KEY="1x0000000000000000000000000000000AA"

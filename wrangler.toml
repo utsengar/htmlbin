@@ -1,0 +1,49 @@
+name = "htmlbin"
+main = "src/index.ts"
+compatibility_date = "2025-04-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Set this to your custom domain after running `wrangler deploy`.
+# routes = [
+#   { pattern = "htmlbin.dev", custom_domain = true }
+# ]
+
+[observability]
+enabled = true
+
+[vars]
+PUBLIC_URL = "http://localhost:8787"
+# Cloudflare Turnstile site key (public, embedded in /verify).
+# Replace before deploy. Use the test key during local dev:
+#   1x00000000000000000000AA  → always passes
+TURNSTILE_SITE_KEY = "1x00000000000000000000AA"
+
+# Secrets (set with `wrangler secret put NAME`):
+#   TURNSTILE_SECRET_KEY  → Turnstile server secret (test: 1x0000000000000000000000000000000AA)
+#   TOKEN_PEPPER          → random 32+ char string used to hash API tokens
+
+[[kv_namespaces]]
+binding = "PROTOTYPES_KV"
+id = "REPLACE_WITH_KV_ID"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "htmlbin-db"
+database_id = "REPLACE_WITH_D1_ID"
+
+# --- Production environment ----------------------------------------------
+[env.production]
+name = "htmlbin"
+
+[env.production.vars]
+PUBLIC_URL = "https://htmlbin.dev"
+TURNSTILE_SITE_KEY = "REPLACE_WITH_PRODUCTION_TURNSTILE_SITE_KEY"
+
+[[env.production.kv_namespaces]]
+binding = "PROTOTYPES_KV"
+id = "REPLACE_WITH_KV_ID"
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "htmlbin-db"
+database_id = "REPLACE_WITH_D1_ID"

@@ -1,0 +1,66 @@
+# --- dependencies ---
+node_modules/
+.pnp/
+.pnp.js
+.yarn/
+
+# --- build / cache ---
+dist/
+build/
+.next/
+.turbo/
+.cache/
+.parcel-cache/
+*.tsbuildinfo
+
+# --- Cloudflare / Wrangler ---
+.wrangler/
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+
+# --- secrets / env ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+*.crt
+
+# --- editor / OS ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# --- logs ---
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# --- local scratch ---
+.tmp/
+.tmp-*
+tmp/
+*.tmp.png
+*.tmp.html
+.scratch/
+
+# --- test artifacts ---
+coverage/
+.nyc_output/
+
+# --- Claude Code session state (keep config, ignore session) ---
+.claude/cache/
+.claude/sessions/
+.claude/projects/
+
+# --- private to this checkout ---
+private/
+TODO.local.md
