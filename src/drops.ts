@@ -4,9 +4,9 @@ import { authMiddleware } from "./auth";
 import { generateSlug, isValidSlug } from "./slug";
 import { hashPassword } from "./crypto";
 import {
-  getPrototype,
+  getDrop,
   getVersion,
-  listPrototypesByUser,
+  listDropsByUser,
   listVersions,
   rateLimit,
 } from "./db";
@@ -15,7 +15,7 @@ const MAX_HTML_BYTES = 2 * 1024 * 1024; // 2 MB
 const MAX_TITLE = 200;
 const MAX_DESCRIPTION = 500;
 const MAX_CONTEXT_BYTES = 64 * 1024; // 64 KB
-const MAX_PROTOTYPES_PER_USER = 500;
+const MAX_DROPS_PER_USER = 500;
 const MAX_VERSIONS_PER_DROP = 200;
 const MAX_DAILY_WRITES = 500;
 
@@ -24,8 +24,8 @@ export const apiRoutes = new Hono<{
   Variables: Variables;
 }>();
 
-apiRoutes.use("/prototypes", authMiddleware);
-apiRoutes.use("/prototypes/*", authMiddleware);
+apiRoutes.use("/drops", authMiddleware);
+apiRoutes.use("/drops/*", authMiddleware);
 apiRoutes.use("/me", authMiddleware);
 apiRoutes.use("/tokens", authMiddleware);
 apiRoutes.use("/tokens/*", authMiddleware);
@@ -69,27 +69,27 @@ apiRoutes.delete("/tokens/:id", async (c) => {
 });
 
 // ----- list my drops ------------------------------------------------------
-apiRoutes.get("/prototypes", async (c) => {
+apiRoutes.get("/drops", async (c) => {
   const user = c.get("user");
-  const list = await listPrototypesByUser(c.env.DB, user.id);
+  const list = await listDropsByUser(c.env.DB, user.id);
   return c.json(
-    list.map((p) => ({
-      slug: p.slug,
-      title: p.title,
-      description: p.description,
-      url: `${c.env.PUBLIC_URL}/p/${p.slug}`,
-      raw_url: `${c.env.PUBLIC_URL}/p/${p.slug}/raw`,
-      locked: !!p.password_hash,
-      latest_version: p.latest_version,
-      view_count: p.view_count,
-      created_at: p.created_at,
-      updated_at: p.updated_at,
+    list.map((d) => ({
+      slug: d.slug,
+      title: d.title,
+      description: d.description,
+      url: `${c.env.PUBLIC_URL}/p/${d.slug}`,
+      raw_url: `${c.env.PUBLIC_URL}/p/${d.slug}/raw`,
+      locked: !!d.password_hash,
+      latest_version: d.latest_version,
+      view_count: d.view_count,
+      created_at: d.created_at,
+      updated_at: d.updated_at,
     }))
   );
 });
 
 // ----- create a new drop (always v1) -------------------------------------
-apiRoutes.post("/prototypes", async (c) => {
+apiRoutes.post("/drops", async (c) => {
   const user = c.get("user");
 
   if (!(await rateLimit(c.env.DB, `write:${user.id}`, 60, 60_000)))
@@ -115,13 +115,13 @@ apiRoutes.post("/prototypes", async (c) => {
 
   // Quota
   const countRow = await c.env.DB.prepare(
-    `SELECT COUNT(*) as n FROM prototypes WHERE user_id = ?`
+    `SELECT COUNT(*) as n FROM drops WHERE user_id = ?`
   )
     .bind(user.id)
     .first<{ n: number }>();
-  if ((countRow?.n ?? 0) >= MAX_PROTOTYPES_PER_USER) {
+  if ((countRow?.n ?? 0) >= MAX_DROPS_PER_USER) {
     return c.json(
-      { error: "quota_exceeded", max: MAX_PROTOTYPES_PER_USER },
+      { error: "quota_exceeded", max: MAX_DROPS_PER_USER },
       403
     );
   }
@@ -129,7 +129,7 @@ apiRoutes.post("/prototypes", async (c) => {
   // Slug
   let slug = generateSlug(title);
   for (let i = 0; i < 5; i++) {
-    if (!(await getPrototype(c.env.DB, slug))) break;
+    if (!(await getDrop(c.env.DB, slug))) break;
     slug = generateSlug(title);
   }
 
@@ -144,12 +144,12 @@ apiRoutes.post("/prototypes", async (c) => {
 
   const now = Date.now();
   const sizeBytes = byteLength(html);
-  await c.env.PROTOTYPES_KV.put(`html:${slug}:v1`, html);
+  await c.env.DROPS_KV.put(`html:${slug}:v1`, html);
 
-  // D1: prototypes + versions in one batch.
+  // D1: drops + versions in one batch.
   await c.env.DB.batch([
     c.env.DB.prepare(
-      `INSERT INTO prototypes
+      `INSERT INTO drops
          (slug, user_id, title, description, password_hash, password_salt,
           latest_version, view_count, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, 1, 0, ?, ?)`
@@ -173,7 +173,7 @@ apiRoutes.post("/prototypes", async (c) => {
 });
 
 // ----- update = NEW VERSION (slug stays, URL stays) ----------------------
-apiRoutes.put("/prototypes/:slug", async (c) => {
+apiRoutes.put("/drops/:slug", async (c) => {
   const user = c.get("user");
   const slug = c.req.param("slug");
   if (!isValidSlug(slug)) return c.json({ error: "invalid_slug" }, 400);
@@ -181,11 +181,11 @@ apiRoutes.put("/prototypes/:slug", async (c) => {
   if (!(await rateLimit(c.env.DB, `write:${user.id}`, 60, 60_000)))
     return c.json({ error: "rate_limited" }, 429);
 
-  const proto = await getPrototype(c.env.DB, slug);
-  if (!proto) return c.json({ error: "not_found" }, 404);
-  if (proto.user_id !== user.id) return c.json({ error: "forbidden" }, 403);
+  const drop = await getDrop(c.env.DB, slug);
+  if (!drop) return c.json({ error: "not_found" }, 404);
+  if (drop.user_id !== user.id) return c.json({ error: "forbidden" }, 403);
 
-  if (proto.latest_version >= MAX_VERSIONS_PER_DROP) {
+  if (drop.latest_version >= MAX_VERSIONS_PER_DROP) {
     return c.json(
       { error: "version_limit_reached", max: MAX_VERSIONS_PER_DROP },
       403
@@ -212,7 +212,7 @@ apiRoutes.put("/prototypes/:slug", async (c) => {
     return c.json({ error: "context_too_large", max_bytes: MAX_CONTEXT_BYTES }, 400);
 
   const now = Date.now();
-  let nextVersion = proto.latest_version;
+  let nextVersion = drop.latest_version;
 
   // If html is included, mint a new version. Otherwise just update metadata.
   if (html !== undefined) {
@@ -223,8 +223,8 @@ apiRoutes.put("/prototypes/:slug", async (c) => {
         400
       );
 
-    nextVersion = proto.latest_version + 1;
-    await c.env.PROTOTYPES_KV.put(`html:${slug}:v${nextVersion}`, html);
+    nextVersion = drop.latest_version + 1;
+    await c.env.DROPS_KV.put(`html:${slug}:v${nextVersion}`, html);
 
     await c.env.DB.batch([
       c.env.DB.prepare(
@@ -232,7 +232,7 @@ apiRoutes.put("/prototypes/:slug", async (c) => {
          VALUES (?, ?, ?, ?, ?)`
       ).bind(slug, nextVersion, sizeBytes, context || null, now),
       c.env.DB.prepare(
-        `UPDATE prototypes
+        `UPDATE drops
             SET title = COALESCE(?, title),
                 description = COALESCE(?, description),
                 latest_version = ?,
@@ -243,7 +243,7 @@ apiRoutes.put("/prototypes/:slug", async (c) => {
   } else {
     // Metadata-only update — no new version.
     await c.env.DB.prepare(
-      `UPDATE prototypes
+      `UPDATE drops
           SET title = COALESCE(?, title),
               description = COALESCE(?, description),
               updated_at = ?
@@ -262,37 +262,37 @@ apiRoutes.put("/prototypes/:slug", async (c) => {
 });
 
 // ----- get one of mine (metadata only) ----------------------------------
-apiRoutes.get("/prototypes/:slug", async (c) => {
+apiRoutes.get("/drops/:slug", async (c) => {
   const user = c.get("user");
   const slug = c.req.param("slug");
   if (!isValidSlug(slug)) return c.json({ error: "invalid_slug" }, 400);
 
-  const proto = await getPrototype(c.env.DB, slug);
-  if (!proto) return c.json({ error: "not_found" }, 404);
-  if (proto.user_id !== user.id) return c.json({ error: "forbidden" }, 403);
+  const drop = await getDrop(c.env.DB, slug);
+  if (!drop) return c.json({ error: "not_found" }, 404);
+  if (drop.user_id !== user.id) return c.json({ error: "forbidden" }, 403);
 
   return c.json({
-    slug: proto.slug,
-    title: proto.title,
-    description: proto.description,
-    url: `${c.env.PUBLIC_URL}/p/${proto.slug}`,
-    raw_url: `${c.env.PUBLIC_URL}/p/${proto.slug}/raw`,
-    locked: !!proto.password_hash,
-    latest_version: proto.latest_version,
-    view_count: proto.view_count,
-    created_at: proto.created_at,
-    updated_at: proto.updated_at,
+    slug: drop.slug,
+    title: drop.title,
+    description: drop.description,
+    url: `${c.env.PUBLIC_URL}/p/${drop.slug}`,
+    raw_url: `${c.env.PUBLIC_URL}/p/${drop.slug}/raw`,
+    locked: !!drop.password_hash,
+    latest_version: drop.latest_version,
+    view_count: drop.view_count,
+    created_at: drop.created_at,
+    updated_at: drop.updated_at,
   });
 });
 
 // ----- list versions of a drop ------------------------------------------
-apiRoutes.get("/prototypes/:slug/versions", async (c) => {
+apiRoutes.get("/drops/:slug/versions", async (c) => {
   const user = c.get("user");
   const slug = c.req.param("slug");
   if (!isValidSlug(slug)) return c.json({ error: "invalid_slug" }, 400);
-  const proto = await getPrototype(c.env.DB, slug);
-  if (!proto) return c.json({ error: "not_found" }, 404);
-  if (proto.user_id !== user.id) return c.json({ error: "forbidden" }, 403);
+  const drop = await getDrop(c.env.DB, slug);
+  if (!drop) return c.json({ error: "not_found" }, 404);
+  if (drop.user_id !== user.id) return c.json({ error: "forbidden" }, 403);
 
   const versions = await listVersions(c.env.DB, slug);
   return c.json(
@@ -306,15 +306,15 @@ apiRoutes.get("/prototypes/:slug/versions", async (c) => {
 });
 
 // ----- get specific version metadata (and context) ----------------------
-apiRoutes.get("/prototypes/:slug/v/:n", async (c) => {
+apiRoutes.get("/drops/:slug/v/:n", async (c) => {
   const user = c.get("user");
   const slug = c.req.param("slug");
   const n = parseInt(c.req.param("n"), 10);
   if (!isValidSlug(slug) || !Number.isFinite(n) || n < 1)
     return c.json({ error: "invalid_arg" }, 400);
-  const proto = await getPrototype(c.env.DB, slug);
-  if (!proto) return c.json({ error: "not_found" }, 404);
-  if (proto.user_id !== user.id) return c.json({ error: "forbidden" }, 403);
+  const drop = await getDrop(c.env.DB, slug);
+  if (!drop) return c.json({ error: "not_found" }, 404);
+  if (drop.user_id !== user.id) return c.json({ error: "forbidden" }, 403);
 
   const v = await getVersion(c.env.DB, slug, n);
   if (!v) return c.json({ error: "version_not_found" }, 404);
@@ -324,27 +324,27 @@ apiRoutes.get("/prototypes/:slug/v/:n", async (c) => {
     size_bytes: v.size_bytes,
     context: v.context,
     created_at: v.created_at,
-    is_latest: v.version === proto.latest_version,
+    is_latest: v.version === drop.latest_version,
   });
 });
 
 // ----- delete drop (all versions) ---------------------------------------
-apiRoutes.delete("/prototypes/:slug", async (c) => {
+apiRoutes.delete("/drops/:slug", async (c) => {
   const user = c.get("user");
   const slug = c.req.param("slug");
   if (!isValidSlug(slug)) return c.json({ error: "invalid_slug" }, 400);
 
-  const proto = await getPrototype(c.env.DB, slug);
-  if (!proto) return c.json({ error: "not_found" }, 404);
-  if (proto.user_id !== user.id) return c.json({ error: "forbidden" }, 403);
+  const drop = await getDrop(c.env.DB, slug);
+  if (!drop) return c.json({ error: "not_found" }, 404);
+  if (drop.user_id !== user.id) return c.json({ error: "forbidden" }, 403);
 
   // Delete all versioned HTML keys.
-  for (let v = 1; v <= proto.latest_version; v++) {
-    await c.env.PROTOTYPES_KV.delete(`html:${slug}:v${v}`);
+  for (let v = 1; v <= drop.latest_version; v++) {
+    await c.env.DROPS_KV.delete(`html:${slug}:v${v}`);
   }
   await c.env.DB.batch([
     c.env.DB.prepare(`DELETE FROM versions WHERE slug = ?`).bind(slug),
-    c.env.DB.prepare(`DELETE FROM prototypes WHERE slug = ? AND user_id = ?`).bind(
+    c.env.DB.prepare(`DELETE FROM drops WHERE slug = ? AND user_id = ?`).bind(
       slug,
       user.id
     ),
@@ -354,13 +354,13 @@ apiRoutes.delete("/prototypes/:slug", async (c) => {
 });
 
 // ----- password set / change / remove -----------------------------------
-apiRoutes.post("/prototypes/:slug/password", async (c) => {
+apiRoutes.post("/drops/:slug/password", async (c) => {
   const user = c.get("user");
   const slug = c.req.param("slug");
   if (!isValidSlug(slug)) return c.json({ error: "invalid_slug" }, 400);
-  const proto = await getPrototype(c.env.DB, slug);
-  if (!proto) return c.json({ error: "not_found" }, 404);
-  if (proto.user_id !== user.id) return c.json({ error: "forbidden" }, 403);
+  const drop = await getDrop(c.env.DB, slug);
+  if (!drop) return c.json({ error: "not_found" }, 404);
+  if (drop.user_id !== user.id) return c.json({ error: "forbidden" }, 403);
 
   const body = (await c.req.json().catch(() => null)) as
     | { password?: string }
@@ -370,7 +370,7 @@ apiRoutes.post("/prototypes/:slug/password", async (c) => {
 
   if (body.password === "") {
     await c.env.DB.prepare(
-      `UPDATE prototypes SET password_hash = NULL, password_salt = NULL,
+      `UPDATE drops SET password_hash = NULL, password_salt = NULL,
               updated_at = ? WHERE slug = ?`
     )
       .bind(Date.now(), slug)
@@ -382,7 +382,7 @@ apiRoutes.post("/prototypes/:slug/password", async (c) => {
 
   const { hash, salt } = await hashPassword(body.password);
   await c.env.DB.prepare(
-    `UPDATE prototypes SET password_hash = ?, password_salt = ?, updated_at = ?
+    `UPDATE drops SET password_hash = ?, password_salt = ?, updated_at = ?
        WHERE slug = ?`
   )
     .bind(hash, salt, Date.now(), slug)

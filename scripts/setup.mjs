@@ -45,8 +45,8 @@ if (!d1Id) {
 }
 console.log(`  D1 id: ${d1Id}`);
 
-console.log("→ Creating KV namespace 'PROTOTYPES_KV' …");
-const kvOut = sh(`npx wrangler kv namespace create PROTOTYPES_KV`);
+console.log("→ Creating KV namespace 'DROPS_KV' …");
+const kvOut = sh(`npx wrangler kv namespace create DROPS_KV`);
 const kvMatch = kvOut.match(/id\s*=\s*"([a-f0-9]+)"/);
 const kvId = kvMatch?.[1];
 if (!kvId) {

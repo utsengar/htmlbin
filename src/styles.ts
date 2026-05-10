@@ -298,7 +298,7 @@ code, .mono {
   white-space: pre-wrap;
   word-break: break-word;
 }
-.prompt pre .ph { color: var(--code-dim); }
+.prompt pre .ph { color: var(--code-dim); font-style: italic; }
 .prompt pre .em { color: var(--code-em); }
 .prompt .copy {
   position: absolute;

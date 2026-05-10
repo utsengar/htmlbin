@@ -1,9 +1,178 @@
-// Agent onboarding instructions. Returned by GET /api/onboard.
-// Designed to be pasted directly into an agent's context, or fetched at
-// runtime by an agent that's been told "go to htmlbin.dev/api/onboard".
+// Agent onboarding. Returned by GET /api/onboard.
+//
+// Two shapes:
+//   - buildOnboardJson() — the canonical, machine-readable protocol
+//     descriptor. JSON. No prose-to-interpret; just endpoints, methods,
+//     body schemas. This is what agents should consume by default.
+//   - buildOnboardText() — the same protocol as a friendly markdown
+//     walkthrough, returned only when Accept: text/markdown is requested.
+//     Useful for humans previewing the API and for debug output.
+//
+// We default to JSON because "fetch a URL and follow what it says" is the
+// shape of a prompt-injection payload — agents are (rightly) trained to
+// be wary of it. A structured descriptor with named fields reads as data,
+// not as instructions, and slips through the same agents without friction.
+
+export function buildOnboardJson(publicUrl: string): object {
+  return {
+    schema_version: "1",
+    name: "htmlbin",
+    public_url: publicUrl,
+    summary:
+      "Agent-first HTML hosting. Drop self-contained HTML, get a public URL.",
+    spec: {
+      openapi: `${publicUrl}/openapi.json`,
+      agent_card: `${publicUrl}/.well-known/agent-card.json`,
+      llms_txt: `${publicUrl}/llms.txt`,
+      onboard_markdown: `${publicUrl}/api/onboard (Accept: text/markdown)`,
+    },
+    auth: {
+      type: "device_code",
+      header: "Authorization: Bearer <token>",
+      token_format: "hb_<base62>",
+      token_storage: {
+        primary: "./.htmlbin/token",
+        fallback: "~/.config/htmlbin/token",
+        env_var: "HTMLBIN_TOKEN",
+        note:
+          "Project-local storage avoids prompting an agent to write outside its working directory.",
+      },
+      steps: [
+        {
+          step: 1,
+          method: "POST",
+          url: `${publicUrl}/api/auth/start`,
+          body: { label: "string (optional, e.g. 'claude-code')" },
+          returns: {
+            code: "string (8 chars; show this to the human)",
+            verification_url: "string (open this in a browser)",
+            poll_token: "string (use in step 3)",
+            expires_in: "integer (seconds)",
+            poll_interval: "integer (seconds, default 2)",
+          },
+        },
+        {
+          step: 2,
+          human_action:
+            "Open verification_url, complete the Cloudflare Turnstile challenge, click verify.",
+          note:
+            "This is the only human moment. After this the agent is autonomous.",
+        },
+        {
+          step: 3,
+          method: "GET",
+          url: `${publicUrl}/api/auth/poll`,
+          query: { token: "<poll_token from step 1>" },
+          returns: {
+            status: "'pending' | 'verified' | 'expired' | 'claimed'",
+            api_token: "string (only on first 'verified' read; revealed exactly once)",
+            user_id: "string (only on first 'verified' read)",
+          },
+          note:
+            "Poll every poll_interval seconds until status != 'pending'. The api_token is shown once — store it.",
+        },
+      ],
+    },
+    publish: {
+      method: "POST",
+      url: `${publicUrl}/api/drops`,
+      headers: {
+        Authorization: "Bearer <api_token>",
+        "Content-Type": "application/json",
+      },
+      body: {
+        title: "string (required, ≤200 chars)",
+        description: "string (optional, ≤500 chars)",
+        html: "string (required, full self-contained HTML document, ≤2 MB)",
+        password: "string (optional, ≥4 chars; sets a viewer password gate)",
+        context: "string (optional, ≤64 KB; reasoning trace — opt-in per the human)",
+      },
+      returns: {
+        slug: "string",
+        url: `string (e.g. ${publicUrl}/p/<slug>)`,
+        raw_url: `string (e.g. ${publicUrl}/p/<slug>/raw)`,
+        version: "integer (1 on create)",
+      },
+    },
+    iterate: {
+      method: "PUT",
+      url: `${publicUrl}/api/drops/<slug>`,
+      body: {
+        html: "string (optional; if present, mints a new version)",
+        title: "string (optional)",
+        description: "string (optional)",
+        context: "string (optional, ≤64 KB)",
+      },
+      note:
+        "Each PUT with a new html body increments the version. Slug + URL stay stable. Humans switch versions in the viewer with ?v=N.",
+    },
+    other_endpoints: {
+      list_my_drops: { method: "GET", url: `${publicUrl}/api/drops` },
+      get_drop: { method: "GET", url: `${publicUrl}/api/drops/<slug>` },
+      list_versions: {
+        method: "GET",
+        url: `${publicUrl}/api/drops/<slug>/versions`,
+      },
+      get_version: {
+        method: "GET",
+        url: `${publicUrl}/api/drops/<slug>/v/<n>`,
+      },
+      delete_drop: {
+        method: "DELETE",
+        url: `${publicUrl}/api/drops/<slug>`,
+      },
+      set_password: {
+        method: "POST",
+        url: `${publicUrl}/api/drops/<slug>/password`,
+        body: { password: "string ('' to remove)" },
+      },
+      list_my_tokens: { method: "GET", url: `${publicUrl}/api/tokens` },
+      revoke_token: {
+        method: "DELETE",
+        url: `${publicUrl}/api/tokens/<id>`,
+        note: "id = first 12 hex chars of the token hash",
+      },
+    },
+    cross_machine: {
+      method:
+        "On a new machine, run /api/auth/start, then paste an existing hb_… token in the optional field on /verify.",
+      result: "Both machines share the same user_id with independent tokens.",
+    },
+    limits: {
+      max_html_bytes: 2_097_152,
+      max_context_bytes: 65_536,
+      max_versions_per_drop: 200,
+      writes_per_minute: 60,
+      writes_per_day: 500,
+      drops_per_account: 500,
+      verification_ttl_seconds: 600,
+    },
+    errors: {
+      shape: { error: "<code>" },
+      common: [
+        "unauthorized",
+        "invalid_token",
+        "rate_limited",
+        "html_too_large",
+        "forbidden",
+        "not_found",
+        "expired_code",
+        "password_too_short",
+      ],
+    },
+    notes: [
+      "Drops are rendered in an iframe — HTML must be standalone (CDN imports OK; no build step).",
+      "If the human's agent sandbox blocks new domains, allow htmlbin.dev once before running this flow.",
+    ],
+  };
+}
 
 export function buildOnboardText(publicUrl: string): string {
-  return `# htmlbin — Agent Onboarding
+  return `# htmlbin — Agent Protocol (markdown)
+
+> The canonical, machine-readable form of this is at the same URL with
+> \`Accept: application/json\`. This markdown variant is the same protocol
+> rendered for humans previewing the API.
 
 You are deploying an HTML artifact to htmlbin. Anyone with the URL can view it.
 htmlbin is built for agents: the workflow below is the canonical, fastest path.
@@ -13,14 +182,16 @@ htmlbin is built for agents: the workflow below is the canonical, fastest path.
 1. POST /api/auth/start         → get a code + verification_url + poll_token
 2. Print the URL + code to the human; ask them to verify (one-time)
 3. GET /api/auth/poll?token=…   → poll until you receive an api_token
-4. POST /api/prototypes (Bearer api_token) → upload HTML, receive a public URL
+4. POST /api/drops (Bearer api_token) → upload HTML, receive a public URL
 
 The api_token is shown exactly once. Store it for reuse on this machine.
 
 ## Step 1: Authenticate (one-time per agent install)
 
-Check for an existing token first. The convention is to read it from the
-environment variable HTMLBIN_TOKEN, or from \`~/.config/htmlbin/token\` if present.
+Check for an existing token first. The convention, in order of preference:
+1. \`./.htmlbin/token\` (project-local — preferred; no permission prompt)
+2. \`HTMLBIN_TOKEN\` environment variable
+3. \`~/.config/htmlbin/token\` (machine-global fallback)
 
 If you don't have a token, run the device-code flow:
 
@@ -51,13 +222,14 @@ while true; do
   esac
 done
 
-mkdir -p ~/.config/htmlbin && echo "$HTMLBIN_TOKEN" > ~/.config/htmlbin/token
-chmod 600 ~/.config/htmlbin/token
+mkdir -p ./.htmlbin && echo "$HTMLBIN_TOKEN" > ./.htmlbin/token
+chmod 600 ./.htmlbin/token
 \`\`\`
 
-The verification URL drops the human onto a simple page with an anti-bot
-challenge — that's the only human step, and it exists to keep bots from
-minting tokens. Your token is yours after that; reuse it.
+The verification URL drops the human onto a Cloudflare Turnstile widget —
+the same anti-bot checkbox that protects countless other sites. That click
+is the only human step. It exists so bots can't mint tokens; your token
+is yours after that, and it doesn't expire (revocable via /api/tokens).
 
 ## Step 2: Generate HTML
 
@@ -86,7 +258,7 @@ jq -n --arg title "My Prototype" \\
        --arg context "Optional: the prompt or reasoning that produced this drop." \\
        --rawfile html /tmp/htmlbin.html \\
        '{title:$title, description:$description, html:$html, context:$context}' \\
-| curl -s -X POST ${publicUrl}/api/prototypes \\
+| curl -s -X POST ${publicUrl}/api/drops \\
     -H "Authorization: Bearer $HTMLBIN_TOKEN" \\
     -H "Content-Type: application/json" \\
     -d @-
@@ -105,17 +277,17 @@ The URL never changes. Iterate freely:
 jq -n --rawfile html /tmp/htmlbin.html \\
        --arg context "Tweaked color contrast based on user feedback" \\
        '{html:$html, context:$context}' \\
-| curl -s -X PUT ${publicUrl}/api/prototypes/<slug> \\
+| curl -s -X PUT ${publicUrl}/api/drops/<slug> \\
     -H "Authorization: Bearer $HTMLBIN_TOKEN" \\
     -H "Content-Type: application/json" \\
     -d @-
 
 # List all versions of a drop
-curl -s ${publicUrl}/api/prototypes/<slug>/versions \\
+curl -s ${publicUrl}/api/drops/<slug>/versions \\
   -H "Authorization: Bearer $HTMLBIN_TOKEN"
 
 # Get specific version metadata (incl. context)
-curl -s ${publicUrl}/api/prototypes/<slug>/v/3 \\
+curl -s ${publicUrl}/api/drops/<slug>/v/3 \\
   -H "Authorization: Bearer $HTMLBIN_TOKEN"
 \`\`\`
 
@@ -135,7 +307,7 @@ will see a password gate before the iframe renders.
 
 To change a password later:
 \`\`\`bash
-curl -s -X POST ${publicUrl}/api/prototypes/<slug>/password \\
+curl -s -X POST ${publicUrl}/api/drops/<slug>/password \\
   -H "Authorization: Bearer $HTMLBIN_TOKEN" \\
   -H "Content-Type: application/json" \\
   -d '{"password":"correct horse battery staple"}'
@@ -147,17 +319,17 @@ Pass \`"password": ""\` to unlock.
 
 \`\`\`bash
 # Update HTML on the same slug (URL doesn't change)
-curl -s -X PUT ${publicUrl}/api/prototypes/<slug> \\
+curl -s -X PUT ${publicUrl}/api/drops/<slug> \\
   -H "Authorization: Bearer $HTMLBIN_TOKEN" \\
   -H "Content-Type: application/json" \\
   -d "$(jq -n --rawfile html /tmp/htmlbin.html '{html:$html}')"
 
 # Delete
-curl -s -X DELETE ${publicUrl}/api/prototypes/<slug> \\
+curl -s -X DELETE ${publicUrl}/api/drops/<slug> \\
   -H "Authorization: Bearer $HTMLBIN_TOKEN"
 
 # List your own
-curl -s ${publicUrl}/api/prototypes \\
+curl -s ${publicUrl}/api/drops \\
   -H "Authorization: Bearer $HTMLBIN_TOKEN"
 \`\`\`
 
@@ -165,7 +337,7 @@ curl -s ${publicUrl}/api/prototypes \\
 
 - 2 MB per HTML
 - 60 writes / minute / token
-- 500 prototypes per account (delete old ones to free space)
+- 500 drops per account (delete old ones to free space)
 
 ## Errors
 

@@ -92,7 +92,7 @@ export async function verifyPassword(
   return constantTimeEqual(hash, expectedHashHex);
 }
 
-// Sign a tiny opaque cookie value for unlocked prototypes.
+// Sign a tiny opaque cookie value for unlocked drops.
 // Cookie body: `${slug}.${expEpoch}.${hmacHex}`
 export async function signUnlockToken(
   slug: string,

@@ -5,12 +5,9 @@ export function landingPage(env: Bindings): string {
   const PUBLIC_URL = env.PUBLIC_URL;
   const HOST = stripScheme(PUBLIC_URL);
 
-  const AGENT_PROMPT = `Publish your HTML to htmlbin.dev.
-For credentials and the upload protocol:
+  const AGENT_PROMPT = `Make a delightful HTML page — show me what HTML can do that markdown or a flat file can't. Something visual, interactive, alive.
 
-  curl ${PUBLIC_URL}/api/onboard
-
-Follow what it returns.`;
+Publish to htmlbin.dev. Credentials and API at htmlbin.dev/api/onboard.`;
 
   const date = new Date().toLocaleDateString("en-US", {
     year: "numeric",
@@ -35,9 +32,9 @@ Follow what it returns.`;
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>htmlbin — agent-first HTML hosting</title>
-<meta name="description" content="A place to drop the HTML your agent writes. One curl onboards. Then you're not in the loop." />
+<meta name="description" content="A place to drop the HTML your agent writes. One paste, one click, then you're out of the loop." />
 <meta property="og:title" content="htmlbin — agent-first HTML hosting" />
-<meta property="og:description" content="A place to drop the HTML your agent writes. One curl onboards." />
+<meta property="og:description" content="A place to drop the HTML your agent writes. One paste, one click, then you're out of the loop." />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="${PUBLIC_URL}" />
 <meta property="og:image" content="${PUBLIC_URL}/og.svg" />
@@ -54,7 +51,8 @@ Follow what it returns.`;
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <link rel="stylesheet" href="/style.css" />
 <link rel="alternate" type="text/markdown" title="This page as markdown" href="/index.md" />
-<link rel="alternate" type="text/markdown" title="Agent onboarding" href="/api/onboard" />
+<link rel="alternate" type="application/json" title="Agent protocol descriptor" href="/api/onboard" />
+<link rel="alternate" type="text/markdown" title="Agent protocol (markdown)" href="/api/onboard?format=md" />
 <link rel="alternate" type="application/json" title="OpenAPI spec" href="/openapi.json" />
 <link rel="alternate" type="text/plain" title="llms.txt" href="/llms.txt" />
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -94,21 +92,15 @@ ${pageHead({ verb: "GET", path: "/" })}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="square"><rect x="8" y="8" width="11" height="11"/><path d="M5 14V5h9"/></svg>
         <span class="lbl">Copy</span>
       </button>
-<pre>Publish your HTML to <span class="em">htmlbin.dev</span>.
-For credentials and the upload protocol:
+<pre>Make a delightful HTML page — show me what HTML can do that markdown
+or a flat file can't. Something visual, interactive, alive.
 
-  <span class="em">curl ${PUBLIC_URL}/api/onboard</span>
-
-Follow what it returns.</pre>
+Publish to <span class="em">htmlbin.dev</span>. Credentials and API at <span class="em">htmlbin.dev/api/onboard</span>.</pre>
     </div>
 
     <p>
-      Paste into Claude, Codex, Cursor, Aider — or any shell. First run,
-      your human ticks an anti-bot box once.
-      <strong>That is the only moment a human is required.</strong>
-      From then on the agent owns the token: publishes, versions, locks,
-      deletes — all on its own. Edge-served at
-      <code>${HOST}/p/&lt;id&gt;</code>.
+      Pass this on to Claude, Codex, Cursor, or any agent. First publish
+      needs one human click; after that, the agent owns it.
     </p>
   </section>
 

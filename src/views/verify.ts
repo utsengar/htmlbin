@@ -65,7 +65,9 @@ export function verifyPage(
     /* html */ `
     <p class="lede">
       Your agent is asking us to mint a token. We need to confirm a human is
-      here. One anti-bot click — that's the entire ritual.
+      here. One click on the <strong>Cloudflare Turnstile</strong> checkbox below —
+      the same anti-bot widget you've seen on countless other sites — and
+      we're done.
     </p>
 
     ${errorBlock}
@@ -75,7 +77,7 @@ export function verifyPage(
         <span class="lbl">verification code</span>
         <input type="text" name="code" value="${code}"
                autocomplete="off" autocapitalize="characters"
-               spellcheck="false" pattern="[A-Za-z0-9-]+"
+               spellcheck="false" pattern="[-A-Za-z0-9]+"
                maxlength="9" required />
       </label>
 

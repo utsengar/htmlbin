@@ -104,7 +104,7 @@ authRoutes.get("/auth/poll", async (c) => {
   return c.json({ status: "pending" });
 });
 
-// ----- Auth middleware (used by /api/prototypes) --------------------------
+// ----- Auth middleware (used by /api/drops) -------------------------------
 export async function authMiddleware(c: any, next: any) {
   const header = c.req.header("Authorization") ?? "";
   const m = /^Bearer\s+(hb_[A-Za-z0-9]+)$/.exec(header);

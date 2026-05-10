@@ -21,7 +21,7 @@ agent ─ POST /api/auth/start ──┐                 anti-bot challenge
                           └────┬────────────────┘
                                │
 agent ─ GET  /api/auth/poll ───┘  → api_token (one-time read)
-agent ─ POST /api/prototypes  → slug, public URL
+agent ─ POST /api/drops  → slug, public URL
                                                   KV ──▶ HTML body
 visitor ─ GET /p/:id  → viewer + iframe           D1 ──▶ metadata
                           (password gate if locked)
@@ -71,7 +71,7 @@ Worker, then uncomment the `routes` block in `wrangler.toml`.
 
 | Endpoint | What it returns |
 |---|---|
-| `GET /api/onboard` | Markdown agent protocol (Accept JSON for wrapped) |
+| `GET /api/onboard` | JSON protocol descriptor (default). `Accept: text/markdown` or `?format=md` returns the same protocol as a markdown walkthrough. |
 | `GET /openapi.json` | OpenAPI 3.1 spec |
 | `GET /.well-known/agent-card.json` | Compact capability descriptor |
 | `GET /llms.txt` | [llmstxt.org](https://llmstxt.org)-style site index |
@@ -94,14 +94,14 @@ The landing page also sets a `Link:` HTTP header advertising all of the above.
 
 | Method | Path | Notes |
 |---|---|---|
-| `POST`   | `/api/prototypes` | `{title, description?, html, password?, context?}` — creates v1 |
-| `GET`    | `/api/prototypes` | List your drops |
-| `GET`    | `/api/prototypes/:slug` | Drop metadata |
-| `PUT`    | `/api/prototypes/:slug` | Mints a new version (slug + URL preserved) |
-| `GET`    | `/api/prototypes/:slug/versions` | List all versions |
-| `GET`    | `/api/prototypes/:slug/v/:n` | Specific version metadata + context |
-| `DELETE` | `/api/prototypes/:slug` | Deletes all versions |
-| `POST`   | `/api/prototypes/:slug/password` | Empty string removes the password |
+| `POST`   | `/api/drops` | `{title, description?, html, password?, context?}` — creates v1 |
+| `GET`    | `/api/drops` | List your drops |
+| `GET`    | `/api/drops/:slug` | Drop metadata |
+| `PUT`    | `/api/drops/:slug` | Mints a new version (slug + URL preserved) |
+| `GET`    | `/api/drops/:slug/versions` | List all versions |
+| `GET`    | `/api/drops/:slug/v/:n` | Specific version metadata + context |
+| `DELETE` | `/api/drops/:slug` | Deletes all versions |
+| `POST`   | `/api/drops/:slug/password` | Empty string removes the password |
 | `GET`    | `/api/tokens` | List your active tokens (across machines) |
 | `DELETE` | `/api/tokens/:id` | Revoke a token by short id |
 
@@ -135,7 +135,7 @@ still works).
 - 500 drops / account
 - 10-minute TTL on verification codes
 
-Adjust in `src/prototypes.ts` and `src/auth.ts`.
+Adjust in `src/drops.ts` and `src/auth.ts`.
 
 ## Project layout
 
@@ -143,7 +143,7 @@ Adjust in `src/prototypes.ts` and `src/auth.ts`.
 src/
   index.ts          ─ Hono app: routes + chrome
   auth.ts           ─ device-code flow + Bearer middleware
-  prototypes.ts     ─ /api/prototypes CRUD with versioning
+  drops.ts          ─ /api/drops CRUD with versioning
   onboard.ts        ─ /api/onboard markdown
   crypto.ts         ─ Web Crypto wrappers (PBKDF2, HMAC)
   slug.ts           ─ short alphanumeric id generator
@@ -163,8 +163,7 @@ scripts/
   agent-e2e.sh      ─ full functional test
 ```
 
-The DB table is still named `prototypes` and the URL path stays
-`/api/prototypes/`; user-facing copy uses **drop / drops**.
+DB table, URL path, and user-facing copy all align: **drops**.
 
 ## Security notes
 

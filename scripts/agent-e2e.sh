@@ -66,22 +66,29 @@ assert_json "$TMP/card.json" '.capabilities[] | select(.id=="publish_html") | .i
 curl -s "$BASE/openapi.json" -o "$TMP/openapi.json"
 jq -e . < "$TMP/openapi.json" > /dev/null && ok "openapi.json is valid JSON" || fail "openapi valid" "parse error"
 assert_json "$TMP/openapi.json" '.openapi | startswith("3.")' 'true' "openapi.json is OpenAPI 3.x"
-assert_json "$TMP/openapi.json" '.paths | has("/api/prototypes")' 'true' "openapi declares /api/prototypes"
+assert_json "$TMP/openapi.json" '.paths | has("/api/drops")' 'true' "openapi declares /api/drops"
 assert_json "$TMP/openapi.json" '.components.securitySchemes.bearerAuth.scheme' 'bearer' "openapi declares bearer auth"
 
 # ---------------------------------------------------------------------------
 section "2. agent onboarding"
 # ---------------------------------------------------------------------------
-ONBOARD=$(curl -s "$BASE/api/onboard")
+# Default: JSON descriptor (data, not prose). Markdown is opt-in via
+# Accept: text/markdown or ?format=md.
 CT=$(curl -s -o /dev/null -w "%{content_type}" "$BASE/api/onboard")
-assert_contains "$CT" "text/markdown" "/api/onboard defaults to text/markdown"
-assert_contains "$ONBOARD" "POST /api/auth/start" "onboard documents auth start"
-assert_contains "$ONBOARD" "POST /api/prototypes" "onboard documents drop creation"
+assert_contains "$CT" "application/json" "/api/onboard defaults to application/json"
 
-curl -s -H "Accept: application/json" "$BASE/api/onboard" -o "$TMP/onboard.json"
-jq -e .instructions < "$TMP/onboard.json" > /dev/null \
-  && ok "/api/onboard with Accept: application/json returns JSON wrapper" \
-  || fail "/api/onboard JSON variant" "no instructions field"
+curl -s "$BASE/api/onboard" -o "$TMP/onboard.json"
+jq -e '.auth.steps | length >= 3' < "$TMP/onboard.json" > /dev/null \
+  && ok "/api/onboard JSON descriptor lists auth steps" \
+  || fail "/api/onboard JSON descriptor" "auth.steps missing or empty"
+assert_json "$TMP/onboard.json" '.publish.method' 'POST' "onboard descriptor names publish method"
+assert_json "$TMP/onboard.json" '.auth.token_storage.primary' './.htmlbin/token' "onboard recommends project-local token path"
+
+ONBOARD_MD=$(curl -s -H "Accept: text/markdown" "$BASE/api/onboard")
+CT_MD=$(curl -s -o /dev/null -w "%{content_type}" -H "Accept: text/markdown" "$BASE/api/onboard")
+assert_contains "$CT_MD" "text/markdown" "/api/onboard with Accept: text/markdown returns markdown"
+assert_contains "$ONBOARD_MD" "POST /api/auth/start" "markdown variant documents auth start"
+assert_contains "$ONBOARD_MD" "POST /api/drops" "markdown variant documents drop creation"
 
 # ---------------------------------------------------------------------------
 section "3. auth — device-code flow"
@@ -123,10 +130,10 @@ info "token=${TOKEN:0:14}…"
 SECOND=$(curl -s "$BASE/api/auth/poll?token=$POLL")
 assert_contains "$SECOND" '"claimed"' "second poll returns claimed (one-time read enforced)"
 
-B401=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/api/prototypes" -H "Authorization: Bearer hb_nope")
+B401=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/api/drops" -H "Authorization: Bearer hb_nope")
 assert_eq "$B401" "401" "bad token → 401"
 
-N401=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/api/prototypes")
+N401=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/api/drops")
 assert_eq "$N401" "401" "no auth → 401"
 
 ME=$(curl -s "$BASE/api/me" -H "Authorization: Bearer $TOKEN")
@@ -146,15 +153,15 @@ jq -n --arg t "e2e: agent test" \
        --arg d "created by automated test" \
        --rawfile h "$TMP/drop.html" \
        '{title:$t, description:$d, html:$h}' \
-| curl -s -X POST "$BASE/api/prototypes" \
+| curl -s -X POST "$BASE/api/drops" \
     -H "Authorization: Bearer $TOKEN" \
     -H "Content-Type: application/json" \
     -d @- -o "$TMP/created.json"
 
 SLUG=$(jq -r .slug < "$TMP/created.json")
 URL=$(jq -r .url < "$TMP/created.json")
-[ -n "$SLUG" ] && [ "$SLUG" != "null" ] && ok "POST /api/prototypes returns slug" || fail "create slug" "$SLUG"
-[ -n "$URL" ]  && [ "$URL" != "null" ]  && ok "POST /api/prototypes returns url"  || fail "create url" "$URL"
+[ -n "$SLUG" ] && [ "$SLUG" != "null" ] && ok "POST /api/drops returns slug" || fail "create slug" "$SLUG"
+[ -n "$URL" ]  && [ "$URL" != "null" ]  && ok "POST /api/drops returns url"  || fail "create url" "$URL"
 info "slug=$SLUG"
 info "url=$URL"
 
@@ -166,26 +173,26 @@ assert_contains "$RAW" "e2e drop" "GET /p/$SLUG/raw serves the HTML body"
 RC=$(curl -s -o /dev/null -w "%{content_type}" "$BASE/p/$SLUG/raw")
 assert_contains "$RC" "text/html" "raw is served as text/html"
 
-curl -s "$BASE/api/prototypes/$SLUG" -H "Authorization: Bearer $TOKEN" -o "$TMP/meta.json"
-assert_json "$TMP/meta.json" '.slug' "$SLUG" "GET /api/prototypes/:slug returns own metadata"
+curl -s "$BASE/api/drops/$SLUG" -H "Authorization: Bearer $TOKEN" -o "$TMP/meta.json"
+assert_json "$TMP/meta.json" '.slug' "$SLUG" "GET /api/drops/:slug returns own metadata"
 assert_json "$TMP/meta.json" '.locked' 'false' "fresh drop is not locked"
 
-curl -s "$BASE/api/prototypes" -H "Authorization: Bearer $TOKEN" -o "$TMP/list.json"
-assert_json "$TMP/list.json" "[.[] | select(.slug==\"$SLUG\")] | length" '1' "GET /api/prototypes lists my drop"
+curl -s "$BASE/api/drops" -H "Authorization: Bearer $TOKEN" -o "$TMP/list.json"
+assert_json "$TMP/list.json" "[.[] | select(.slug==\"$SLUG\")] | length" '1' "GET /api/drops lists my drop"
 
 # Update
 jq -n '{html:"<h1>updated by agent</h1>"}' \
-| curl -s -X PUT "$BASE/api/prototypes/$SLUG" \
+| curl -s -X PUT "$BASE/api/drops/$SLUG" \
     -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
     -d @- -o "$TMP/updated.json"
-assert_json "$TMP/updated.json" '.slug' "$SLUG" "PUT /api/prototypes/:slug returns slug"
+assert_json "$TMP/updated.json" '.slug' "$SLUG" "PUT /api/drops/:slug returns slug"
 RAW2=$(curl -s "$BASE/p/$SLUG/raw")
 assert_contains "$RAW2" "updated by agent" "raw HTML reflects update"
 
 # ---------------------------------------------------------------------------
 section "5. password lifecycle"
 # ---------------------------------------------------------------------------
-curl -s -X POST "$BASE/api/prototypes/$SLUG/password" \
+curl -s -X POST "$BASE/api/drops/$SLUG/password" \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{"password":"e2e-secret"}' -o "$TMP/lock.json"
 assert_json "$TMP/lock.json" '.locked' 'true' "POST /password locks the drop"
@@ -213,14 +220,14 @@ assert_contains "$WRAW" "updated by agent" "with cookie, raw HTML loads"
 NOCOOKIE=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/p/$SLUG/raw")
 assert_eq "$NOCOOKIE" "302" "without cookie, still locked"
 
-curl -s -X POST "$BASE/api/prototypes/$SLUG/password" \
+curl -s -X POST "$BASE/api/drops/$SLUG/password" \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{"password":""}' -o "$TMP/unlock.json"
 assert_json "$TMP/unlock.json" '.locked' 'false' "POST /password with empty unlocks"
 PUB=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/p/$SLUG/raw")
 assert_eq "$PUB" "200" "after unlock, /raw is 200 again"
 
-SHORT=$(curl -s -X POST "$BASE/api/prototypes/$SLUG/password" \
+SHORT=$(curl -s -X POST "$BASE/api/drops/$SLUG/password" \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{"password":"ab"}')
 assert_contains "$SHORT" "password_too_short" "password < 4 chars rejected"
@@ -240,15 +247,15 @@ TOKEN2=$(jq -r .api_token < "$TMP/verified2.json")
 [[ "$TOKEN2" == hb_* ]] && ok "second agent gets its own token" || fail "second token" "$TOKEN2"
 
 # Other user can't read my drop's metadata
-OTHER=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/api/prototypes/$SLUG" -H "Authorization: Bearer $TOKEN2")
+OTHER=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/api/drops/$SLUG" -H "Authorization: Bearer $TOKEN2")
 assert_eq "$OTHER" "403" "other user → 403 on GET metadata"
 
-OUPD=$(curl -s -o /dev/null -w "%{http_code}" -X PUT "$BASE/api/prototypes/$SLUG" \
+OUPD=$(curl -s -o /dev/null -w "%{http_code}" -X PUT "$BASE/api/drops/$SLUG" \
   -H "Authorization: Bearer $TOKEN2" -H "Content-Type: application/json" \
   -d '{"html":"<h1>pwned</h1>"}')
 assert_eq "$OUPD" "403" "other user → 403 on PUT"
 
-ODEL=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE "$BASE/api/prototypes/$SLUG" \
+ODEL=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE "$BASE/api/drops/$SLUG" \
   -H "Authorization: Bearer $TOKEN2")
 assert_eq "$ODEL" "403" "other user → 403 on DELETE"
 
@@ -256,12 +263,12 @@ ANYONE=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/p/$SLUG")
 assert_eq "$ANYONE" "200" "public view works for anyone (drop is unlocked)"
 
 # Validation
-EBAD=$(curl -s -X POST "$BASE/api/prototypes" \
+EBAD=$(curl -s -X POST "$BASE/api/drops" \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{"title":"","html":"<h1>x</h1>"}')
 assert_contains "$EBAD" "title_required" "empty title rejected"
 
-MBAD=$(curl -s -X POST "$BASE/api/prototypes" \
+MBAD=$(curl -s -X POST "$BASE/api/drops" \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{"title":"x"}')
 assert_contains "$MBAD" "html_required" "missing html rejected"
@@ -273,13 +280,13 @@ NS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/p/totally-fake-slug-12345")
 assert_eq "$NS" "404" "nonexistent slug → 404"
 
 # Second user's list is empty
-curl -s "$BASE/api/prototypes" -H "Authorization: Bearer $TOKEN2" -o "$TMP/list2.json"
+curl -s "$BASE/api/drops" -H "Authorization: Bearer $TOKEN2" -o "$TMP/list2.json"
 assert_json "$TMP/list2.json" 'length' '0' "second agent's list is empty"
 
 # ---------------------------------------------------------------------------
 section "7. cleanup"
 # ---------------------------------------------------------------------------
-curl -s -X DELETE "$BASE/api/prototypes/$SLUG" \
+curl -s -X DELETE "$BASE/api/drops/$SLUG" \
   -H "Authorization: Bearer $TOKEN" -o "$TMP/del.json"
 assert_json "$TMP/del.json" '.deleted' "$SLUG" "DELETE returns deleted=$SLUG"
 

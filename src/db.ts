@@ -1,4 +1,4 @@
-import type { Bindings, Prototype, User, Version } from "./types";
+import type { Bindings, Drop, User, Version } from "./types";
 
 export async function getUserByTokenHash(
   db: D1Database,
@@ -54,28 +54,28 @@ export async function insertToken(
     .run();
 }
 
-export async function getPrototype(
+export async function getDrop(
   db: D1Database,
   slug: string
-): Promise<Prototype | null> {
+): Promise<Drop | null> {
   const row = await db
-    .prepare(`SELECT * FROM prototypes WHERE slug = ?`)
+    .prepare(`SELECT * FROM drops WHERE slug = ?`)
     .bind(slug)
-    .first<Prototype>();
+    .first<Drop>();
   return row ?? null;
 }
 
-export async function listPrototypesByUser(
+export async function listDropsByUser(
   db: D1Database,
   userId: string,
   limit = 100
-): Promise<Prototype[]> {
+): Promise<Drop[]> {
   const { results } = await db
     .prepare(
-      `SELECT * FROM prototypes WHERE user_id = ? ORDER BY created_at DESC LIMIT ?`
+      `SELECT * FROM drops WHERE user_id = ? ORDER BY created_at DESC LIMIT ?`
     )
     .bind(userId, limit)
-    .all<Prototype>();
+    .all<Drop>();
   return results ?? [];
 }
 
@@ -84,7 +84,7 @@ export async function bumpViewCount(
   slug: string
 ): Promise<void> {
   await db
-    .prepare(`UPDATE prototypes SET view_count = view_count + 1 WHERE slug = ?`)
+    .prepare(`UPDATE drops SET view_count = view_count + 1 WHERE slug = ?`)
     .bind(slug)
     .run();
 }

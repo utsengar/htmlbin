@@ -19,7 +19,7 @@ export type WorkersAI = {
 
 export type Bindings = {
   DB: D1Database;
-  PROTOTYPES_KV: KVNamespace;
+  DROPS_KV: KVNamespace;
   AI: WorkersAI;
   PUBLIC_URL: string;
   TURNSTILE_SITE_KEY: string;
@@ -39,7 +39,7 @@ export type User = {
   created_at: number;
 };
 
-export type Prototype = {
+export type Drop = {
   slug: string;
   user_id: string;
   title: string;

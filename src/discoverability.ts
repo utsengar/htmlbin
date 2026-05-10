@@ -105,14 +105,14 @@ anti-bot click → token (one-time read) → POST your HTML.
 - GET  /api/auth/poll?token=…  → { status, api_token? }       (one-time read)
 
 ### drops (auth: Bearer hb_…)
-- POST   /api/prototypes                  → upload HTML (creates v1)
-- GET    /api/prototypes                  → list yours
-- GET    /api/prototypes/:slug            → metadata
-- PUT    /api/prototypes/:slug            → mints a new version
-- GET    /api/prototypes/:slug/versions   → list versions
-- GET    /api/prototypes/:slug/v/:n       → version metadata + context
-- DELETE /api/prototypes/:slug            → delete (all versions)
-- POST   /api/prototypes/:slug/password   → set/change/remove password
+- POST   /api/drops                  → upload HTML (creates v1)
+- GET    /api/drops                  → list yours
+- GET    /api/drops/:slug            → metadata
+- PUT    /api/drops/:slug            → mints a new version
+- GET    /api/drops/:slug/versions   → list versions
+- GET    /api/drops/:slug/v/:n       → version metadata + context
+- DELETE /api/drops/:slug            → delete (all versions)
+- POST   /api/drops/:slug/password   → set/change/remove password
 - GET    /api/tokens                      → list your active tokens
 - DELETE /api/tokens/:id                  → revoke a token (id = first 12 hex)
 
@@ -196,7 +196,7 @@ export function agentCard(publicUrl: string): object {
         description:
           "Upload self-contained HTML up to 2 MB; receive a permanent public URL. Creates v1.",
         method: "POST",
-        path: "/api/prototypes",
+        path: "/api/drops",
         accepts: ["title", "description?", "html", "password?", "context?"],
       },
       {
@@ -204,36 +204,36 @@ export function agentCard(publicUrl: string): object {
         description:
           "PUT mints a NEW version on the same slug — URL is preserved across iterations.",
         method: "PUT",
-        path: "/api/prototypes/:slug",
+        path: "/api/drops/:slug",
         accepts: ["html?", "title?", "description?", "context?"],
       },
       {
         id: "list_versions",
         method: "GET",
-        path: "/api/prototypes/:slug/versions",
+        path: "/api/drops/:slug/versions",
       },
       {
         id: "get_version",
         description: "Includes the optional context recorded at that version.",
         method: "GET",
-        path: "/api/prototypes/:slug/v/:n",
+        path: "/api/drops/:slug/v/:n",
       },
       {
         id: "delete_drop",
         method: "DELETE",
-        path: "/api/prototypes/:slug",
+        path: "/api/drops/:slug",
       },
       {
         id: "list_my_drops",
         method: "GET",
-        path: "/api/prototypes",
+        path: "/api/drops",
       },
       {
         id: "lock_with_password",
         description:
           "Set, change, or remove a password gate. Pass empty string to remove.",
         method: "POST",
-        path: "/api/prototypes/:slug/password",
+        path: "/api/drops/:slug/password",
       },
       {
         id: "list_my_tokens",
@@ -442,7 +442,7 @@ export function openApiSpec(publicUrl: string): object {
           },
         },
       },
-      "/api/prototypes": {
+      "/api/drops": {
         get: {
           summary: "List your drops",
           security: [{ bearerAuth: [] }],
@@ -500,7 +500,7 @@ export function openApiSpec(publicUrl: string): object {
           },
         },
       },
-      "/api/prototypes/{slug}": {
+      "/api/drops/{slug}": {
         parameters: [
           {
             name: "slug",
@@ -548,7 +548,7 @@ export function openApiSpec(publicUrl: string): object {
           responses: { "200": { description: "Deleted" } },
         },
       },
-      "/api/prototypes/{slug}/password": {
+      "/api/drops/{slug}/password": {
         post: {
           summary: "Set, change, or remove the password on a drop",
           security: [{ bearerAuth: [] }],

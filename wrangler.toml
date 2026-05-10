@@ -28,7 +28,7 @@ TURNSTILE_SITE_KEY = "0x4AAAAAADMWcc6zelKUOSlH"
 #   TOKEN_PEPPER          → random 32+ char string used to hash API tokens
 
 [[kv_namespaces]]
-binding = "PROTOTYPES_KV"
+binding = "DROPS_KV"
 id = "915440d1cdfb4876bb3b8c721a694873"
 
 [[d1_databases]]

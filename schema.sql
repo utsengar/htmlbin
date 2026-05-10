@@ -27,7 +27,7 @@ CREATE INDEX IF NOT EXISTS idx_tokens_user ON tokens(user_id);
 -- Drop record (one row per slug). HTML bodies live in KV, keyed by
 -- `html:<slug>:v<n>`. Each new PUT becomes a new version (v2, v3, …) so the
 -- public URL never changes even as the HTML evolves.
-CREATE TABLE IF NOT EXISTS prototypes (
+CREATE TABLE IF NOT EXISTS drops (
   slug            TEXT PRIMARY KEY,
   user_id         TEXT NOT NULL,
   title           TEXT NOT NULL,
@@ -41,8 +41,8 @@ CREATE TABLE IF NOT EXISTS prototypes (
   FOREIGN KEY(user_id) REFERENCES users(id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_prototypes_user_created
-  ON prototypes(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_drops_user_created
+  ON drops(user_id, created_at DESC);
 
 -- One row per version. Each version can carry its own optional `context`
 -- — free-form text the agent may include to explain its thinking, prompt,
@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS versions (
   context     TEXT,
   created_at  INTEGER NOT NULL,
   PRIMARY KEY (slug, version),
-  FOREIGN KEY (slug) REFERENCES prototypes(slug)
+  FOREIGN KEY (slug) REFERENCES drops(slug)
 );
 
 CREATE INDEX IF NOT EXISTS idx_versions_slug_version

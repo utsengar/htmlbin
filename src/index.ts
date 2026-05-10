@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import type { Bindings, Variables } from "./types";
 import { authRoutes } from "./auth";
-import { apiRoutes } from "./prototypes";
-import { buildOnboardText } from "./onboard";
+import { apiRoutes } from "./drops";
+import { buildOnboardJson, buildOnboardText } from "./onboard";
 import { landingPage } from "./views/landing";
 import { verifyPage } from "./views/verify";
 import { viewerPage, passwordGatePage } from "./views/viewer";
@@ -28,7 +28,7 @@ import {
 import {
   bumpViewCount,
   createUser,
-  getPrototype,
+  getDrop,
   insertToken,
   listVersions,
 } from "./db";
@@ -55,7 +55,7 @@ app.get("/index.md", (c) => landingAsMarkdown(c));
 
 async function landingAsMarkdown(c: any): Promise<Response> {
   const cacheKey = `md:landing`;
-  const cached = await c.env.PROTOTYPES_KV.get(cacheKey);
+  const cached = await c.env.DROPS_KV.get(cacheKey);
   if (cached) {
     return new Response(cached, { headers: mdHeaders() });
   }
@@ -80,7 +80,7 @@ async function landingAsMarkdown(c: any): Promise<Response> {
 
   // Landing copy changes rarely — cache 1 hour at the edge.
   c.executionCtx.waitUntil(
-    c.env.PROTOTYPES_KV.put(cacheKey, markdown, { expirationTtl: 3600 })
+    c.env.DROPS_KV.put(cacheKey, markdown, { expirationTtl: 3600 })
   );
   return new Response(markdown, { headers: mdHeaders() });
 }
@@ -160,15 +160,31 @@ app.get("/openapi.json", (c) => {
 });
 
 // ----- Agent onboarding ---------------------------------------------------
+//
+// JSON is the default. The descriptor is data — endpoints, methods, body
+// schemas — not prose for an agent to "follow." That distinction matters:
+// agents are trained to be wary of "fetch a URL and execute its
+// instructions" patterns (textbook prompt injection), and a structured
+// JSON document slips through that filter without friction.
+//
+// Markdown is still served for humans previewing the API — request it
+// with `Accept: text/markdown` or `?format=md`.
 app.get("/api/onboard", (c) => {
   const accept = c.req.header("Accept") ?? "";
-  const text = buildOnboardText(c.env.PUBLIC_URL);
-  if (accept.includes("application/json")) {
-    return c.json({ instructions: text, public_url: c.env.PUBLIC_URL });
+  const wantsMarkdown =
+    accept.toLowerCase().includes("text/markdown") ||
+    c.req.query("format") === "md";
+  if (wantsMarkdown) {
+    const text = buildOnboardText(c.env.PUBLIC_URL);
+    return new Response(text, {
+      headers: {
+        "Content-Type": "text/markdown; charset=utf-8",
+        Vary: "Accept",
+      },
+    });
   }
-  return new Response(text, {
-    headers: { "Content-Type": "text/markdown; charset=utf-8" },
-  });
+  c.header("Vary", "Accept");
+  return c.json(buildOnboardJson(c.env.PUBLIC_URL));
 });
 
 // ----- Auth + API ---------------------------------------------------------
@@ -204,16 +220,19 @@ app.post("/verify", async (c) => {
 
   // Verify Turnstile against Cloudflare. Skip the network round-trip when
   // using a Cloudflare-published test secret (always passes / always fails).
-  const tsOk = await verifyTurnstile(
+  const ts = await verifyTurnstile(
     turnstileToken,
     c.env.TURNSTILE_SECRET_KEY,
     ip
   );
-  if (!tsOk) {
+  if (!ts.success) {
+    // Log to Worker logs so `wrangler tail` shows what Turnstile actually said.
+    console.error("turnstile_failed", JSON.stringify(ts));
+    const codes = ts.errorCodes?.join(", ") ?? "unknown";
     return c.html(
       verifyPage(c.env, {
         code,
-        error: "Anti-bot check didn't verify. Reload and try again.",
+        error: `Anti-bot check didn't verify (reason: ${codes}). Reload and try again.`,
       })
     );
   }
@@ -302,10 +321,10 @@ app.get("/p/:slug", async (c) => {
   const slug = c.req.param("slug");
   if (!isValidSlug(slug)) return c.notFound();
 
-  const proto = await getPrototype(c.env.DB, slug);
-  if (!proto) return c.notFound();
+  const drop = await getDrop(c.env.DB, slug);
+  if (!drop) return c.notFound();
 
-  const locked = !!proto.password_hash;
+  const locked = !!drop.password_hash;
   let unlocked = !locked;
   if (locked) {
     const cookie = getCookie(c.req.header("Cookie") ?? "", `wu_${slug}`);
@@ -316,13 +335,13 @@ app.get("/p/:slug", async (c) => {
 
   // Optional ?v=N pins to a specific version; default = latest.
   const versionParam = c.req.query("v");
-  let viewVersion = proto.latest_version;
+  let viewVersion = drop.latest_version;
   if (versionParam) {
     const n = parseInt(versionParam, 10);
     if (
       Number.isFinite(n) &&
       n >= 1 &&
-      n <= proto.latest_version
+      n <= drop.latest_version
     ) {
       viewVersion = n;
     }
@@ -333,7 +352,7 @@ app.get("/p/:slug", async (c) => {
   c.executionCtx.waitUntil(bumpViewCount(c.env.DB, slug));
 
   return c.html(
-    viewerPage(c.env, proto, {
+    viewerPage(c.env, drop, {
       locked,
       unlocked,
       versions: versions.map((v) => ({
@@ -351,9 +370,9 @@ app.get("/p/:slug", async (c) => {
 app.post("/p/:slug/unlock", async (c) => {
   const slug = c.req.param("slug");
   if (!isValidSlug(slug)) return c.notFound();
-  const proto = await getPrototype(c.env.DB, slug);
-  if (!proto) return c.notFound();
-  if (!proto.password_hash || !proto.password_salt) {
+  const drop = await getDrop(c.env.DB, slug);
+  if (!drop) return c.notFound();
+  if (!drop.password_hash || !drop.password_salt) {
     return c.redirect(`/p/${slug}`, 302);
   }
 
@@ -361,11 +380,11 @@ app.post("/p/:slug/unlock", async (c) => {
   const password = String(form.get("password") ?? "");
   const ok = await verifyPassword(
     password,
-    proto.password_salt,
-    proto.password_hash
+    drop.password_salt,
+    drop.password_hash
   );
   if (!ok) {
-    return c.html(passwordGatePage(c.env, proto, { error: true }));
+    return c.html(passwordGatePage(c.env, drop, { error: true }));
   }
 
   // 24-hour signed unlock cookie, scoped to this slug.
@@ -385,10 +404,10 @@ app.get("/p/:slug/raw", async (c) => {
   const slug = c.req.param("slug");
   if (!isValidSlug(slug)) return c.notFound();
 
-  const proto = await getPrototype(c.env.DB, slug);
-  if (!proto) return c.notFound();
+  const drop = await getDrop(c.env.DB, slug);
+  if (!drop) return c.notFound();
 
-  if (proto.password_hash) {
+  if (drop.password_hash) {
     const cookie = getCookie(c.req.header("Cookie") ?? "", `wu_${slug}`);
     const ok =
       !!cookie &&
@@ -400,20 +419,20 @@ app.get("/p/:slug/raw", async (c) => {
   }
 
   // ?v=N selects a specific version; default = latest.
-  let v = proto.latest_version;
+  let v = drop.latest_version;
   const vp = c.req.query("v");
   if (vp) {
     const n = parseInt(vp, 10);
-    if (Number.isFinite(n) && n >= 1 && n <= proto.latest_version) v = n;
+    if (Number.isFinite(n) && n >= 1 && n <= drop.latest_version) v = n;
   }
 
-  const html = await c.env.PROTOTYPES_KV.get(`html:${slug}:v${v}`);
+  const html = await c.env.DROPS_KV.get(`html:${slug}:v${v}`);
   if (!html) return c.notFound();
 
   return new Response(html, {
     headers: {
       "Content-Type": "text/html; charset=utf-8",
-      "Cache-Control": proto.password_hash
+      "Cache-Control": drop.password_hash
         ? "private, no-store"
         : "public, max-age=60, s-maxage=300",
       "X-Robots-Tag": "noindex",
@@ -444,9 +463,10 @@ async function verifyTurnstile(
   token: string,
   secret: string,
   ip: string
-): Promise<boolean> {
-  if (secret === TURNSTILE_TEST_PASS) return true;
-  if (secret === TURNSTILE_TEST_FAIL) return false;
+): Promise<{ success: boolean; errorCodes?: string[] }> {
+  if (secret === TURNSTILE_TEST_PASS) return { success: true };
+  if (secret === TURNSTILE_TEST_FAIL)
+    return { success: false, errorCodes: ["test-fail"] };
   try {
     const res = await fetch(
       "https://challenges.cloudflare.com/turnstile/v0/siteverify",
@@ -456,10 +476,16 @@ async function verifyTurnstile(
         body: new URLSearchParams({ secret, response: token, remoteip: ip }),
       }
     );
-    const json = (await res.json()) as { success: boolean };
-    return !!json.success;
-  } catch {
-    return false;
+    const json = (await res.json()) as {
+      success: boolean;
+      "error-codes"?: string[];
+    };
+    return {
+      success: !!json.success,
+      errorCodes: json["error-codes"],
+    };
+  } catch (e) {
+    return { success: false, errorCodes: [`fetch-error: ${String(e)}`] };
   }
 }
 

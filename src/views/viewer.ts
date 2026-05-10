@@ -1,4 +1,4 @@
-import type { Bindings, Prototype } from "../types";
+import type { Bindings, Drop } from "../types";
 import { httpMemo, pageHead } from "./chrome";
 
 type VersionItem = {
@@ -11,7 +11,7 @@ type VersionItem = {
 
 export function viewerPage(
   env: Bindings,
-  proto: Prototype,
+  drop: Drop,
   state: {
     unlocked: boolean;
     locked: boolean;
@@ -19,20 +19,20 @@ export function viewerPage(
     viewVersion: number;
   }
 ): string {
-  const title = escapeHtml(proto.title);
-  const description = escapeHtml(proto.description);
-  const slug = escapeHtml(proto.slug);
-  const updated = new Date(proto.updated_at).toLocaleDateString("en-US", {
+  const title = escapeHtml(drop.title);
+  const description = escapeHtml(drop.description);
+  const slug = escapeHtml(drop.slug);
+  const updated = new Date(drop.updated_at).toLocaleDateString("en-US", {
     year: "numeric",
     month: "short",
     day: "numeric",
   });
 
   if (state.locked && !state.unlocked) {
-    return passwordGatePage(env, proto, { error: false });
+    return passwordGatePage(env, drop, { error: false });
   }
 
-  const total = proto.latest_version;
+  const total = drop.latest_version;
   const current = state.viewVersion;
   const isLatest = current === total;
   const currentVersionRow = state.versions.find((v) => v.version === current);
@@ -245,11 +245,11 @@ ${
 
 export function passwordGatePage(
   env: Bindings,
-  proto: Prototype,
+  drop: Drop,
   state: { error: boolean }
 ): string {
-  const slug = escapeHtml(proto.slug);
-  const title = escapeHtml(proto.title);
+  const slug = escapeHtml(drop.slug);
+  const title = escapeHtml(drop.title);
   return /* html */ `<!doctype html>
 <html lang="en">
 <head>
