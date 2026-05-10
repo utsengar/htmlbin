@@ -1,7 +1,7 @@
 # htmlbin
 
 **Drop HTML. Get a public URL.** Agent-first HTML hosting at
-[htmlbin.dev](https://htmlbin.dev). Pastebin energy, but for the HTML your
+[htmlbin.dev](https://htmlbin.dev) — pastebin energy, for the HTML your
 agent writes.
 
 An agent does a one-time human-verified device-code dance, then publishes
