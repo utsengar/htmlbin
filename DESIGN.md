@@ -164,33 +164,39 @@ it. **Don't** add a third row of marketing prose between them.
 
 ### 5.3 Prompt block (`.prompt`)
 
-Dark code card holding the prompt the human pastes into their agent. Has
-a small fake-macOS title bar to make it instantly read as "code/terminal
-context" instead of a generic dark rectangle. This is a deliberate
-exception to the "no fake mac chrome" rule (5.4); it earns its keep
-because the prompt block is the single most important clickable surface
-on the landing page and needs to stand out.
+Dark code card holding the prompt the human pastes into their agent.
+Two-tab layout (`npm` / `claude`) with an inline copy icon. Switching
+tabs swaps the body; the copy button copies whichever pane is visible.
+This is a deliberate exception to the "no fake mac chrome" rule (5.4);
+it earns its keep because the prompt block is the single most important
+clickable surface on the landing page and needs to stand out. Modeled
+loosely on the paperclip onboarding card.
 
-- Background `--code-bg` (`#0A0A0A`)
-- 8px border-radius, soft shadow underneath
+- Background `--code-bg` (`#0A0A0A`), 14px border-radius, soft shadow
 - Title bar (`.prompt-chrome`):
   - Three traffic-light dots on the left (red `#FF5F57`, yellow
     `#FEBC2E`, green `#28C840`) — small (11px), purely decorative
-  - Centered title `iterm2` in mono, `--code-dim` (it's a terminal-window
-    aesthetic; iterm2 is the canonical macOS terminal so the label reads
-    as "shell context")
-  - 1px hairline border under the bar (`rgba(255,255,255,0.06)`)
-- Body: pure mono, 13.5px, `--code-fg`, 22px padding
-- Cue line **above** the block (`.prompt-cue`): muted mono, e.g.
-  `↓ paste this prompt into Claude, Codex, Cursor, or any agent`
-- CTA button **below** the block (`.copy-cta`):
-  - Solid red (`--red`), white text, 13px mono uppercase
-  - Label: `Copy prompt`. Includes copy/clipboard SVG.
-  - "Copied" state goes solid green
-- Aftermath line (`.prompt-aftermath`): explains what happens after
-  copying. Muted, regular sans (the only sans element near the block —
-  reads as supporting copy, not as part of the prompt).
-- Emphasis text in `--code-em`
+  - Tab pair on the right (`.prompt-tabs`): two `<button role="tab">`
+    elements (`npm`, `claude`). Active tab is a soft pill
+    (`rgba(255,255,255,0.10)` background, `--code-fg` text); inactive
+    is `--code-dim`. The earlier centered `iterm2` title is retired.
+  - **No** hairline beneath the title bar — title and body share the
+    same surface
+- Body (`.prompt-body`): two `<pre data-pane>` blocks; only one is
+  visible at a time (the inactive one carries `hidden`). 13.5px mono,
+  `--code-fg`, 22px padding (right padding 56px to clear the copy
+  icon).
+- Inline copy icon (`.prompt-copy`): 28×28 ghost button, top-right of
+  the body. 16×16 SVG. "Copied" state swaps the clipboard glyph for a
+  green check for 1.6s.
+- Cue line **above** the block (`.prompt-cue`): muted mono, short:
+  `↓ paste into your agent` (the tab labels say which agent).
+- Aftermath line **below** (`.prompt-aftermath`): explains what
+  happens after copying. Muted regular sans.
+- Emphasis text in `--code-em`.
+- The active tab is persisted to `localStorage` under
+  `htmlbin:promptTab`; default is `npm`. Keyboard ←/→ moves focus
+  between tabs (standard tablist behavior).
 
 ### 5.4 Body prose (`.body`)
 
@@ -254,15 +260,22 @@ hairlines normally would.
    API for *agents* to share HTML.   ◀ hero headline (one line, sans)  
    Agent-native, end to end.         ◀ subline                         
                                                                        
-   ↓ paste this prompt into Claude, Codex, Cursor, or any agent        
-   ┌─ iterm2 ────────────────────────────────────────────┐             
-   │  ●●●  iterm2                                         │             
-   │  Make a delightful HTML page …                       │             
-   │  Publish to htmlbin.dev. Credentials at /api/onboard │             
+   ↓ paste into your agent                                             
+   ┌──────────────────────────────────────────────────────┐             
+   │  ●●●                              [ npm ] [ claude ] │             
+   │                                                      │             
+   │  $ npx htmlbin onboard --yes                     [⧉] │             
+   │                                                      │             
    └──────────────────────────────────────────────────────┘             
-   [ Copy prompt ]   ◀ red CTA, mono uppercase                         
                                                                        
    First publish needs one human click; after that, the agent owns it. 
+                                                                       
+   ↓ a few drops people have made                                      
+                                                                       
+     /p/gDMy7Vb   how htmlbin works                                    
+     /p/1Wyf23j   cross-platform gstack — pr #1111                     
+     /p/ztx4J9P   workers nav — three redesigns                        
+     /p/i2taphP   google logo — animation playground                   
                                                                        
    — htmlbin                  agent-card  ·  /api/onboard              
                                                                        

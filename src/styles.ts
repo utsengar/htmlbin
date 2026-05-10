@@ -282,7 +282,13 @@ code, .mono {
   .hero p  { font-size: 18px; }
 }
 
-/* ---------- prompt code block ---------- */
+/* ---------- prompt tabbed-card ----------
+   Two-tab terminal-shaped card. Title bar has the three traffic-light
+   dots on the left and a tab pair on the right (no centered label —
+   the iterm2 wordmark is retired). Body holds two <pre> panes; only
+   one is visible. Inline copy icon top-right of the body. The card
+   itself has no internal hairline — title bar and body share the
+   surface so it reads as one continuous black slab. */
 .prompt-cue {
   font: 500 12.5px/1.2 var(--mono);
   color: var(--ink-soft);
@@ -292,7 +298,7 @@ code, .mono {
 .prompt {
   position: relative;
   background: var(--code-bg);
-  border-radius: 8px;
+  border-radius: 14px;
   margin: 0 0 18px;
   overflow: hidden;
   box-shadow: 0 1px 0 rgba(0,0,0,0.04), 0 12px 28px -16px rgba(0,0,0,0.18);
@@ -300,10 +306,9 @@ code, .mono {
 .prompt-chrome {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 10px;
-  padding: 11px 14px 10px;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-  background: rgba(255,255,255,0.02);
+  padding: 13px 14px 11px;
 }
 .prompt-chrome .dots { display: inline-flex; gap: 6px; }
 .prompt-chrome .dot {
@@ -312,52 +317,109 @@ code, .mono {
 .prompt-chrome .dot.r { background: #FF5F57; }
 .prompt-chrome .dot.y { background: #FEBC2E; }
 .prompt-chrome .dot.g { background: #28C840; }
-.prompt-chrome .title {
-  flex: 1;
-  text-align: center;
-  font: 500 12px/1 var(--mono);
-  color: var(--code-dim);
-  letter-spacing: 0.02em;
-  /* Offset the dots' width so the title is truly centered */
-  margin-right: 51px;
+.prompt-tabs {
+  display: inline-flex; gap: 2px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 7px;
+  padding: 2px;
 }
-.prompt pre {
+.prompt-tabs button {
+  font: 500 12px/1 var(--mono);
+  letter-spacing: 0.02em;
+  padding: 5px 11px;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--code-dim);
+  border: 0;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.prompt-tabs button:hover { color: var(--code-fg); }
+.prompt-tabs button[aria-selected="true"] {
+  background: rgba(255,255,255,0.10);
+  color: var(--code-fg);
+}
+.prompt-tabs button:focus-visible {
+  outline: 1px dashed var(--code-em);
+  outline-offset: 2px;
+}
+.prompt-body {
+  position: relative;
+  padding: 18px 56px 22px 22px;
+}
+.prompt-body pre {
   font-family: var(--mono);
   font-size: 13.5px;
   line-height: 1.7;
-  padding: 22px 22px 24px;
   margin: 0;
   color: var(--code-fg);
   white-space: pre-wrap;
   word-break: break-word;
 }
-.prompt pre .ph { color: var(--code-dim); font-style: italic; }
-.prompt pre .em { color: var(--code-em); }
-
-.copy-cta {
-  display: inline-flex; align-items: center; gap: 8px;
-  background: var(--red);
-  color: #fff;
-  border: none;
-  padding: 11px 18px;
-  font: 600 13px/1 var(--mono);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  border-radius: 6px;
-  cursor: pointer;
-  margin: 0 0 18px;
-  transition: background 0.12s, transform 0.04s;
-  box-shadow: 0 1px 0 rgba(0,0,0,0.04), 0 6px 16px -10px rgba(225, 29, 44, 0.55);
+.prompt-body pre[hidden] { display: none; }
+.prompt-body pre .em { color: var(--code-em); }
+.prompt-copy {
+  position: absolute;
+  top: 14px; right: 14px;
+  width: 28px; height: 28px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 6px; border: 0; cursor: pointer;
+  background: transparent;
+  color: var(--code-dim);
+  transition: background 0.12s, color 0.12s;
 }
-.copy-cta:hover { background: #C8101F; }
-.copy-cta:active { transform: translateY(1px); }
-.copy-cta.ok { background: #1F8A3A; }
-.copy-cta svg { width: 13px; height: 13px; }
+.prompt-copy:hover { background: rgba(255,255,255,0.08); color: var(--code-fg); }
+.prompt-copy.ok { color: #4ade80; }
+.prompt-copy svg { width: 16px; height: 16px; display: block; }
+.prompt-copy svg[hidden] { display: none; }
 
 .prompt-aftermath {
   color: var(--ink-soft);
   font-size: 14px;
   margin: 0 0 18px;
+}
+
+/* ---------- examples index ----------
+   A subtle "what people are building" list below the prompt block.
+   Reads as a directory listing, not a card grid. Two-column row:
+   slug (mono, dim) + caption (mono, ink). Whole row is one <a>; on
+   hover both columns turn red. No box, no border, no icons. */
+.examples {
+  margin: 36px 0 8px;
+}
+.examples .cue {
+  font: 500 12.5px/1.2 var(--mono);
+  color: var(--ink-soft);
+  margin: 0 0 14px;
+  letter-spacing: 0.01em;
+}
+.examples ul {
+  list-style: none;
+  display: grid;
+  gap: 4px;
+  padding: 0;
+  margin: 0;
+}
+.examples a {
+  display: grid;
+  grid-template-columns: 13ch 1fr;
+  gap: 18px;
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--ink);
+  text-decoration: none;
+  padding: 4px 0;
+  transition: color 0.12s;
+}
+.examples a .slug { color: var(--ink-soft); }
+.examples a:hover,
+.examples a:hover .slug { color: var(--red); }
+@media (max-width: 480px) {
+  .examples a {
+    grid-template-columns: 11ch 1fr;
+    gap: 12px;
+    font-size: 12.5px;
+  }
 }
 
 /* ---------- forms ---------- */

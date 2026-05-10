@@ -64,10 +64,10 @@ Token prefix is **`hb_`** (short for htmlbin).
 White paper, Geist + Geist Mono, single red accent (`#E11D2C`), HTTP-style
 memo at the top of every page, vim-modeline-style breadcrumb in the top
 bar, monochrome dark code blocks. **One** deliberate exception to "no
-fake mac chrome": the prompt block on `/` carries an `iterm2` title bar
-with three traffic-light dots — it's the primary CTA and earns the
-visual handle. Everywhere else stays flat. The HTTP-memo is a real
-`<details open>` so users can collapse it.
+fake mac chrome": the prompt block on `/` carries traffic-light dots and
+a two-tab title bar (`npm` / `claude`) with an inline copy icon — it's
+the primary CTA and earns the visual handle. Everywhere else stays flat.
+The HTTP-memo is a real `<details open>` so users can collapse it.
 
 **Single source of truth:** [`src/styles.ts`](./src/styles.ts) →
 served at `/style.css`. Every view imports `STYLE_HREF` (=
@@ -75,6 +75,13 @@ served at `/style.css`. Every view imports `STYLE_HREF` (=
 CSS edit, so the edge cache busts on deploy without a manual version
 change. Per-page overrides should stay tiny. Don't hard-code
 `/style.css` in new views; import the constant.
+
+**Landing examples + prompt tab.** The "what people are building" list
+on `/` is hand-curated — edit the `EXAMPLES` array at the top of
+[`src/views/landing.ts`](./src/views/landing.ts) and redeploy to rotate.
+The two prompt-block payloads (`PROMPT_NPM`, `PROMPT_CLAUDE`) live in
+the same file. The active tab is remembered in the browser under
+`localStorage["htmlbin:promptTab"]`; default is `npm`.
 
 The full design doc with rationale, components, and don'ts is in
 [DESIGN.md](./DESIGN.md).
