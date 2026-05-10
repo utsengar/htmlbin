@@ -613,14 +613,17 @@ pre.lifecycle {
 .viewer-bar .sep { color: var(--ink-softer); font-family: var(--mono); }
 .viewer-bar .title {
   font-weight: 600; font-size: 14px; color: var(--ink);
-  max-width: 36vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  flex: 0 1 auto; min-width: 0; max-width: 28vw;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .viewer-bar .desc {
   font-size: 13px; color: var(--ink-soft);
-  max-width: 38vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  flex: 0 1 auto; min-width: 0; max-width: 24vw;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .viewer-bar .right {
   margin-left: auto;
+  flex: 0 0 auto;
   display: flex; align-items: center; gap: 14px;
   font-family: var(--mono); font-size: 12px; color: var(--ink-soft);
 }
