@@ -209,7 +209,7 @@ export async function renderDropOgPng(
   const titleShort = truncateChars(p.title, 90);
   const host = stripScheme(p.publicUrl);
 
-  const RED = "#E11D2C";
+  const RED = "#D93025";
   const RULE = "#E5E5E5";
   const INK = "#0A0A0A";
   const SOFT = "#737373";
@@ -330,7 +330,7 @@ export async function renderLandingOgPng(
   await ensureWasm();
   const fonts = await ensureFonts(env);
 
-  const RED = "#E11D2C";
+  const RED = "#D93025";
   const INK = "#0A0A0A";
   const SOFT = "#737373";
   const SOFTER = "#A3A3A3";
