@@ -181,6 +181,18 @@ curl -s -X POST "https://htmlbin.dev/api/drops/<slug>/password" \\
 
 Pass \`null\` to remove the password.
 
+### Delete a single version
+
+\`\`\`bash
+curl -s -X DELETE "https://htmlbin.dev/api/drops/<slug>/v/<n>" \\
+  -H "Authorization: Bearer $(cat .htmlbin/token)"
+\`\`\`
+
+Refused with \`409 last_version_cannot_be_deleted\` for the only remaining
+version — a drop must always keep at least one body. If the deleted
+version was the head, \`latest_version\` is recomputed to the highest
+remaining version.
+
 ## Optional request fields
 
 - \`title\` (string, ≤120 chars) — human label, shown in viewer chrome and

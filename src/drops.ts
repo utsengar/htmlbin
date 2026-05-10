@@ -328,6 +328,49 @@ apiRoutes.get("/drops/:slug/v/:n", async (c) => {
   });
 });
 
+// ----- delete a single version ------------------------------------------
+// Refuses to delete the last remaining version — a drop must always have
+// at least one body. If the deleted version was the head, recompute
+// latest_version to the highest remaining.
+apiRoutes.delete("/drops/:slug/v/:n", async (c) => {
+  const user = c.get("user");
+  const slug = c.req.param("slug");
+  const n = parseInt(c.req.param("n"), 10);
+  if (!isValidSlug(slug) || !Number.isFinite(n) || n < 1)
+    return c.json({ error: "invalid_arg" }, 400);
+
+  const drop = await getDrop(c.env.DB, slug);
+  if (!drop) return c.json({ error: "not_found" }, 404);
+  if (drop.user_id !== user.id) return c.json({ error: "forbidden" }, 403);
+
+  const versions = await listVersions(c.env.DB, slug);
+  const target = versions.find((v) => v.version === n);
+  if (!target) return c.json({ error: "version_not_found" }, 404);
+  if (versions.length <= 1)
+    return c.json({ error: "last_version_cannot_be_deleted" }, 409);
+
+  await c.env.DROPS_KV.delete(`html:${slug}:v${n}`);
+  await c.env.DB.prepare(
+    `DELETE FROM versions WHERE slug = ? AND version = ?`
+  )
+    .bind(slug, n)
+    .run();
+
+  let latest = drop.latest_version;
+  if (n === drop.latest_version) {
+    latest = Math.max(
+      ...versions.filter((v) => v.version !== n).map((v) => v.version)
+    );
+    await c.env.DB.prepare(
+      `UPDATE drops SET latest_version = ?, updated_at = ? WHERE slug = ?`
+    )
+      .bind(latest, Date.now(), slug)
+      .run();
+  }
+
+  return c.json({ deleted: { slug, version: n }, latest_version: latest });
+});
+
 // ----- delete drop (all versions) ---------------------------------------
 apiRoutes.delete("/drops/:slug", async (c) => {
   const user = c.get("user");
