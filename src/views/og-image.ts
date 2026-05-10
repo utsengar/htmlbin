@@ -96,7 +96,7 @@ export function dropOgSvg(opts: {
   </text>
 
   <!-- hero (title or fallback slug) -->
-  <text x="600" y="325" text-anchor="middle"
+  <text x="100" y="325"
         font-family="${heroFont}"
         font-size="${heroSize}" font-weight="${heroWeight}" fill="#0A0A0A"
         letter-spacing="${heroMono ? -2 : -1.5}">${
@@ -108,14 +108,14 @@ export function dropOgSvg(opts: {
   ${
     subtitle
       ? `<!-- subtitle (canonical URL) -->
-  <text x="600" y="385" text-anchor="middle"
+  <text x="100" y="385"
         font-family="${MONO}"
         font-size="28" fill="#737373">${escapeForSvg(subtitle)}</text>`
       : ""
   }
 
-  <!-- stats row, centered -->
-  <text x="600" y="475" text-anchor="middle"
+  <!-- stats row -->
+  <text x="100" y="475"
         font-family="${MONO}"
         font-size="26" fill="#525252">
     v${latestVersion}<tspan fill="#A3A3A3">  ·  updated ${escapeForSvg(date)}</tspan>
