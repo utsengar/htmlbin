@@ -282,7 +282,14 @@ code, .mono {
   .hero p  { font-size: 18px; }
 }
 
-/* ---------- prompt code block ---------- */
+/* ---------- prompt block ----------
+   Dark single-pane terminal-shaped card. Title bar has three
+   traffic-light dots on the left and a static "claude" pill on the
+   right (visual context indicator, not interactive). Body holds the
+   single agent prompt. Below the card sits the big red Copy prompt
+   CTA — the most discoverable action on the page. The card has no
+   internal hairline; title bar and body share the same surface so
+   the card reads as one continuous black slab. */
 .prompt-cue {
   font: 500 12.5px/1.2 var(--mono);
   color: var(--ink-soft);
@@ -292,7 +299,7 @@ code, .mono {
 .prompt {
   position: relative;
   background: var(--code-bg);
-  border-radius: 8px;
+  border-radius: 14px;
   margin: 0 0 18px;
   overflow: hidden;
   box-shadow: 0 1px 0 rgba(0,0,0,0.04), 0 12px 28px -16px rgba(0,0,0,0.18);
@@ -300,10 +307,9 @@ code, .mono {
 .prompt-chrome {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 10px;
-  padding: 11px 14px 10px;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-  background: rgba(255,255,255,0.02);
+  padding: 13px 14px 11px;
 }
 .prompt-chrome .dots { display: inline-flex; gap: 6px; }
 .prompt-chrome .dot {
@@ -312,27 +318,28 @@ code, .mono {
 .prompt-chrome .dot.r { background: #FF5F57; }
 .prompt-chrome .dot.y { background: #FEBC2E; }
 .prompt-chrome .dot.g { background: #28C840; }
-.prompt-chrome .title {
-  flex: 1;
-  text-align: center;
+.prompt-mark {
   font: 500 12px/1 var(--mono);
-  color: var(--code-dim);
   letter-spacing: 0.02em;
-  /* Offset the dots' width so the title is truly centered */
-  margin-right: 51px;
+  padding: 5px 11px;
+  border-radius: 5px;
+  background: rgba(255,255,255,0.10);
+  color: var(--code-fg);
+  user-select: none;
 }
-.prompt pre {
+.prompt-body {
+  padding: 18px 22px 22px;
+}
+.prompt-body pre {
   font-family: var(--mono);
   font-size: 13.5px;
   line-height: 1.7;
-  padding: 22px 22px 24px;
   margin: 0;
   color: var(--code-fg);
   white-space: pre-wrap;
   word-break: break-word;
 }
-.prompt pre .ph { color: var(--code-dim); font-style: italic; }
-.prompt pre .em { color: var(--code-em); }
+.prompt-body pre .em { color: var(--code-em); }
 
 .copy-cta {
   display: inline-flex; align-items: center; gap: 8px;
@@ -358,6 +365,49 @@ code, .mono {
   color: var(--ink-soft);
   font-size: 14px;
   margin: 0 0 18px;
+}
+
+/* ---------- examples index ----------
+   A subtle "what people are building" list below the prompt block.
+   Reads as a directory listing, not a card grid. Two-column row:
+   slug (mono, dim) + caption (mono, ink). Whole row is one <a>; on
+   hover both columns turn red. No box, no border, no icons. */
+.examples {
+  margin: 36px 0 8px;
+}
+.examples .cue {
+  font: 500 12.5px/1.2 var(--mono);
+  color: var(--ink-soft);
+  margin: 0 0 14px;
+  letter-spacing: 0.01em;
+}
+.examples ul {
+  list-style: none;
+  display: grid;
+  gap: 4px;
+  padding: 0;
+  margin: 0;
+}
+.examples a {
+  display: grid;
+  grid-template-columns: 13ch 1fr;
+  gap: 18px;
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--ink);
+  text-decoration: none;
+  padding: 4px 0;
+  transition: color 0.12s;
+}
+.examples a .slug { color: var(--ink-soft); }
+.examples a:hover,
+.examples a:hover .slug { color: var(--red); }
+@media (max-width: 480px) {
+  .examples a {
+    grid-template-columns: 11ch 1fr;
+    gap: 12px;
+    font-size: 12.5px;
+  }
 }
 
 /* ---------- forms ---------- */

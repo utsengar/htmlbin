@@ -226,6 +226,13 @@ export function agentCard(publicUrl: string): object {
         path: "/api/drops/:slug",
       },
       {
+        id: "delete_version",
+        description:
+          "Delete a single version. Refused for the last remaining version; if the deleted version was the head, latest_version is recomputed.",
+        method: "DELETE",
+        path: "/api/drops/:slug/v/:n",
+      },
+      {
         id: "list_my_drops",
         method: "GET",
         path: "/api/drops",

@@ -121,6 +121,12 @@ export function buildOnboardJson(publicUrl: string): object {
         method: "DELETE",
         url: `${publicUrl}/api/drops/<slug>`,
       },
+      delete_version: {
+        method: "DELETE",
+        url: `${publicUrl}/api/drops/<slug>/v/<n>`,
+        note:
+          "Refused for the last remaining version. If the deleted version was the head, latest_version is recomputed.",
+      },
       set_password: {
         method: "POST",
         url: `${publicUrl}/api/drops/<slug>/password`,

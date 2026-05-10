@@ -2,13 +2,29 @@ import type { Bindings } from "../types";
 import { httpMemo, pageFoot, pageHead } from "./chrome";
 import { STYLE_HREF } from "../styles";
 
+// Curated "what people are building" list, rendered below the prompt
+// block. Edit this array + redeploy to rotate. Captions are mono and
+// hand-curated — they don't read from the drop's stored title.
+const EXAMPLES: Array<{ slug: string; caption: string }> = [
+  { slug: "gDMy7Vb", caption: "how htmlbin works" },
+  { slug: "1Wyf23j", caption: "cross-platform gstack — pr #1111" },
+  { slug: "ztx4J9P", caption: "workers nav — three redesigns" },
+  { slug: "i2taphP", caption: "google logo — animation playground" },
+];
+
+// The single prompt payload. We deliberately don't show alternative
+// "tabs" — an `npx htmlbin` command would advertise a CLI we don't
+// ship, and a `curl …` line gets flagged as unsafe by careful agents.
+// One real, end-to-end path is better than two cosmetic ones — this
+// prompt produces a visible artifact the human can paste, run, and
+// click through.
+const AGENT_PROMPT = `Make a delightful HTML page — show me what HTML can do that markdown or a flat file can't. Something visual, interactive, alive.
+
+Publish to htmlbin.dev. Credentials and API at htmlbin.dev/api/onboard.`;
+
 export function landingPage(env: Bindings): string {
   const PUBLIC_URL = env.PUBLIC_URL;
   const HOST = stripScheme(PUBLIC_URL);
-
-  const AGENT_PROMPT = `Make a delightful HTML page — show me what HTML can do that markdown or a flat file can't. Something visual, interactive, alive.
-
-Publish to htmlbin.dev. Credentials and API at htmlbin.dev/api/onboard.`;
 
   const date = new Date().toLocaleDateString("en-US", {
     year: "numeric",
@@ -88,29 +104,39 @@ ${pageHead({ verb: "GET", path: "/" })}
   </section>
 
   <section class="body">
-    <p class="prompt-cue">↓ paste this prompt into Claude, Codex, Cursor, or any agent</p>
+    <p class="prompt-cue">↓ paste into your agent</p>
 
     <div class="prompt">
       <div class="prompt-chrome">
         <span class="dots" aria-hidden="true">
           <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
         </span>
-        <span class="title">iterm2</span>
+        <span class="prompt-mark" aria-hidden="true">claude</span>
       </div>
-<pre>Make a delightful HTML page — show me what HTML can do that markdown
-or a flat file can't. Something visual, interactive, alive.
+      <div class="prompt-body">
+<pre>Make a delightful HTML page — show me what HTML can do that markdown or a flat file can't. Something visual, interactive, alive.
 
 Publish to <span class="em">htmlbin.dev</span>. Credentials and API at <span class="em">htmlbin.dev/api/onboard</span>.</pre>
+      </div>
     </div>
 
-    <button class="copy-cta" id="copyPrompt" data-copy="${escapeAttr(AGENT_PROMPT)}">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="square"><rect x="8" y="8" width="11" height="11"/><path d="M5 14V5h9"/></svg>
+    <button class="copy-cta" id="copyPrompt" type="button" data-copy="${escapeAttr(AGENT_PROMPT)}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="square" aria-hidden="true"><rect x="8" y="8" width="11" height="11"/><path d="M5 14V5h9"/></svg>
       <span class="lbl">Copy prompt</span>
     </button>
 
     <p class="prompt-aftermath">
       First publish needs one human click; after that, the agent owns it.
     </p>
+  </section>
+
+  <section class="examples" aria-label="Example drops">
+    <p class="cue">↓ a few drops people have made</p>
+    <ul>
+      ${EXAMPLES.map(
+        (ex) => `<li><a href="/p/${ex.slug}"><span class="slug">/p/${ex.slug}</span><span class="caption">${escapeText(ex.caption)}</span></a></li>`,
+      ).join("\n      ")}
+    </ul>
   </section>
 
   <div class="signoff">
@@ -126,16 +152,19 @@ ${pageFoot(HOST)}
 
 <script>
 (function () {
-  const btn = document.getElementById('copyPrompt');
+  var btn = document.getElementById('copyPrompt');
   if (!btn) return;
-  const lbl = btn.querySelector('.lbl');
-  const original = lbl.textContent;
-  btn.addEventListener('click', async () => {
+  var lbl = btn.querySelector('.lbl');
+  var original = lbl ? lbl.textContent : 'Copy prompt';
+  btn.addEventListener('click', async function () {
     try {
-      await navigator.clipboard.writeText(btn.dataset.copy);
+      await navigator.clipboard.writeText(btn.dataset.copy || '');
       btn.classList.add('ok');
-      lbl.textContent = 'Copied';
-      setTimeout(() => { btn.classList.remove('ok'); lbl.textContent = original; }, 1600);
+      if (lbl) lbl.textContent = 'Copied';
+      setTimeout(function () {
+        btn.classList.remove('ok');
+        if (lbl) lbl.textContent = original;
+      }, 1600);
     } catch (e) {}
   });
 })();
@@ -146,6 +175,13 @@ ${pageFoot(HOST)}
 
 function stripScheme(url: string): string {
   return url.replace(/^https?:\/\//, "");
+}
+
+function escapeText(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 function escapeAttr(s: string): string {
