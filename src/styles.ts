@@ -3,7 +3,9 @@
 // updates. Page-specific overrides are kept inline in their views, but the
 // design language lives here.
 
-export const STYLES_CSS = /* css */ `
+import { FONT_FACE_CSS } from "./fonts";
+
+export const STYLES_CSS = /* css */ `${FONT_FACE_CSS}
 :root {
   --bg: #FFFFFF;
   --bg-2: #FAFAFA;

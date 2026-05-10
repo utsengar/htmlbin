@@ -54,3 +54,11 @@ type = "CompiledWasm"
 globs = ["**/*.wasm"]
 fallthrough = true
 
+# Self-hosted Geist + Geist Mono woff2 files. Bundling them as Data lets
+# us serve them from /fonts/ with immutable caching and avoid the Google
+# Fonts CSS round-trip (~750ms render-blocking on slow 4G).
+[[rules]]
+type = "Data"
+globs = ["assets/fonts/*.woff2"]
+fallthrough = true
+

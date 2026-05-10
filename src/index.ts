@@ -19,6 +19,7 @@ import {
   sitemapXml,
 } from "./discoverability";
 import { STYLES_CSS, STYLE_HREF } from "./styles";
+import { FONTS } from "./fonts";
 import {
   hashToken,
   newApiToken,
@@ -76,8 +77,9 @@ app.use("*", async (c, next) => {
         [
           "default-src 'self'",
           "img-src 'self' data: https:",
-          "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-          "font-src 'self' https://fonts.gstatic.com",
+          // No external font origins now that we self-host Geist/Geist Mono.
+          "style-src 'self' 'unsafe-inline'",
+          "font-src 'self'",
           "script-src 'self' 'unsafe-inline'",
           "frame-src 'self'",
           "frame-ancestors 'none'",
@@ -157,11 +159,34 @@ function acceptsMarkdown(accept: string): boolean {
 }
 
 // ----- Global stylesheet (single source of truth across pages) -----------
+//
+// Cache for an hour at the browser, a week at the edge. The CSS contents
+// can change between deploys; if you need stronger guarantees, switch to
+// a content-hashed filename (e.g. /style.<hash>.css) and bump to
+// immutable.
 app.get("/style.css", (c) => {
   return new Response(STYLES_CSS, {
     headers: {
       "Content-Type": "text/css; charset=utf-8",
-      "Cache-Control": "public, max-age=300, s-maxage=86400",
+      "Cache-Control": "public, max-age=3600, s-maxage=604800",
+    },
+  });
+});
+
+// ----- Self-hosted Geist + Geist Mono fonts ------------------------------
+//
+// Bundled into the Worker (see wrangler.toml [[rules]] type="Data").
+// Served same-origin so we avoid the Google Fonts CSS round-trip, which
+// Lighthouse measured at ~750ms of render-blocking time on Slow 4G.
+// Filenames are content-stable (Geist-400.woff2 etc.); cache forever.
+app.on(["GET", "HEAD"], "/fonts/:name", (c) => {
+  const name = c.req.param("name");
+  const body = FONTS[name];
+  if (!body) return c.notFound();
+  return new Response(body, {
+    headers: {
+      "Content-Type": "font/woff2",
+      "Cache-Control": "public, max-age=31536000, immutable",
     },
   });
 });
@@ -750,7 +775,6 @@ function notFoundHtml(publicUrl: string): string {
 <title>404 · htmlbin</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <link rel="stylesheet" href="${STYLE_HREF}" />
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
 </head>
 <body>
 <header class="page-head">
