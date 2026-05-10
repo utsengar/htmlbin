@@ -92,6 +92,7 @@ anti-bot click → token (one-time read) → POST your HTML.
 ## Endpoints
 
 - ${publicUrl}/                              — landing (memo addressed to agents)
+- ${publicUrl}/index.md                      — landing rendered as markdown (also served when Accept: text/markdown)
 - ${publicUrl}/api/onboard                   — agent onboarding (markdown)
 - ${publicUrl}/openapi.json                  — full OpenAPI 3.1 spec
 - ${publicUrl}/.well-known/agent-card.json   — compact capability descriptor
@@ -114,9 +115,6 @@ anti-bot click → token (one-time read) → POST your HTML.
 - POST   /api/prototypes/:slug/password   → set/change/remove password
 - GET    /api/tokens                      → list your active tokens
 - DELETE /api/tokens/:id                  → revoke a token (id = first 12 hex)
-
-### abuse (no auth)
-- POST   /api/report                      → { slug, reason, detail? }
 
 ### viewer
 - GET /p/:slug          → public viewer (latest version)
@@ -250,13 +248,6 @@ export function agentCard(publicUrl: string): object {
           "Revoke a specific token by its short id (first 12 hex chars of the hash).",
         method: "DELETE",
         path: "/api/tokens/:id",
-      },
-      {
-        id: "report_drop",
-        description:
-          "Public abuse report; rate-limited per IP. No auth.",
-        method: "POST",
-        path: "/api/report",
       },
     ],
     versioning: {
@@ -633,6 +624,7 @@ export function openApiSpec(publicUrl: string): object {
 export function linkHeader(publicUrl: string): string {
   const host = publicUrl.replace(/\/$/, "");
   return [
+    `<${host}/index.md>; rel="alternate"; type="text/markdown"; title="this page as markdown"`,
     `<${host}/api/onboard>; rel="describedby"; type="text/markdown"; title="agent onboarding"`,
     `<${host}/openapi.json>; rel="service-desc"; type="application/openapi+json"`,
     `<${host}/.well-known/agent-card.json>; rel="https://agentprotocol.org/agent-card"; type="application/json"`,

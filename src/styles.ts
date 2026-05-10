@@ -167,9 +167,11 @@ details.req summary.reqline .verb {
 details.req summary.reqline .path  { color: var(--ink); }
 details.req summary.reqline .proto { color: var(--ink-softer); }
 
-/* The triangle prefix: visible everywhere except mobile narrow.
+/* The triangle prefix: lives on the summary so clicking it toggles the
+   disclosure, exactly like clicking the request line itself.
    Rotates from ▸ (closed) to ▾ (open). */
-details.req::before {
+details.req summary.reqline { position: relative; }
+details.req summary.reqline::before {
   content: "▸";
   position: absolute;
   left: -22px; top: 0;
@@ -179,8 +181,8 @@ details.req::before {
   transition: transform 0.15s ease-out;
   transform-origin: 30% 55%;
 }
-details.req[open]::before { transform: rotate(90deg); }
-@media (max-width: 760px) { details.req::before { display: none; } }
+details.req[open] summary.reqline::before { transform: rotate(90deg); }
+@media (max-width: 760px) { details.req summary.reqline::before { display: none; } }
 
 details.req .rows {
   margin-top: 0;
@@ -246,6 +248,38 @@ code, .mono {
 .lede {
   font-size: 19px; line-height: 1.5; color: var(--ink);
   margin-bottom: 24px; max-width: 56ch;
+}
+
+/* Big typographic anchor on the landing — gives the page a single focal
+   moment without adding any new copy (the line is already in the prose
+   below). Tight letter-spacing, near-black, with a muted subhead. */
+.hero {
+  margin: 32px 0 44px;
+}
+.hero h1 {
+  font-size: clamp(38px, 5.6vw, 60px);
+  line-height: 1.02;
+  letter-spacing: -0.032em;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0 0 14px;
+  max-width: 18ch;
+}
+.hero h1 em {
+  font-style: normal;
+  color: var(--red);
+}
+.hero p {
+  font-size: 20px;
+  line-height: 1.4;
+  color: var(--ink-soft);
+  max-width: 50ch;
+  margin: 0;
+}
+@media (max-width: 720px) {
+  .hero { margin: 24px 0 36px; }
+  .hero h1 { font-size: 36px; }
+  .hero p  { font-size: 18px; }
 }
 
 /* ---------- prompt code block ---------- */

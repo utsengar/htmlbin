@@ -55,7 +55,7 @@ export function viewerPage(
 <title>${title} · htmlbin</title>
 <meta name="description" content="${description || `htmlbin drop: ${title}`}" />
 <meta name="robots" content="noindex" />
-<link rel="icon" href="data:image/svg+xml,${encodeURIComponent(FAVICON)}" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <link rel="stylesheet" href="/style.css" />
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <style>
@@ -91,11 +91,6 @@ export function viewerPage(
   }
   .ctx-toggle:hover { border-color: var(--red); color: var(--red); }
   .ctx-toggle[hidden] { display: none; }
-  .report-link {
-    color: var(--ink-softer); font-family: var(--mono); font-size: 11px;
-    letter-spacing: 0.04em; text-decoration: none;
-  }
-  .report-link:hover { color: var(--red); }
 
   .vmenu {
     position: absolute; top: calc(100% + 4px); right: 14px;
@@ -186,7 +181,6 @@ ${
       contextText ? "" : "hidden"
     } title="Show the context this version was built with">context</button>
     <a href="/p/${slug}/raw${isLatest ? "" : `?v=${current}`}" target="_blank" rel="noreferrer">raw →</a>
-    <a class="report-link" href="#" id="reportLink" title="Report this drop">report</a>
   </div>
   <div class="vmenu" id="vmenu" role="listbox"></div>
 </header>
@@ -243,30 +237,6 @@ ${
     });
   }
 
-  // --- report dialog ---
-  const rep = document.getElementById('reportLink');
-  if (rep) {
-    rep.addEventListener('click', async (e) => {
-      e.preventDefault();
-      const reason = prompt(
-        'Report this drop. Choose a reason:\\n  illegal · abuse · spam · malware · csam · copyright · other'
-      );
-      if (!reason) return;
-      const detail = prompt('Optional detail (1000 chars max):') || '';
-      try {
-        const r = await fetch('/api/report', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ slug, reason: reason.trim().toLowerCase(), detail })
-        });
-        if (r.ok) alert('Reported. Thanks — we will review.');
-        else {
-          const j = await r.json().catch(() => ({}));
-          alert('Could not submit: ' + (j.error || r.status));
-        }
-      } catch (e) { alert('Network error.'); }
-    });
-  }
 })();
 </script>
 </body>
@@ -286,7 +256,7 @@ export function passwordGatePage(
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>${title} · locked · htmlbin</title>
-<link rel="icon" href="data:image/svg+xml,${encodeURIComponent(FAVICON)}" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <link rel="stylesheet" href="/style.css" />
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
 </head>
@@ -313,8 +283,6 @@ ${pageHead({ verb: "GET", path: `/p/${slug}` })}
 </body>
 </html>`;
 }
-
-const FAVICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" fill="#FFFFFF"/><text x="16" y="22" text-anchor="middle" font-family="ui-monospace, monospace" font-size="14" font-weight="500" fill="#0A0A0A">&lt;<tspan fill="#E11D2C">h</tspan>&gt;</text></svg>`;
 
 function escapeHtml(s: string): string {
   return s

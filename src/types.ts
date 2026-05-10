@@ -1,8 +1,26 @@
 import type { Hono } from "hono";
 
+// Cloudflare Workers AI binding. Specifically the toMarkdown helper for
+// converting any HTML/PDF/document blob into Markdown for agent
+// consumption. See https://blog.cloudflare.com/markdown-for-agents/
+export type WorkersAI = {
+  toMarkdown(
+    inputs: Array<{ name: string; blob: Blob }>
+  ): Promise<
+    Array<{
+      name: string;
+      mimeType: string;
+      format: string;
+      tokens: number;
+      data: string;
+    }>
+  >;
+};
+
 export type Bindings = {
   DB: D1Database;
   PROTOTYPES_KV: KVNamespace;
+  AI: WorkersAI;
   PUBLIC_URL: string;
   TURNSTILE_SITE_KEY: string;
   TURNSTILE_SECRET_KEY: string;

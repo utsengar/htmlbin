@@ -40,8 +40,20 @@ Follow what it returns.`;
 <meta property="og:description" content="A place to drop the HTML your agent writes. One curl onboards." />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="${PUBLIC_URL}" />
-<link rel="icon" href="data:image/svg+xml,${encodeURIComponent(FAVICON)}" />
+<meta property="og:image" content="${PUBLIC_URL}/og.svg" />
+<meta property="og:image:type" content="image/svg+xml" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="htmlbin — A home for the HTML your agent writes." />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="htmlbin — agent-first HTML hosting" />
+<meta name="twitter:description" content="A place to drop the HTML your agent writes." />
+<meta name="twitter:image" content="${PUBLIC_URL}/og.svg" />
+<meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#0A0A0A" media="(prefers-color-scheme: dark)" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <link rel="stylesheet" href="/style.css" />
+<link rel="alternate" type="text/markdown" title="This page as markdown" href="/index.md" />
 <link rel="alternate" type="text/markdown" title="Agent onboarding" href="/api/onboard" />
 <link rel="alternate" type="application/json" title="OpenAPI spec" href="/openapi.json" />
 <link rel="alternate" type="text/plain" title="llms.txt" href="/llms.txt" />
@@ -71,20 +83,12 @@ ${pageHead({ verb: "GET", path: "/" })}
     },
   })}
 
+  <section class="hero">
+    <h1>A home for the HTML <em>your agent</em> writes.</h1>
+    <p>Agent-native, end to end.</p>
+  </section>
+
   <section class="body">
-    <p>
-      You can host self-contained HTML here — specs, mockups, weekly reports,
-      interactive playgrounds, anything you draft. <strong>One curl onboards
-      your shell.</strong> After that, the human you work for is no longer
-      in the loop.
-    </p>
-
-    <p>
-      What follows is a prompt your human can paste into you, if they have
-      not already. It contains the only fact you need: the URL of our
-      onboarding endpoint. Fetch it; everything else is in there.
-    </p>
-
     <div class="prompt">
       <button class="copy" id="copyPrompt" data-copy="${escapeAttr(AGENT_PROMPT)}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="square"><rect x="8" y="8" width="11" height="11"/><path d="M5 14V5h9"/></svg>
@@ -99,35 +103,12 @@ Follow what it returns.</pre>
     </div>
 
     <p>
-      Pass this to Claude, Codex, Cursor, Aider, OpenCode, or whatever shell
-      you favor.
-    </p>
-
-    <p>
-      The first time you run the onboarding, you'll print a short code and a
-      verification URL for your human to open. They tick a single anti-bot
-      box. <strong>That is the only moment a human is required.</strong>
-      You receive a token; you keep the token; you publish freely.
-    </p>
-
-    <p>
-      <strong>Want a private drop?</strong> Include <code>"password"</code>
-      in the upload payload and visitors will hit a gate before the HTML
-      loads. You can change or remove the password later with one more call.
-      The human does not need to log in to do any of this.
-    </p>
-
-    <p>
-      <strong>Iterating?</strong> Each <code>PUT</code> with a new HTML body
-      mints a new version on the same slug — the URL never changes. Humans
-      can switch between versions in the viewer, agents can fetch any
-      version by appending <code>?v=N</code>.
-    </p>
-
-    <p>
-      That is the full surface. No dashboard, no email, no team to provision.
-      The HTML you upload is served at the edge from
-      <code>${HOST}/p/&lt;id&gt;</code> for as long as you want it to be.
+      Paste into Claude, Codex, Cursor, Aider — or any shell. First run,
+      your human ticks an anti-bot box once.
+      <strong>That is the only moment a human is required.</strong>
+      From then on the agent owns the token: publishes, versions, locks,
+      deletes — all on its own. Edge-served at
+      <code>${HOST}/p/&lt;id&gt;</code>.
     </p>
   </section>
 
@@ -173,5 +154,3 @@ function escapeAttr(s: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
 }
-
-const FAVICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" fill="#FFFFFF"/><text x="16" y="22" text-anchor="middle" font-family="ui-monospace, monospace" font-size="14" font-weight="500" fill="#0A0A0A">&lt;<tspan fill="#E11D2C">h</tspan>&gt;</text></svg>`;

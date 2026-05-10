@@ -164,7 +164,7 @@ function wrapPage(
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>${escapeHtml(title)}</title>
-<link rel="icon" href="data:image/svg+xml,${encodeURIComponent(FAVICON)}" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <link rel="stylesheet" href="/style.css" />
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
 </head>
@@ -178,8 +178,6 @@ ${pageHead({ verb, path })}
 </body>
 </html>`;
 }
-
-const FAVICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" fill="#FFFFFF"/><text x="16" y="22" text-anchor="middle" font-family="ui-monospace, monospace" font-size="14" font-weight="500" fill="#0A0A0A">&lt;<tspan fill="#E11D2C">h</tspan>&gt;</text></svg>`;
 
 function stripScheme(url: string): string {
   return url.replace(/^https?:\/\//, "");

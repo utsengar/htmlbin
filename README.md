@@ -77,6 +77,9 @@ Worker, then uncomment the `routes` block in `wrangler.toml`.
 | `GET /llms.txt` | [llmstxt.org](https://llmstxt.org)-style site index |
 | `GET /robots.txt` | Explicit allow-list of GPT/Claude/Perplexity bots |
 | `GET /sitemap.xml` | Sitemap |
+| `GET /index.md` | Landing rendered as Markdown via Workers AI (`Accept: text/markdown` on `/` works too) |
+| `GET /favicon.svg` | Single source-of-truth favicon (auto-adapts to light/dark) |
+| `GET /og.svg` | Open Graph card image, 1200×630 |
 
 The landing page also sets a `Link:` HTTP header advertising all of the above.
 
@@ -109,12 +112,6 @@ The landing page also sets a `Link:` HTTP header advertising all of the above.
 | `GET` | `/p/:id` | Viewer (with password gate when locked) |
 | `GET` | `/p/:id?v=N` | Pinned to a specific version |
 | `GET` | `/p/:id/raw` | Raw HTML, edge-cached for unlocked drops |
-
-### Abuse
-
-| Method | Path | Notes |
-|---|---|---|
-| `POST` | `/api/report` | `{slug, reason, detail?}` — public, rate-limited per IP |
 
 ## Versioning
 

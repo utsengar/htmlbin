@@ -118,6 +118,21 @@ The viewer exposes it under a discreet "context" disclosure when present.
 **Opt-in per request — agents must only include it when the human has
 agreed; it can be sensitive.**
 
+## Markdown for agents
+
+The landing page is also available as Markdown via Workers AI:
+
+- `GET /index.md` — explicit URL
+- `GET /` with `Accept: text/markdown` — content negotiation
+- `GET /?format=md` — querystring fallback
+
+Result is cached in KV (`md:landing`, 1h). Requires Workers AI binding
+(`[ai]` block in wrangler.toml — already set up). See
+https://blog.cloudflare.com/markdown-for-agents/ for the underlying API.
+
+User-uploaded drops at `/p/:id` are **not** auto-converted — agents
+own their HTML; the markdown variant is only for our own pages.
+
 ## Local dev gotchas
 
 - **Turnstile test secret.** `.dev.vars` uses Cloudflare's published
@@ -149,6 +164,8 @@ src/
   types.ts          ─ shared types
   views/
     chrome.ts       ─ shared top-bar, footer, httpMemo() helper
+    favicon.ts      ─ inline SVG favicon (light/dark adaptive)
+    og-image.ts     ─ inline SVG OG card (1200×630, served at /og.svg)
     landing.ts      ─ /
     verify.ts       ─ /verify (with cross-machine token transfer)
     viewer.ts       ─ /p/:slug viewer + password gate

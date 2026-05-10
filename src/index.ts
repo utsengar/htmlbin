@@ -6,6 +6,8 @@ import { buildOnboardText } from "./onboard";
 import { landingPage } from "./views/landing";
 import { verifyPage } from "./views/verify";
 import { viewerPage, passwordGatePage } from "./views/viewer";
+import { FAVICON_SVG } from "./views/favicon";
+import { OG_SVG } from "./views/og-image";
 import {
   agentCard,
   linkHeader,
@@ -29,17 +31,71 @@ import {
   getPrototype,
   insertToken,
   listVersions,
-  rateLimit,
 } from "./db";
 import { isValidSlug } from "./slug";
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
 // ----- Public landing -----------------------------------------------------
-app.get("/", (c) => {
+app.get("/", async (c) => {
+  // Content-negotiation: agents asking for Markdown get the landing as
+  // Markdown via Workers AI's toMarkdown. Same idea as Cloudflare's
+  // "Markdown for Agents" pattern. Humans still get the regular HTML.
+  const accept = c.req.header("Accept") ?? "";
+  if (acceptsMarkdown(accept) || c.req.query("format") === "md") {
+    return landingAsMarkdown(c);
+  }
   c.header("Link", linkHeader(c.env.PUBLIC_URL));
   return c.html(landingPage(c.env));
 });
+
+// Explicit URL form for the markdown view of the landing — easy to
+// discover, easy to link to from /api/onboard or llms.txt.
+app.get("/index.md", (c) => landingAsMarkdown(c));
+
+async function landingAsMarkdown(c: any): Promise<Response> {
+  const cacheKey = `md:landing`;
+  const cached = await c.env.PROTOTYPES_KV.get(cacheKey);
+  if (cached) {
+    return new Response(cached, { headers: mdHeaders() });
+  }
+
+  const html = landingPage(c.env);
+  let markdown = "";
+  try {
+    const results = await c.env.AI.toMarkdown([
+      { name: "index.html", blob: new Blob([html], { type: "text/html" }) },
+    ]);
+    markdown = results?.[0]?.data ?? "";
+  } catch (e) {
+    return c.json(
+      {
+        error: "markdown_unavailable",
+        detail:
+          "Markdown conversion requires Workers AI. Available in production; in `wrangler dev` use --remote.",
+      },
+      503
+    );
+  }
+
+  // Landing copy changes rarely — cache 1 hour at the edge.
+  c.executionCtx.waitUntil(
+    c.env.PROTOTYPES_KV.put(cacheKey, markdown, { expirationTtl: 3600 })
+  );
+  return new Response(markdown, { headers: mdHeaders() });
+}
+
+function acceptsMarkdown(accept: string): boolean {
+  // Look for text/markdown explicitly (and beat a wildcard text/* with HTML).
+  const a = accept.toLowerCase();
+  if (!a.includes("text/markdown")) return false;
+  // If the client also accepts HTML at higher-or-equal weight, prefer HTML.
+  // Quick heuristic: if the markdown token comes before text/html in the
+  // Accept string, agent is asking for markdown first.
+  const md = a.indexOf("text/markdown");
+  const html = a.indexOf("text/html");
+  return html === -1 || md < html;
+}
 
 // ----- Global stylesheet (single source of truth across pages) -----------
 app.get("/style.css", (c) => {
@@ -47,6 +103,29 @@ app.get("/style.css", (c) => {
     headers: {
       "Content-Type": "text/css; charset=utf-8",
       "Cache-Control": "public, max-age=300, s-maxage=86400",
+    },
+  });
+});
+
+// ----- Favicon (single SVG, light + dark adaptive) -----------------------
+app.get("/favicon.svg", () => {
+  return new Response(FAVICON_SVG, {
+    headers: {
+      "Content-Type": "image/svg+xml",
+      "Cache-Control": "public, max-age=86400, s-maxage=604800",
+    },
+  });
+});
+// Browsers still hit /favicon.ico unconditionally — point them at the SVG
+// (browsers handle the mime type; we send a 301 to keep things tidy).
+app.get("/favicon.ico", (c) => c.redirect("/favicon.svg", 301));
+
+// ----- Open Graph image (single SVG, edge-cached) -------------------
+app.get("/og.svg", () => {
+  return new Response(OG_SVG, {
+    headers: {
+      "Content-Type": "image/svg+xml",
+      "Cache-Control": "public, max-age=86400, s-maxage=2592000",
     },
   });
 });
@@ -349,44 +428,6 @@ app.get("/p/:slug/raw", async (c) => {
   });
 });
 
-// ----- Abuse: report a drop ---------------------------------------------
-app.post("/api/report", async (c) => {
-  const ip = c.req.header("CF-Connecting-IP") ?? "unknown";
-  if (!(await rateLimit(c.env.DB, `report:${ip}`, 5, 600_000)))
-    return c.json({ error: "rate_limited" }, 429);
-
-  const body = (await c.req.json().catch(() => null)) as
-    | { slug?: string; reason?: string; detail?: string }
-    | null;
-  if (!body) return c.json({ error: "invalid_json" }, 400);
-
-  const slug = String(body.slug ?? "").trim();
-  const reason = String(body.reason ?? "").trim();
-  const detail = String(body.detail ?? "").trim().slice(0, 1000);
-  const allowedReasons = new Set([
-    "illegal",
-    "abuse",
-    "spam",
-    "malware",
-    "csam",
-    "copyright",
-    "other",
-  ]);
-  if (!isValidSlug(slug)) return c.json({ error: "invalid_slug" }, 400);
-  if (!allowedReasons.has(reason)) return c.json({ error: "invalid_reason" }, 400);
-
-  // Don't reveal whether the slug exists — just accept and queue.
-  const ipHash = await sha256Short(`${c.env.TOKEN_PEPPER}::${ip}`);
-  await c.env.DB.prepare(
-    `INSERT INTO reports (slug, reason, detail, ip_hash, created_at)
-     VALUES (?, ?, ?, ?, ?)`
-  )
-    .bind(slug, reason, detail || null, ipHash, Date.now())
-    .run();
-
-  return c.json({ ok: true });
-});
-
 // ----- 404 ----------------------------------------------------------------
 app.notFound((c) => {
   return c.html(notFoundHtml(c.env.PUBLIC_URL), 404);
@@ -422,15 +463,12 @@ async function verifyTurnstile(
   }
 }
 
-async function sha256Short(input: string): Promise<string> {
-  const buf = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(input)
-  );
-  return [...new Uint8Array(buf)]
-    .slice(0, 12)
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+function mdHeaders(): Record<string, string> {
+  return {
+    "Content-Type": "text/markdown; charset=utf-8",
+    "Cache-Control": "public, max-age=300, s-maxage=3600",
+    "Vary": "Accept",
+  };
 }
 
 function getCookie(header: string, name: string): string | null {
@@ -449,11 +487,10 @@ function notFoundHtml(publicUrl: string): string {
     month: "short",
     day: "numeric",
   });
-  const FAVICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" fill="#FFFFFF"/><text x="16" y="22" text-anchor="middle" font-family="ui-monospace, monospace" font-size="14" font-weight="500" fill="#0A0A0A">&lt;<tspan fill="#E11D2C">h</tspan>&gt;</text></svg>`;
   return /* html */ `<!doctype html>
 <html><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>404 · htmlbin</title>
-<link rel="icon" href="data:image/svg+xml,${encodeURIComponent(FAVICON)}" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <link rel="stylesheet" href="/style.css" />
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
 </head>
@@ -474,7 +511,7 @@ function notFoundHtml(publicUrl: string): string {
   </div>
 </header>
 <main>
-  <details class="req" open aria-label="memo">
+  <details class="req" aria-label="memo">
     <summary class="reqline"><span class="verb">GET</span> <span class="path">/p/&lt;unknown&gt;</span> <span class="proto">HTTP/1.1</span></summary>
     <div class="rows">
       <div class="row"><span class="k">host</span><span class="v">${host}</span></div>

@@ -85,21 +85,6 @@ CREATE INDEX IF NOT EXISTS idx_verifications_poll
 CREATE INDEX IF NOT EXISTS idx_verifications_expires
   ON verifications(expires_at);
 
--- Abuse reports filed by visitors. ip_hash is salted with TOKEN_PEPPER
--- so we can rate-limit per source without storing raw IPs.
-CREATE TABLE IF NOT EXISTS reports (
-  id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  slug        TEXT NOT NULL,
-  reason      TEXT NOT NULL,
-  detail      TEXT,
-  ip_hash     TEXT,
-  created_at  INTEGER NOT NULL,
-  reviewed    INTEGER NOT NULL DEFAULT 0
-);
-
-CREATE INDEX IF NOT EXISTS idx_reports_slug ON reports(slug);
-CREATE INDEX IF NOT EXISTS idx_reports_unreviewed ON reports(reviewed, created_at DESC);
-
 -- Tiny rate limiter: count writes per token / IP per minute window.
 CREATE TABLE IF NOT EXISTS rate_limits (
   bucket        TEXT PRIMARY KEY,

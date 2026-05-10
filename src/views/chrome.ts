@@ -19,7 +19,6 @@ export function pageHead(args: { verb: string; path: string }): string {
       <span class="slash">/</span>
       <span class="verb">${verb}</span>
       <span class="path">${path}</span>
-      <span class="ver">v1</span>
     </div>
     <div class="head-meta">
       <a href="/api/onboard">/api/onboard</a>
@@ -32,7 +31,6 @@ export function pageFoot(host: string): string {
   return /* html */ `
 <footer class="tail">
   <div class="row">
-    <span>htmlbin v1 · open source · agent-friendly</span>
     <span>${escapeHtml(host)}</span>
   </div>
 </footer>`;
@@ -64,7 +62,9 @@ export function httpMemo(args: {
   const verb = escapeHtml(args.verb);
   const path = escapeHtml(args.path);
   const proto = escapeHtml(args.proto ?? "HTTP/1.1");
-  const open = args.open !== false;
+  // Default-collapsed everywhere — agents and humans get the page contents
+  // first; the request-line chrome stays tucked unless you want it.
+  const open = args.open === true;
 
   const rows = args.rows
     .map((r) => {
