@@ -304,6 +304,68 @@ WASM gotchas (don't relitigate):
 the SVG is the lightweight fallback + per-tab rendering source; the
 PNG is what social platforms actually consume.
 
+## Bundling non-JS assets in the Worker — the wrangler gotcha
+
+**`wrangler 4 + ES module Workers does not reliably honor `[[rules]]`
+for imports of non-JS files outside `src/`.`** We've now hit this twice:
+
+- `import SKILL_MD from "../skills/htmlbin/SKILL.md"` with
+  `[[rules]] type = "Text"` → esbuild reports
+  *"No loader is configured for `.md` files"*.
+- `import geist400 from "../assets/fonts/Geist-400.woff2"` with
+  `[[rules]] type = "Data"` → same error for `.woff2`.
+
+Both worked locally during `wrangler dev` (sometimes) but failed on
+production `wrangler versions upload`. Don't burn time on it again.
+Use one of the two patterns we've already settled on:
+
+| Asset type | Pattern | Where |
+|---|---|---|
+| Markdown / text | Inline as TypeScript template literal | `src/skill.ts` |
+| Binary (woff2 etc.) | Base64-inline via a generator script | `src/fonts-data.ts` + `scripts/build-fonts.mjs` |
+
+To add new fonts: drop the `.woff2` into `assets/fonts/`, add it to
+`FILES` in `scripts/build-fonts.mjs`, re-run the script, add an
+`@font-face` entry in `src/fonts.ts`. Workflow is documented inside
+that script.
+
+### The long-term fix: Workers Static Assets
+
+Cloudflare's recommended path for serving static files from a Worker
+is the `[assets]` config block (separate from `[[rules]]`):
+
+```toml
+[assets]
+directory = "./public"
+binding = "ASSETS"
+# Optional: keep specific paths Worker-routed
+# run_worker_first = ["/fonts/*"]
+```
+
+Static files in `./public/` get served at the edge automatically,
+bypass the Worker entirely (faster, smaller bundle, no cold-start
+decode), and integrate cleanly with Hono since they intercept before
+the Worker fires.
+
+We haven't migrated because: (a) the base64 path works today and
+ships ~107 KB total which is comfortably under Worker limits, (b)
+migration requires moving the woff2 files, ripping out
+`src/fonts.ts` + `src/fonts-data.ts`, dropping the `/fonts/:name`
+route handler in `src/index.ts`, and adding a `public/` directory
+served via `[assets]`.
+
+When we do migrate (good follow-up, especially if we ever want to
+serve more static files), the steps:
+
+1. `mv assets/fonts public/fonts`
+2. Add `[assets] directory = "./public"` to `wrangler.toml`
+3. Delete `src/fonts.ts` and `src/fonts-data.ts`
+4. Remove the `/fonts/:name` route + `FONTS` import in `src/index.ts`
+5. Move `FONT_FACE_CSS` into `src/styles.ts` as an inline string
+   (or keep it where it is in a renamed file)
+
+Spec: https://developers.cloudflare.com/workers/static-assets/
+
 ## Viewer page title format
 
 `src/views/viewer.ts` formats `<title>` and `og:title` as:
