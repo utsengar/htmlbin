@@ -18,7 +18,7 @@ const EXAMPLES: Array<{ slug: string; caption: string }> = [
 // One real, end-to-end path is better than two cosmetic ones — this
 // prompt produces a visible artifact the human can paste, run, and
 // click through.
-const AGENT_PROMPT = `Make a delightful HTML page — show me what HTML can do that markdown or a flat file can't. Something visual, interactive, alive.
+const AGENT_PROMPT = `Make a delightful HTML page to explain a concept or a problem — show me what HTML can do that markdown or a flat file can't. Something visual, interactive, alive.
 
 Publish to htmlbin.dev. Credentials and API at htmlbin.dev/api/onboard.`;
 
@@ -119,7 +119,7 @@ ${pageHead({ verb: "GET", path: "/" })}
         <span class="prompt-mark" aria-hidden="true">claude</span>
       </div>
       <div class="prompt-body">
-<pre>Make a delightful HTML page — show me what HTML can do that markdown or a flat file can't. Something visual, interactive, alive.
+<pre>Make a delightful HTML page to explain a concept or a problem — show me what HTML can do that markdown or a flat file can't. Something visual, interactive, alive.
 
 Publish to <span class="em">htmlbin.dev</span>. Credentials and API at <span class="em">htmlbin.dev/api/onboard</span>.</pre>
       </div>
