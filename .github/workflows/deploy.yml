@@ -43,7 +43,9 @@ jobs:
       # ───── PR → versioned preview ──────────────────────────────────
       # `versions upload` ships a new version of the existing Worker
       # without changing the live deployment. Cloudflare returns a
-      # unique workers.dev preview URL for that version.
+      # unique workers.dev preview URL for that version. The action's
+      # `deployment-url` output isn't reliably populated for
+      # `versions upload`, so we parse the URL out of command-output.
       - name: Upload preview version
         if: github.event_name == 'pull_request'
         id: preview
@@ -52,15 +54,31 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           command: versions upload --message "PR #${{ github.event.pull_request.number }} — ${{ github.event.pull_request.head.sha }}"
 
+      - name: Extract preview URL from wrangler output
+        if: github.event_name == 'pull_request'
+        id: extract_url
+        env:
+          WRANGLER_STDOUT: ${{ steps.preview.outputs.command-output }}
+          WRANGLER_STDERR: ${{ steps.preview.outputs.command-stderr }}
+        run: |
+          combined="$WRANGLER_STDOUT
+          $WRANGLER_STDERR"
+          url=$(printf '%s' "$combined" | grep -oE 'https://[a-z0-9-]+\.[a-z0-9-]+\.workers\.dev' | head -1)
+          if [ -z "$url" ]; then
+            url=$(printf '%s' "$combined" | grep -oE 'https://[a-z0-9-]+\.workers\.dev' | head -1)
+          fi
+          echo "url=$url" >> $GITHUB_OUTPUT
+          echo "Extracted preview URL: $url"
+
       - name: Comment preview URL on PR
-        if: github.event_name == 'pull_request' && steps.preview.outputs.deployment-url
+        if: github.event_name == 'pull_request'
         uses: marocchino/sticky-pull-request-comment@v2
         with:
           header: cf-preview
           message: |
             ### 🚀 Cloudflare preview
 
-            **URL:** ${{ steps.preview.outputs.deployment-url }}
+            ${{ steps.extract_url.outputs.url && format('**URL:** {0}', steps.extract_url.outputs.url) || '⚠️ Preview URL not found in wrangler output. Check the **Upload preview version** step logs for the actual URL.' }}
 
             Built from commit `${{ github.event.pull_request.head.sha }}`.
 
