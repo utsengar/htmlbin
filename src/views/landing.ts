@@ -72,7 +72,12 @@ export function landingPage(env: Bindings): string {
 <link rel="alternate" type="text/markdown" title="Agent protocol (markdown)" href="/api/onboard?format=md" />
 <link rel="alternate" type="application/json" title="OpenAPI spec" href="/openapi.json" />
 <link rel="alternate" type="text/plain" title="llms.txt" href="/llms.txt" />
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+<!-- SRI is not viable on the Google Fonts CSS endpoint (UA-dependent
+     content); crossorigin + referrerpolicy are the recommended hardening. -->
+<link rel="stylesheet" crossorigin="anonymous" referrerpolicy="no-referrer"
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" />
 <script type="application/ld+json">${jsonLd}</script>
 </head>
 <body>

@@ -189,6 +189,20 @@ endpoint and never silently break them.
 7. **HEAD support on read endpoints.** `app.on(["GET", "HEAD"], …)`
    everywhere. Agents and CDNs probe with HEAD.
 
+8. **CORS is intentionally NOT set.** htmlbin is an agent-side API
+   (CLI, server-side scripts). Disallowing browser cross-origin XHR
+   is a *feature* — random third-party sites can't `fetch(htmlbin.dev
+   /api/…)` with the user's token. Don't "fix" missing CORS without
+   talking to the user. If a browser-based agent ever needs access,
+   that's a conscious decision, not a copy-paste of `app.use(cors())`.
+
+9. **Security headers on every response.** A global middleware in
+   `src/index.ts` sets HSTS, X-Content-Type-Options, Referrer-Policy,
+   Permissions-Policy on every response; X-Frame-Options + CSP on
+   text/html (unless the handler already set CSP — `/p/:slug/raw`
+   sets its own for iframe embedding); CSP `default-src 'none'` on
+   JSON. Don't bypass the middleware.
+
 ## URL conventions
 
 - Slugs are 7-char base62 random IDs (e.g. `aB3xK7g`). No title prefix.

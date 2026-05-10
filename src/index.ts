@@ -38,6 +38,63 @@ import { isValidSlug } from "./slug";
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
+// ----- Global security headers --------------------------------------------
+//
+// Applied to every response. The split:
+//   - Universal:  HSTS, X-Content-Type-Options, Referrer-Policy, Permissions-Policy.
+//   - text/html:  X-Frame-Options + Content-Security-Policy (unless the handler
+//                 already set its own CSP — /p/:slug/raw does for the iframed
+//                 user-uploaded HTML; we don't overwrite it).
+//   - application/json + linkset+json: default-src 'none' (defense in depth).
+//
+// CORS is intentionally NOT set anywhere: htmlbin is an agent-side API.
+// Disallowing browser cross-origin XHR is a feature — it prevents a random
+// third-party site from making authenticated calls with the user's token.
+// If you find yourself wanting to add CORS, talk to the user first.
+app.use("*", async (c, next) => {
+  await next();
+  const ct = c.res.headers.get("content-type") ?? "";
+
+  c.res.headers.set(
+    "Strict-Transport-Security",
+    "max-age=31536000; includeSubDomains; preload"
+  );
+  c.res.headers.set("X-Content-Type-Options", "nosniff");
+  c.res.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  c.res.headers.set(
+    "Permissions-Policy",
+    "geolocation=(), camera=(), microphone=(), payment=(), usb=()"
+  );
+
+  if (ct.startsWith("text/html")) {
+    // Don't clobber a handler-set CSP (e.g. /p/:slug/raw uses a different one
+    // to allow the viewer to iframe it).
+    if (!c.res.headers.has("content-security-policy")) {
+      c.res.headers.set("X-Frame-Options", "SAMEORIGIN");
+      c.res.headers.set(
+        "Content-Security-Policy",
+        [
+          "default-src 'self'",
+          "img-src 'self' data: https:",
+          "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+          "font-src 'self' https://fonts.gstatic.com",
+          "script-src 'self' 'unsafe-inline'",
+          "frame-src 'self'",
+          "frame-ancestors 'none'",
+          "base-uri 'none'",
+        ].join("; ")
+      );
+    }
+  } else if (
+    ct.startsWith("application/json") ||
+    ct.startsWith("application/linkset+json")
+  ) {
+    if (!c.res.headers.has("content-security-policy")) {
+      c.res.headers.set("Content-Security-Policy", "default-src 'none'");
+    }
+  }
+});
+
 // ----- Public landing -----------------------------------------------------
 app.on(["GET", "HEAD"], "/", async (c) => {
   // Content-negotiation: agents asking for Markdown get the landing as
@@ -156,10 +213,9 @@ app.get("/og.png", async (c) => {
     );
     return pngResponse(png.buffer);
   } catch (e) {
+    // Render failure is logged for ops; we fall back to the SVG so the
+    // social preview still works. No internal details exposed to clients.
     console.error("og.png landing render failed", e);
-    if (c.req.query("debug") === "1") {
-      return c.json({ error: String(e), stack: (e as Error)?.stack }, 500);
-    }
     return c.redirect("/og.svg", 302);
   }
 });
@@ -216,10 +272,8 @@ app.get("/p/:slug/og.png", async (c) => {
   } catch (e) {
     // Render failure shouldn't 500 the social preview — Slack will just
     // skip the image. Fall back to the SVG endpoint, which always works.
+    // Errors are logged for ops; no internal details exposed to clients.
     console.error("og.png drop render failed", slug, e);
-    if (c.req.query("debug") === "1") {
-      return c.json({ error: String(e), stack: (e as Error)?.stack }, 500);
-    }
     return c.redirect(`/p/${slug}/og.svg`, 302);
   }
 });
@@ -261,6 +315,26 @@ app.on(["GET", "HEAD"], "/.well-known/agent-card.json", (c) => {
 });
 app.on(["GET", "HEAD"], "/openapi.json", (c) => {
   return c.json(openApiSpec(c.env.PUBLIC_URL));
+});
+
+// RFC 9116 — security contact for vulnerability disclosure.
+app.on(["GET", "HEAD"], "/.well-known/security.txt", (c) => {
+  const host = c.env.PUBLIC_URL.replace(/\/$/, "");
+  // Expires one year out. Update this annually.
+  const body = [
+    "Contact: mailto:security@htmlbin.dev",
+    "Expires: 2027-05-10T00:00:00.000Z",
+    "Preferred-Languages: en",
+    `Canonical: ${host}/.well-known/security.txt`,
+    `Policy: ${host}/.well-known/security.txt`,
+    "",
+  ].join("\n");
+  return new Response(body, {
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "public, max-age=3600, s-maxage=86400",
+    },
+  });
 });
 
 // Agent Skills Discovery (RFC v0.2.0). Both routes support GET + HEAD

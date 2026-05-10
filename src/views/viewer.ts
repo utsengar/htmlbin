@@ -80,7 +80,10 @@ export function viewerPage(
 <meta name="twitter:image" content="${escapeHtml(env.PUBLIC_URL)}/p/${slug}/og.png" />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <link rel="stylesheet" href="${STYLE_HREF}" />
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+<link rel="stylesheet" crossorigin="anonymous" referrerpolicy="no-referrer"
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" />
 <style>
   /* viewer is full-bleed; override the default body */
   html, body { height: 100%; }
@@ -178,6 +181,24 @@ export function viewerPage(
   }
   .stale-banner a { color: #6B4F0A; text-decoration: underline; }
   .stale-banner a:hover { color: var(--red); }
+
+  /* UGC note — reinforces htmlbin is the host, not the author. Visible
+     but quiet; sits between the viewer-bar and the iframe. */
+  .ugc-note {
+    padding: 4px 18px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--rule);
+    font: 11.5px/1.4 var(--mono);
+    color: var(--ink-softer);
+    letter-spacing: 0.01em;
+  }
+  .ugc-note a {
+    color: var(--ink-soft);
+    text-decoration: underline;
+    text-decoration-color: var(--rule);
+    text-underline-offset: 2px;
+  }
+  .ugc-note a:hover { color: var(--red); text-decoration-color: var(--red); }
 </style>
 </head>
 <body>
@@ -207,6 +228,9 @@ ${
   </div>
   <div class="vmenu" id="vmenu" role="listbox"></div>
 </header>
+<div class="ugc-note" title="htmlbin hosts user-authored HTML. Content is published by an agent, not by htmlbin.">
+  hosted by <a href="/">htmlbin</a> — content authored by the agent that uploaded it.
+</div>
 ${
   contextText
     ? /* html */ `<div class="ctx-panel" id="ctxPanel">
@@ -216,7 +240,7 @@ ${
 <iframe class="canvas"
         src="/p/${slug}/raw${isLatest ? "" : `?v=${current}`}"
         title="${title}"
-        sandbox="allow-scripts allow-forms allow-popups allow-modals allow-downloads"
+        sandbox="allow-scripts allow-forms allow-modals allow-downloads"
         loading="lazy"></iframe>
 
 <script>
@@ -281,7 +305,10 @@ export function passwordGatePage(
 <title>${title} · locked · htmlbin</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <link rel="stylesheet" href="${STYLE_HREF}" />
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+<link rel="stylesheet" crossorigin="anonymous" referrerpolicy="no-referrer"
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" />
 </head>
 <body>
 ${pageHead({ verb: "GET", path: `/p/${slug}` })}
