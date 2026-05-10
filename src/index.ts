@@ -39,7 +39,7 @@ import { isValidSlug } from "./slug";
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
 // ----- Public landing -----------------------------------------------------
-app.get("/", async (c) => {
+app.on(["GET", "HEAD"], "/", async (c) => {
   // Content-negotiation: agents asking for Markdown get the landing as
   // Markdown via Workers AI's toMarkdown. Same idea as Cloudflare's
   // "Markdown for Agents" pattern. Humans still get the regular HTML.
@@ -53,7 +53,7 @@ app.get("/", async (c) => {
 
 // Explicit URL form for the markdown view of the landing — easy to
 // discover, easy to link to from /api/onboard or llms.txt.
-app.get("/index.md", (c) => landingAsMarkdown(c));
+app.on(["GET", "HEAD"], "/index.md", (c) => landingAsMarkdown(c));
 
 async function landingAsMarkdown(c: any): Promise<Response> {
   const cacheKey = `md:landing`;
@@ -235,12 +235,12 @@ function pngResponse(body: ArrayBuffer, fromCache = false): Response {
 }
 
 // ----- Agent-ready discoverability ---------------------------------------
-app.get("/robots.txt", (c) => {
+app.on(["GET", "HEAD"], "/robots.txt", (c) => {
   return new Response(robotsTxt(c.env.PUBLIC_URL), {
     headers: { "Content-Type": "text/plain; charset=utf-8" },
   });
 });
-app.get("/llms.txt", (c) => {
+app.on(["GET", "HEAD"], "/llms.txt", (c) => {
   return new Response(llmsTxt(c.env.PUBLIC_URL), {
     headers: {
       "Content-Type": "text/plain; charset=utf-8",
@@ -248,7 +248,7 @@ app.get("/llms.txt", (c) => {
     },
   });
 });
-app.get("/sitemap.xml", (c) => {
+app.on(["GET", "HEAD"], "/sitemap.xml", (c) => {
   return new Response(sitemapXml(c.env.PUBLIC_URL), {
     headers: {
       "Content-Type": "application/xml; charset=utf-8",
@@ -256,10 +256,10 @@ app.get("/sitemap.xml", (c) => {
     },
   });
 });
-app.get("/.well-known/agent-card.json", (c) => {
+app.on(["GET", "HEAD"], "/.well-known/agent-card.json", (c) => {
   return c.json(agentCard(c.env.PUBLIC_URL));
 });
-app.get("/openapi.json", (c) => {
+app.on(["GET", "HEAD"], "/openapi.json", (c) => {
   return c.json(openApiSpec(c.env.PUBLIC_URL));
 });
 
@@ -327,7 +327,7 @@ app.on(["GET", "HEAD"], "/.well-known/api-catalog", (c) => {
 //
 // Markdown is still served for humans previewing the API — request it
 // with `Accept: text/markdown` or `?format=md`.
-app.get("/api/onboard", (c) => {
+app.on(["GET", "HEAD"], "/api/onboard", (c) => {
   const accept = c.req.header("Accept") ?? "";
   const wantsMarkdown =
     accept.toLowerCase().includes("text/markdown") ||
@@ -475,7 +475,7 @@ app.post("/verify", async (c) => {
 });
 
 // ----- Public prototype viewer ------------------------------------------
-app.get("/p/:slug", async (c) => {
+app.on(["GET", "HEAD"], "/p/:slug", async (c) => {
   const slug = c.req.param("slug");
   if (!isValidSlug(slug)) return c.notFound();
 
@@ -558,7 +558,7 @@ app.post("/p/:slug/unlock", async (c) => {
   });
 });
 
-app.get("/p/:slug/raw", async (c) => {
+app.on(["GET", "HEAD"], "/p/:slug/raw", async (c) => {
   const slug = c.req.param("slug");
   if (!isValidSlug(slug)) return c.notFound();
 

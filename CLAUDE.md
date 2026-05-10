@@ -129,6 +129,54 @@ lists the three endpoints and the token path.
 `buildOnboardJson()` and `buildOnboardText()` both live in `onboard.ts`
 and must stay in sync when the protocol changes.
 
+## API design conventions (locked pre-launch)
+
+Reviewed against the `api-and-interface-design` skill (Hyrum's Law,
+contract-first, etc.). These are the rules — apply them on every new
+endpoint and never silently break them.
+
+1. **snake_case for every field name.** Request and response. Examples:
+   `raw_url`, `latest_version`, `created_at`, `view_count`, `is_latest`,
+   `retry_after_seconds`. Deliberate choice — agent-first APIs (parsed,
+   not destructured in JS) read better in snake_case, matching Stripe /
+   GitHub.
+
+2. **One error shape — and only one.** Every 4xx/5xx response uses
+   `src/errors.ts` → `apiError(c, code, message, status, details?)`:
+
+   ```jsonc
+   {
+     "error": {
+       "code": "<machine_readable_snake_case>",
+       "message": "<human readable>",
+       "details"?: { /* optional context */ }
+     }
+   }
+   ```
+
+   Agents switch on `error.code`. The set of valid codes is the
+   `ErrorCode` union in `src/errors.ts`.
+
+3. **Mutating endpoints return the full Drop** (`serializeDrop()` in
+   `drops.ts`). Consumers should never have to re-fetch. The one
+   exception is full-drop `DELETE`, which returns `204 No Content`.
+
+4. **PUT vs PATCH split.** `PUT /api/drops/:slug` mints a new version
+   and requires `html`. `PATCH /api/drops/:slug` updates metadata only
+   (title / description) and forbids `html` (`400 metadata_only_on_patch`).
+
+5. **List endpoints paginate.** `GET /api/drops` accepts `page`,
+   `pageSize` (max 200), `sortBy`, `sortOrder` and returns
+   `{ data, pagination }`.
+
+6. **429 carries `Retry-After`.** Both header (RFC 9110) and
+   `details.retry_after_seconds` in the body. Quota errors
+   (`quota_exceeded`, `daily_quota_exceeded`, `version_limit_reached`)
+   are 429, not 403.
+
+7. **HEAD support on read endpoints.** `app.on(["GET", "HEAD"], …)`
+   everywhere. Agents and CDNs probe with HEAD.
+
 ## URL conventions
 
 - Slugs are 7-char base62 random IDs (e.g. `aB3xK7g`). No title prefix.
