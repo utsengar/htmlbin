@@ -143,7 +143,7 @@ app.get("/og.svg", () => {
 });
 
 app.get("/og.png", async (c) => {
-  const cacheKey = "og-png:landing:v1";
+  const cacheKey = "og-png:landing:v2";
   const cached = await c.env.DROPS_KV.get(cacheKey, { type: "arrayBuffer" });
   if (cached) return pngResponse(cached, true);
 
@@ -194,7 +194,7 @@ app.get("/p/:slug/og.png", async (c) => {
   const drop = await getDrop(c.env.DB, slug);
   if (!drop) return c.notFound();
 
-  const cacheKey = `og-png:${slug}:v${drop.latest_version}`;
+  const cacheKey = `og-png:${slug}:v${drop.latest_version}:r2`;
   const cached = await c.env.DROPS_KV.get(cacheKey, { type: "arrayBuffer" });
   if (cached) return pngResponse(cached, true);
 
