@@ -140,8 +140,11 @@ app.get("/p/:slug/og.svg", async (c) => {
   if (!drop) return c.notFound();
   const svg = dropOgSvg({
     slug: drop.slug,
+    title: drop.title,
+    isLocked: !!drop.password_hash,
     latestVersion: drop.latest_version,
     updatedAt: drop.updated_at,
+    publicUrl: c.env.PUBLIC_URL,
   });
   return new Response(svg, {
     headers: {

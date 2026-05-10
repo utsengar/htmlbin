@@ -184,7 +184,7 @@ ${
   <a href="/" class="wordmark" title="htmlbin home">htmlbin</a>
   <span class="sep">/</span>
   <div class="title">${title}</div>
-  ${description ? `<span class="sep">·</span><div class="desc">${description}</div>` : ""}
+  ${description ? `<span class="sep desc-sep">·</span><div class="desc">${description}</div>` : ""}
   <div class="right">
     ${state.locked ? `<span class="lock-pill">unlocked</span>` : ""}
     <span>${updated}</span>

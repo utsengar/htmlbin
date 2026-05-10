@@ -574,6 +574,22 @@ pre.lifecycle {
 }
 .viewer-bar .right a { color: inherit; }
 .viewer-bar .right a:hover { color: var(--red); }
+
+/* Mobile / narrow viewports: drop the description, let the title take
+ * remaining width, and force the action group onto its own row so the
+ * top row stays "wordmark / title". */
+@media (max-width: 720px) {
+  .viewer-bar { gap: 8px 12px; padding: 10px 14px; }
+  .viewer-bar .desc, .viewer-bar .desc-sep { display: none; }
+  .viewer-bar .title {
+    max-width: none; flex: 1 1 0; min-width: 0; font-size: 13.5px;
+  }
+  .viewer-bar .right {
+    width: 100%; margin-left: 0;
+    gap: 12px; font-size: 11.5px;
+    flex-wrap: wrap;
+  }
+}
 .lock-pill {
   background: var(--ink); color: var(--bg);
   padding: 3px 9px; border-radius: 999px;
