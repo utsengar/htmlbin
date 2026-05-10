@@ -283,43 +283,82 @@ code, .mono {
 }
 
 /* ---------- prompt code block ---------- */
+.prompt-cue {
+  font: 500 12.5px/1.2 var(--mono);
+  color: var(--ink-soft);
+  margin: 28px 0 10px;
+  letter-spacing: 0.01em;
+}
 .prompt {
   position: relative;
   background: var(--code-bg);
-  border-radius: 6px;
-  margin: 30px 0 30px;
+  border-radius: 8px;
+  margin: 0 0 18px;
+  overflow: hidden;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.04), 0 12px 28px -16px rgba(0,0,0,0.18);
+}
+.prompt-chrome {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  background: rgba(255,255,255,0.02);
+}
+.prompt-chrome .dots { display: inline-flex; gap: 6px; }
+.prompt-chrome .dot {
+  width: 11px; height: 11px; border-radius: 50%; display: block;
+}
+.prompt-chrome .dot.r { background: #FF5F57; }
+.prompt-chrome .dot.y { background: #FEBC2E; }
+.prompt-chrome .dot.g { background: #28C840; }
+.prompt-chrome .title {
+  flex: 1;
+  text-align: center;
+  font: 500 12px/1 var(--mono);
+  color: var(--code-dim);
+  letter-spacing: 0.02em;
+  /* Offset the dots' width so the title is truly centered */
+  margin-right: 51px;
 }
 .prompt pre {
   font-family: var(--mono);
   font-size: 13.5px;
   line-height: 1.7;
-  padding: 24px 24px 26px;
+  padding: 22px 22px 24px;
+  margin: 0;
   color: var(--code-fg);
   white-space: pre-wrap;
   word-break: break-word;
 }
 .prompt pre .ph { color: var(--code-dim); font-style: italic; }
 .prompt pre .em { color: var(--code-em); }
-.prompt .copy {
-  position: absolute;
-  top: 14px; right: 14px;
-  display: inline-flex; align-items: center; gap: 6px;
-  background: transparent;
-  color: var(--code-dim);
-  border: 1px solid #2A2A2A;
-  padding: 5px 10px;
-  font: 500 11px/1 var(--mono);
-  letter-spacing: 0.05em;
+
+.copy-cta {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--red);
+  color: #fff;
+  border: none;
+  padding: 11px 18px;
+  font: 600 13px/1 var(--mono);
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: pointer;
-  transition: color 0.12s, border-color 0.12s, background 0.12s;
+  margin: 0 0 18px;
+  transition: background 0.12s, transform 0.04s;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.04), 0 6px 16px -10px rgba(225, 29, 44, 0.55);
 }
-.prompt .copy:hover {
-  color: var(--bg); border-color: var(--red); background: var(--red);
+.copy-cta:hover { background: #C8101F; }
+.copy-cta:active { transform: translateY(1px); }
+.copy-cta.ok { background: #1F8A3A; }
+.copy-cta svg { width: 13px; height: 13px; }
+
+.prompt-aftermath {
+  color: var(--ink-soft);
+  font-size: 14px;
+  margin: 0 0 18px;
 }
-.prompt .copy.ok { color: #6FE38B; border-color: #2A4A38; background: transparent; }
-.prompt .copy svg { width: 11px; height: 11px; }
 
 /* ---------- forms ---------- */
 .form { display: flex; flex-direction: column; gap: 20px; max-width: 440px; margin-top: 8px; }
@@ -535,6 +574,22 @@ pre.lifecycle {
 }
 .viewer-bar .right a { color: inherit; }
 .viewer-bar .right a:hover { color: var(--red); }
+
+/* Mobile / narrow viewports: drop the description, let the title take
+ * remaining width, and force the action group onto its own row so the
+ * top row stays "wordmark / title". */
+@media (max-width: 720px) {
+  .viewer-bar { gap: 8px 12px; padding: 10px 14px; }
+  .viewer-bar .desc, .viewer-bar .desc-sep { display: none; }
+  .viewer-bar .title {
+    max-width: none; flex: 1 1 0; min-width: 0; font-size: 13.5px;
+  }
+  .viewer-bar .right {
+    width: 100%; margin-left: 0;
+    gap: 12px; font-size: 11.5px;
+    flex-wrap: wrap;
+  }
+}
 .lock-pill {
   background: var(--ink); color: var(--bg);
   padding: 3px 9px; border-radius: 999px;

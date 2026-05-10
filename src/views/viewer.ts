@@ -55,6 +55,20 @@ export function viewerPage(
 <title>${title} · htmlbin</title>
 <meta name="description" content="${description || `htmlbin drop: ${title}`}" />
 <meta name="robots" content="noindex" />
+<!-- Open Graph: per-drop card. Slug + version + date in the SVG; title/description here. -->
+<meta property="og:type" content="article" />
+<meta property="og:title" content="/p/${slug} · htmlbin" />
+<meta property="og:description" content="${description || `htmlbin drop · v${total} · updated ${updated}`}" />
+<meta property="og:url" content="${escapeHtml(env.PUBLIC_URL)}/p/${slug}" />
+<meta property="og:image" content="${escapeHtml(env.PUBLIC_URL)}/p/${slug}/og.svg" />
+<meta property="og:image:type" content="image/svg+xml" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="htmlbin drop /p/${slug}" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="/p/${slug} · htmlbin" />
+<meta name="twitter:description" content="${description || `htmlbin drop · v${total} · updated ${updated}`}" />
+<meta name="twitter:image" content="${escapeHtml(env.PUBLIC_URL)}/p/${slug}/og.svg" />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <link rel="stylesheet" href="/style.css" />
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -170,7 +184,7 @@ ${
   <a href="/" class="wordmark" title="htmlbin home">htmlbin</a>
   <span class="sep">/</span>
   <div class="title">${title}</div>
-  ${description ? `<span class="sep">·</span><div class="desc">${description}</div>` : ""}
+  ${description ? `<span class="sep desc-sep">·</span><div class="desc">${description}</div>` : ""}
   <div class="right">
     ${state.locked ? `<span class="lock-pill">unlocked</span>` : ""}
     <span>${updated}</span>

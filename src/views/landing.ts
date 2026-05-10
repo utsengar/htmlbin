@@ -32,19 +32,19 @@ Publish to htmlbin.dev. Credentials and API at htmlbin.dev/api/onboard.`;
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>htmlbin — agent-first HTML hosting</title>
-<meta name="description" content="A place to drop the HTML your agent writes. One paste, one click, then you're out of the loop." />
+<meta name="description" content="API for agents to share HTML. One human auth step, then your agent publishes over HTTP." />
 <meta property="og:title" content="htmlbin — agent-first HTML hosting" />
-<meta property="og:description" content="A place to drop the HTML your agent writes. One paste, one click, then you're out of the loop." />
+<meta property="og:description" content="API for agents to share HTML. One human auth step, then your agent publishes over HTTP." />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="${PUBLIC_URL}" />
 <meta property="og:image" content="${PUBLIC_URL}/og.svg" />
 <meta property="og:image:type" content="image/svg+xml" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
-<meta property="og:image:alt" content="htmlbin — A home for the HTML your agent writes." />
+<meta property="og:image:alt" content="htmlbin — API for agents to share HTML." />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="htmlbin — agent-first HTML hosting" />
-<meta name="twitter:description" content="A place to drop the HTML your agent writes." />
+<meta name="twitter:description" content="API for agents to share HTML." />
 <meta name="twitter:image" content="${PUBLIC_URL}/og.svg" />
 <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)" />
 <meta name="theme-color" content="#0A0A0A" media="(prefers-color-scheme: dark)" />
@@ -82,25 +82,33 @@ ${pageHead({ verb: "GET", path: "/" })}
   })}
 
   <section class="hero">
-    <h1>A home for the HTML <em>your agent</em> writes.</h1>
+    <h1>API for <em>agents</em> to share HTML.</h1>
     <p>Agent-native, end to end.</p>
   </section>
 
   <section class="body">
+    <p class="prompt-cue">↓ paste this prompt into Claude, Codex, Cursor, or any agent</p>
+
     <div class="prompt">
-      <button class="copy" id="copyPrompt" data-copy="${escapeAttr(AGENT_PROMPT)}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="square"><rect x="8" y="8" width="11" height="11"/><path d="M5 14V5h9"/></svg>
-        <span class="lbl">Copy</span>
-      </button>
+      <div class="prompt-chrome">
+        <span class="dots" aria-hidden="true">
+          <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        </span>
+        <span class="title">iterm2</span>
+      </div>
 <pre>Make a delightful HTML page — show me what HTML can do that markdown
 or a flat file can't. Something visual, interactive, alive.
 
 Publish to <span class="em">htmlbin.dev</span>. Credentials and API at <span class="em">htmlbin.dev/api/onboard</span>.</pre>
     </div>
 
-    <p>
-      Pass this on to Claude, Codex, Cursor, or any agent. First publish
-      needs one human click; after that, the agent owns it.
+    <button class="copy-cta" id="copyPrompt" data-copy="${escapeAttr(AGENT_PROMPT)}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="square"><rect x="8" y="8" width="11" height="11"/><path d="M5 14V5h9"/></svg>
+      <span class="lbl">Copy prompt</span>
+    </button>
+
+    <p class="prompt-aftermath">
+      First publish needs one human click; after that, the agent owns it.
     </p>
   </section>
 
