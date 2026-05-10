@@ -1,0 +1,68 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+# Cancel superseded PR runs but never cancel a main deploy mid-flight.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      # ───── main → production ───────────────────────────────────────
+      - name: Deploy to production
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        id: prod
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          command: deploy
+
+      # ───── PR → versioned preview ──────────────────────────────────
+      # `versions upload` ships a new version of the existing Worker
+      # without changing the live deployment. Cloudflare returns a
+      # unique workers.dev preview URL for that version.
+      - name: Upload preview version
+        if: github.event_name == 'pull_request'
+        id: preview
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          command: versions upload --message "PR #${{ github.event.pull_request.number }} — ${{ github.event.pull_request.head.sha }}"
+
+      - name: Comment preview URL on PR
+        if: github.event_name == 'pull_request' && steps.preview.outputs.deployment-url
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: cf-preview
+          message: |
+            ### 🚀 Cloudflare preview
+
+            **URL:** ${{ steps.preview.outputs.deployment-url }}
+
+            Built from commit `${{ github.event.pull_request.head.sha }}`.
+
+            > Note: bindings (D1, KV, AI) are shared with production.
+            > Avoid destructive PR tests on real data.

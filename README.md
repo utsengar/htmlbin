@@ -65,6 +65,27 @@ npm run deploy
 Custom domain: in the Cloudflare dashboard, attach `htmlbin.dev` to the
 Worker, then uncomment the `routes` block in `wrangler.toml`.
 
+### Continuous deploy (GitHub Actions)
+
+`.github/workflows/deploy.yml` ships every push to `main` and posts a
+versioned preview URL on each PR.
+
+One-time setup:
+
+1. Create a Cloudflare API token with **"Edit Cloudflare Workers"**
+   template scope: <https://dash.cloudflare.com/profile/api-tokens>.
+2. In GitHub: repo → Settings → Secrets and variables → Actions →
+   `New repository secret` → name `CLOUDFLARE_API_TOKEN`, paste the
+   token value.
+
+That's it. PRs automatically get a Cloudflare preview URL commented
+back; merges to `main` deploy to production.
+
+> Bindings (D1, KV, AI) are shared between previews and production.
+> Add an `[env.preview]` block in `wrangler.toml` with separate IDs if
+> you want isolated preview data — see
+> <https://developers.cloudflare.com/workers/wrangler/environments/>.
+
 ## API
 
 ### Discovery (no auth)
