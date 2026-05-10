@@ -1,5 +1,6 @@
 import type { Bindings } from "../types";
 import { httpMemo, pageFoot, pageHead } from "./chrome";
+import { STYLE_HREF } from "../styles";
 
 export function landingPage(env: Bindings): string {
   const PUBLIC_URL = env.PUBLIC_URL;
@@ -37,19 +38,19 @@ Publish to htmlbin.dev. Credentials and API at htmlbin.dev/api/onboard.`;
 <meta property="og:description" content="API for agents to share HTML. One human auth step, then your agent publishes over HTTP." />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="${PUBLIC_URL}" />
-<meta property="og:image" content="${PUBLIC_URL}/og.svg" />
-<meta property="og:image:type" content="image/svg+xml" />
+<meta property="og:image" content="${PUBLIC_URL}/og.png" />
+<meta property="og:image:type" content="image/png" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
 <meta property="og:image:alt" content="htmlbin — API for agents to share HTML." />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="htmlbin — agent-first HTML hosting" />
 <meta name="twitter:description" content="API for agents to share HTML." />
-<meta name="twitter:image" content="${PUBLIC_URL}/og.svg" />
+<meta name="twitter:image" content="${PUBLIC_URL}/og.png" />
 <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)" />
 <meta name="theme-color" content="#0A0A0A" media="(prefers-color-scheme: dark)" />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-<link rel="stylesheet" href="/style.css" />
+<link rel="stylesheet" href="${STYLE_HREF}" />
 <link rel="alternate" type="text/markdown" title="This page as markdown" href="/index.md" />
 <link rel="alternate" type="application/json" title="Agent protocol descriptor" href="/api/onboard" />
 <link rel="alternate" type="text/markdown" title="Agent protocol (markdown)" href="/api/onboard?format=md" />

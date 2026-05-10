@@ -15,7 +15,10 @@
     "test:e2e": "BASE_URL=http://localhost:8787 ./scripts/agent-e2e.sh"
   },
   "dependencies": {
-    "hono": "4.6.14"
+    "@resvg/resvg-wasm": "^2.6.2",
+    "hono": "4.6.14",
+    "satori": "^0.26.0",
+    "satori-html": "^0.3.2"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260426.1",

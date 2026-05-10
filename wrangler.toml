@@ -40,3 +40,12 @@ database_id = "63632af3-b786-422b-87bd-bf6e13399ec9"
 # https://blog.cloudflare.com/markdown-for-agents/
 [ai]
 binding = "AI"
+
+# Satori + resvg-wasm: dynamic PNG OG image rendering. The wasm import
+# from @resvg/resvg-wasm is a binary asset; CompiledWasm tells wrangler
+# to ship it as a WebAssembly.Module ready for instantiation.
+[[rules]]
+type = "CompiledWasm"
+globs = ["**/*.wasm"]
+fallthrough = true
+

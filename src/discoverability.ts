@@ -96,6 +96,8 @@ anti-bot click → token (one-time read) → POST your HTML.
 - ${publicUrl}/api/onboard                   — agent onboarding (markdown)
 - ${publicUrl}/openapi.json                  — full OpenAPI 3.1 spec
 - ${publicUrl}/.well-known/agent-card.json   — compact capability descriptor
+- ${publicUrl}/.well-known/agent-skills/index.json  — Agent Skills Discovery (RFC v0.2.0) index
+- ${publicUrl}/.well-known/api-catalog       — API catalog (RFC 9727, linkset+json)
 - ${publicUrl}/sitemap.xml                   — sitemap
 
 ## API surface
@@ -272,6 +274,8 @@ export function agentCard(publicUrl: string): object {
     spec: {
       openapi: `${publicUrl}/openapi.json`,
       llms_txt: `${publicUrl}/llms.txt`,
+      agent_skills_index: `${publicUrl}/.well-known/agent-skills/index.json`,
+      api_catalog: `${publicUrl}/.well-known/api-catalog`,
     },
     license: "MIT",
   };
@@ -628,6 +632,8 @@ export function linkHeader(publicUrl: string): string {
     `<${host}/api/onboard>; rel="describedby"; type="text/markdown"; title="agent onboarding"`,
     `<${host}/openapi.json>; rel="service-desc"; type="application/openapi+json"`,
     `<${host}/.well-known/agent-card.json>; rel="https://agentprotocol.org/agent-card"; type="application/json"`,
+    `<${host}/.well-known/agent-skills/index.json>; rel="https://agentskills.io/discovery"; type="application/json"; title="Agent Skills Discovery"`,
+    `<${host}/.well-known/api-catalog>; rel="api-catalog"; type="application/linkset+json"`,
     `<${host}/llms.txt>; rel="alternate"; type="text/plain"; title="llms.txt"`,
     `<${host}/sitemap.xml>; rel="sitemap"; type="application/xml"`,
   ].join(", ");
