@@ -186,6 +186,18 @@ apiRoutes.post("/drops", async (c) => {
     | null;
   if (!body) return apiError(c, "invalid_json", "Request body must be JSON.", 400);
 
+  const badTypes = nonStringFields(body as Record<string, unknown>, [
+    "title", "description", "html", "password", "context",
+  ]);
+  if (badTypes.length > 0)
+    return apiError(
+      c,
+      "invalid_arg",
+      `These fields must be strings: ${badTypes.join(", ")}.`,
+      400,
+      { fields: badTypes }
+    );
+
   const valid = validateCreateBody(body);
   if (valid.error)
     return apiError(c, valid.error.code, valid.error.message, 400, valid.error.details);
@@ -253,7 +265,7 @@ apiRoutes.put("/drops/:slug", async (c) => {
   const user = c.get("user");
   const slug = c.req.param("slug");
   if (!isValidSlug(slug))
-    return apiError(c, "invalid_slug", "Slug must be 7 base62 chars.", 400);
+    return apiError(c, "invalid_slug", "Slug must be 6–12 base62 chars.", 400);
 
   const writeRl = await rateLimit(c.env.DB, `write:${user.id}`, 60, 60_000);
   if (!writeRl.ok) {
@@ -285,6 +297,18 @@ apiRoutes.put("/drops/:slug", async (c) => {
     | { title?: string; description?: string; html?: string; context?: string }
     | null;
   if (!body) return apiError(c, "invalid_json", "Request body must be JSON.", 400);
+
+  const badTypes = nonStringFields(body as Record<string, unknown>, [
+    "title", "description", "html", "context",
+  ]);
+  if (badTypes.length > 0)
+    return apiError(
+      c,
+      "invalid_arg",
+      `These fields must be strings: ${badTypes.join(", ")}.`,
+      400,
+      { fields: badTypes }
+    );
 
   // PUT minted a new version; html is required. Metadata-only updates use PATCH.
   if (body.html === undefined || body.html === "")
@@ -356,7 +380,7 @@ apiRoutes.patch("/drops/:slug", async (c) => {
   const user = c.get("user");
   const slug = c.req.param("slug");
   if (!isValidSlug(slug))
-    return apiError(c, "invalid_slug", "Slug must be 7 base62 chars.", 400);
+    return apiError(c, "invalid_slug", "Slug must be 6–12 base62 chars.", 400);
 
   const drop = await getDrop(c.env.DB, slug);
   if (!drop) return apiError(c, "not_found", "No such drop.", 404);
@@ -367,6 +391,18 @@ apiRoutes.patch("/drops/:slug", async (c) => {
     | { title?: string; description?: string; html?: string }
     | null;
   if (!body) return apiError(c, "invalid_json", "Request body must be JSON.", 400);
+
+  const badTypes = nonStringFields(body as Record<string, unknown>, [
+    "title", "description", "html",
+  ]);
+  if (badTypes.length > 0)
+    return apiError(
+      c,
+      "invalid_arg",
+      `These fields must be strings: ${badTypes.join(", ")}.`,
+      400,
+      { fields: badTypes }
+    );
 
   if (body.html !== undefined)
     return apiError(
@@ -414,7 +450,7 @@ apiRoutes.on(["GET", "HEAD"], "/drops/:slug", async (c) => {
   const user = c.get("user");
   const slug = c.req.param("slug");
   if (!isValidSlug(slug))
-    return apiError(c, "invalid_slug", "Slug must be 7 base62 chars.", 400);
+    return apiError(c, "invalid_slug", "Slug must be 6–12 base62 chars.", 400);
 
   const drop = await getDrop(c.env.DB, slug);
   if (!drop) return apiError(c, "not_found", "No such drop.", 404);
@@ -431,7 +467,7 @@ apiRoutes.on(["GET", "HEAD"], "/drops/:slug/versions", async (c) => {
   const user = c.get("user");
   const slug = c.req.param("slug");
   if (!isValidSlug(slug))
-    return apiError(c, "invalid_slug", "Slug must be 7 base62 chars.", 400);
+    return apiError(c, "invalid_slug", "Slug must be 6–12 base62 chars.", 400);
   const drop = await getDrop(c.env.DB, slug);
   if (!drop) return apiError(c, "not_found", "No such drop.", 404);
   if (drop.user_id !== user.id)
@@ -532,7 +568,7 @@ apiRoutes.delete("/drops/:slug", async (c) => {
   const user = c.get("user");
   const slug = c.req.param("slug");
   if (!isValidSlug(slug))
-    return apiError(c, "invalid_slug", "Slug must be 7 base62 chars.", 400);
+    return apiError(c, "invalid_slug", "Slug must be 6–12 base62 chars.", 400);
 
   const drop = await getDrop(c.env.DB, slug);
   if (!drop) return apiError(c, "not_found", "No such drop.", 404);
@@ -561,7 +597,7 @@ apiRoutes.post("/drops/:slug/password", async (c) => {
   const user = c.get("user");
   const slug = c.req.param("slug");
   if (!isValidSlug(slug))
-    return apiError(c, "invalid_slug", "Slug must be 7 base62 chars.", 400);
+    return apiError(c, "invalid_slug", "Slug must be 6–12 base62 chars.", 400);
   const drop = await getDrop(c.env.DB, slug);
   if (!drop) return apiError(c, "not_found", "No such drop.", 404);
   if (drop.user_id !== user.id)
@@ -605,6 +641,20 @@ apiRoutes.post("/drops/:slug/password", async (c) => {
 // ───────────────────────────────────────────────────────────────────────
 // Helpers
 // ───────────────────────────────────────────────────────────────────────
+
+// Defensive runtime check at JSON-body boundaries: JSON.parse will happily
+// produce arrays / objects / numbers where the TS annotation says
+// `string?`, so we must check before calling .trim() or .length on what
+// arrives. Returns the field names that are present but non-string.
+function nonStringFields(
+  body: Record<string, unknown>,
+  fields: readonly string[]
+): string[] {
+  return fields.filter(
+    (f) =>
+      body[f] !== undefined && body[f] !== null && typeof body[f] !== "string"
+  );
+}
 
 // Canonical Drop JSON shape — every mutating + read endpoint returns this.
 function serializeDrop(d: Drop, publicUrl: string) {

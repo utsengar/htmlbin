@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@resvg/resvg-wasm": "^2.6.2",
-    "hono": "4.6.14",
+    "hono": "^4.12.18",
     "satori": "^0.26.0",
     "satori-html": "^0.3.2"
   },

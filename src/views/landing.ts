@@ -18,7 +18,7 @@ const EXAMPLES: Array<{ slug: string; caption: string }> = [
 // One real, end-to-end path is better than two cosmetic ones — this
 // prompt produces a visible artifact the human can paste, run, and
 // click through.
-const AGENT_PROMPT = `Make a delightful HTML page — show me what HTML can do that markdown or a flat file can't. Something visual, interactive, alive.
+const AGENT_PROMPT = `Make a delightful HTML page to explain a concept or a problem — show me what HTML can do that markdown or a flat file can't. Something visual, interactive, alive.
 
 Publish to htmlbin.dev. Credentials and API at htmlbin.dev/api/onboard.`;
 
@@ -72,7 +72,12 @@ export function landingPage(env: Bindings): string {
 <link rel="alternate" type="text/markdown" title="Agent protocol (markdown)" href="/api/onboard?format=md" />
 <link rel="alternate" type="application/json" title="OpenAPI spec" href="/openapi.json" />
 <link rel="alternate" type="text/plain" title="llms.txt" href="/llms.txt" />
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<!-- Self-hosted Geist + Geist Mono. @font-face declarations are in
+     /style.css; we preload the weights that the hero + memo render
+     in so the LCP element isn't waiting on a font fetch. -->
+<link rel="preload" as="font" type="font/woff2" href="/fonts/Geist-700.woff2" crossorigin="anonymous" />
+<link rel="preload" as="font" type="font/woff2" href="/fonts/Geist-400.woff2" crossorigin="anonymous" />
+<link rel="preload" as="font" type="font/woff2" href="/fonts/GeistMono-500.woff2" crossorigin="anonymous" />
 <script type="application/ld+json">${jsonLd}</script>
 </head>
 <body>
@@ -114,7 +119,7 @@ ${pageHead({ verb: "GET", path: "/" })}
         <span class="prompt-mark" aria-hidden="true">claude</span>
       </div>
       <div class="prompt-body">
-<pre>Make a delightful HTML page — show me what HTML can do that markdown or a flat file can't. Something visual, interactive, alive.
+<pre>Make a delightful HTML page to explain a concept or a problem — show me what HTML can do that markdown or a flat file can't. Something visual, interactive, alive.
 
 Publish to <span class="em">htmlbin.dev</span>. Credentials and API at <span class="em">htmlbin.dev/api/onboard</span>.</pre>
       </div>

@@ -54,3 +54,11 @@ type = "CompiledWasm"
 globs = ["**/*.wasm"]
 fallthrough = true
 
+# Self-hosted Geist + Geist Mono fonts.
+#
+# We don't import the woff2 files directly — wrangler 4 + ES module Workers
+# does not reliably honor [[rules]] type="Data" for imports outside src/.
+# Instead, the woff2 bytes are base64-inlined into src/fonts-data.ts by
+# scripts/build-fonts.mjs (regenerate after dropping new files into
+# assets/fonts/). src/fonts.ts decodes once at cold start.
+

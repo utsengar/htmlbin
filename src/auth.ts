@@ -71,6 +71,20 @@ authRoutes.get("/auth/poll", async (c) => {
   if (!token)
     return apiError(c, "token_required", "Query parameter `token` is required.", 400);
 
+  // 60/min per poll_token. The token is high-entropy so brute-forcing isn't
+  // feasible — this just caps a misbehaving agent polling in a tight loop.
+  const rl = await rateLimit(c.env.DB, `auth:poll:${token}`, 60, 60_000);
+  if (!rl.ok) {
+    c.header("Retry-After", String(rl.retryAfter));
+    return apiError(
+      c,
+      "rate_limited",
+      "Poll rate exceeded. Respect poll_interval.",
+      429,
+      { retry_after_seconds: rl.retryAfter }
+    );
+  }
+
   const row = await c.env.DB.prepare(
     `SELECT code, status, user_id, api_token, expires_at
        FROM verifications WHERE poll_token = ?`

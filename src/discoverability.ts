@@ -284,6 +284,11 @@ export function agentCard(publicUrl: string): object {
         "All 4xx/5xx responses use this shape. Rate-limited responses (429) additionally carry a Retry-After header.",
     },
     naming_convention: "snake_case",
+    cors: {
+      posture: "deny",
+      note:
+        "No CORS headers are set. Browser cross-origin XHR will fail by design. htmlbin is an agent-side API; call it from CLI / server-side / agent runtimes, not from arbitrary third-party web pages.",
+    },
     versioning: {
       semantics:
         "Every PUT with a new html body increments the version. Slug + URL stay stable.",

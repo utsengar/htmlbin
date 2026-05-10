@@ -31,6 +31,12 @@ jobs:
       - name: Type check
         run: npm run typecheck
 
+      # Fail the build on any high-or-critical runtime dependency
+      # vulnerability. Dev-only deps don't ship to the Worker so they
+      # don't gate the build.
+      - name: Audit dependencies
+        run: npm audit --omit=dev --audit-level=high
+
       # ───── main → production ───────────────────────────────────────
       - name: Deploy to production
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
