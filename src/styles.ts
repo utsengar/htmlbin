@@ -282,13 +282,14 @@ code, .mono {
   .hero p  { font-size: 18px; }
 }
 
-/* ---------- prompt tabbed-card ----------
-   Two-tab terminal-shaped card. Title bar has the three traffic-light
-   dots on the left and a tab pair on the right (no centered label —
-   the iterm2 wordmark is retired). Body holds two <pre> panes; only
-   one is visible. Inline copy icon top-right of the body. The card
-   itself has no internal hairline — title bar and body share the
-   surface so it reads as one continuous black slab. */
+/* ---------- prompt block ----------
+   Dark single-pane terminal-shaped card. Title bar has three
+   traffic-light dots on the left and a static "claude" pill on the
+   right (visual context indicator, not interactive). Body holds the
+   single agent prompt. Below the card sits the big red Copy prompt
+   CTA — the most discoverable action on the page. The card has no
+   internal hairline; title bar and body share the same surface so
+   the card reads as one continuous black slab. */
 .prompt-cue {
   font: 500 12.5px/1.2 var(--mono);
   color: var(--ink-soft);
@@ -317,35 +318,17 @@ code, .mono {
 .prompt-chrome .dot.r { background: #FF5F57; }
 .prompt-chrome .dot.y { background: #FEBC2E; }
 .prompt-chrome .dot.g { background: #28C840; }
-.prompt-tabs {
-  display: inline-flex; gap: 2px;
-  background: rgba(255,255,255,0.04);
-  border-radius: 7px;
-  padding: 2px;
-}
-.prompt-tabs button {
+.prompt-mark {
   font: 500 12px/1 var(--mono);
   letter-spacing: 0.02em;
   padding: 5px 11px;
   border-radius: 5px;
-  background: transparent;
-  color: var(--code-dim);
-  border: 0;
-  cursor: pointer;
-  transition: background 0.12s, color 0.12s;
-}
-.prompt-tabs button:hover { color: var(--code-fg); }
-.prompt-tabs button[aria-selected="true"] {
   background: rgba(255,255,255,0.10);
   color: var(--code-fg);
-}
-.prompt-tabs button:focus-visible {
-  outline: 1px dashed var(--code-em);
-  outline-offset: 2px;
+  user-select: none;
 }
 .prompt-body {
-  position: relative;
-  padding: 18px 56px 22px 22px;
+  padding: 18px 22px 22px;
 }
 .prompt-body pre {
   font-family: var(--mono);
@@ -356,22 +339,27 @@ code, .mono {
   white-space: pre-wrap;
   word-break: break-word;
 }
-.prompt-body pre[hidden] { display: none; }
 .prompt-body pre .em { color: var(--code-em); }
-.prompt-copy {
-  position: absolute;
-  top: 14px; right: 14px;
-  width: 28px; height: 28px;
-  display: inline-flex; align-items: center; justify-content: center;
-  border-radius: 6px; border: 0; cursor: pointer;
-  background: transparent;
-  color: var(--code-dim);
-  transition: background 0.12s, color 0.12s;
+
+.copy-cta {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--red);
+  color: #fff;
+  border: none;
+  padding: 11px 18px;
+  font: 600 13px/1 var(--mono);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-radius: 6px;
+  cursor: pointer;
+  margin: 0 0 18px;
+  transition: background 0.12s, transform 0.04s;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.04), 0 6px 16px -10px rgba(225, 29, 44, 0.55);
 }
-.prompt-copy:hover { background: rgba(255,255,255,0.08); color: var(--code-fg); }
-.prompt-copy.ok { color: #4ade80; }
-.prompt-copy svg { width: 16px; height: 16px; display: block; }
-.prompt-copy svg[hidden] { display: none; }
+.copy-cta:hover { background: #C8101F; }
+.copy-cta:active { transform: translateY(1px); }
+.copy-cta.ok { background: #1F8A3A; }
+.copy-cta svg { width: 13px; height: 13px; }
 
 .prompt-aftermath {
   color: var(--ink-soft);

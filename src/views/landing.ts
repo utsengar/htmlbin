@@ -12,11 +12,15 @@ const EXAMPLES: Array<{ slug: string; caption: string }> = [
   { slug: "i2taphP", caption: "google logo — animation playground" },
 ];
 
-// Two prompt payloads, one per tab. Mirrors the paperclip reference
-// the user shared: short, paste-and-go strings instead of prose.
-const PROMPT_NPM = `$ npx htmlbin onboard --yes`;
-const PROMPT_CLAUDE = `Please publish to htmlbin
-https://htmlbin.dev/llms.txt`;
+// The single prompt payload. We deliberately don't show alternative
+// "tabs" — an `npx htmlbin` command would advertise a CLI we don't
+// ship, and a `curl …` line gets flagged as unsafe by careful agents.
+// One real, end-to-end path is better than two cosmetic ones — this
+// prompt produces a visible artifact the human can paste, run, and
+// click through.
+const AGENT_PROMPT = `Make a delightful HTML page — show me what HTML can do that markdown or a flat file can't. Something visual, interactive, alive.
+
+Publish to htmlbin.dev. Credentials and API at htmlbin.dev/api/onboard.`;
 
 export function landingPage(env: Bindings): string {
   const PUBLIC_URL = env.PUBLIC_URL;
@@ -107,20 +111,19 @@ ${pageHead({ verb: "GET", path: "/" })}
         <span class="dots" aria-hidden="true">
           <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
         </span>
-        <div class="prompt-tabs" role="tablist" aria-label="Onboarding method">
-          <button role="tab" aria-selected="true"  data-tab="npm"    id="tab-npm">npm</button>
-          <button role="tab" aria-selected="false" data-tab="claude" id="tab-claude">claude</button>
-        </div>
+        <span class="prompt-mark" aria-hidden="true">claude</span>
       </div>
       <div class="prompt-body">
-<pre data-pane="npm" id="pane-npm" role="tabpanel" aria-labelledby="tab-npm">${escapeText(PROMPT_NPM)}</pre>
-<pre data-pane="claude" id="pane-claude" role="tabpanel" aria-labelledby="tab-claude" hidden>${escapeText(PROMPT_CLAUDE)}</pre>
-        <button class="prompt-copy" id="copyPrompt" type="button" aria-label="Copy prompt" title="Copy">
-          <svg class="ico-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>
-          <svg class="ico-ok" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><path d="M5 12.5l4.5 4.5L19 7"/></svg>
-        </button>
+<pre>Make a delightful HTML page — show me what HTML can do that markdown or a flat file can't. Something visual, interactive, alive.
+
+Publish to <span class="em">htmlbin.dev</span>. Credentials and API at <span class="em">htmlbin.dev/api/onboard</span>.</pre>
       </div>
     </div>
+
+    <button class="copy-cta" id="copyPrompt" type="button" data-copy="${escapeAttr(AGENT_PROMPT)}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="square" aria-hidden="true"><rect x="8" y="8" width="11" height="11"/><path d="M5 14V5h9"/></svg>
+      <span class="lbl">Copy prompt</span>
+    </button>
 
     <p class="prompt-aftermath">
       First publish needs one human click; after that, the agent owns it.
@@ -149,55 +152,18 @@ ${pageFoot(HOST)}
 
 <script>
 (function () {
-  // Tab switching for the prompt block. ←/→ moves focus, click activates.
-  // Last-picked tab is remembered per-browser via localStorage.
-  var TABS = document.querySelectorAll('.prompt-tabs button');
-  var PANES = document.querySelectorAll('.prompt-body pre');
-  if (!TABS.length || !PANES.length) return;
-
-  function activate(name) {
-    TABS.forEach(function (b) {
-      b.setAttribute('aria-selected', String(b.dataset.tab === name));
-    });
-    PANES.forEach(function (p) {
-      if (p.dataset.pane === name) p.removeAttribute('hidden');
-      else p.setAttribute('hidden', '');
-    });
-    try { localStorage.setItem('htmlbin:promptTab', name); } catch (e) {}
-  }
-  var remembered = null;
-  try { remembered = localStorage.getItem('htmlbin:promptTab'); } catch (e) {}
-  if (remembered === 'npm' || remembered === 'claude') activate(remembered);
-
-  TABS.forEach(function (b, i) {
-    b.addEventListener('click', function () { activate(b.dataset.tab); });
-    b.addEventListener('keydown', function (e) {
-      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-      e.preventDefault();
-      var next = TABS[(i + (e.key === 'ArrowRight' ? 1 : TABS.length - 1)) % TABS.length];
-      next.focus();
-      activate(next.dataset.tab);
-    });
-  });
-
-  // Inline copy icon. Copies whichever pane is currently visible.
   var btn = document.getElementById('copyPrompt');
   if (!btn) return;
-  var ico = btn.querySelector('.ico-copy');
-  var ok  = btn.querySelector('.ico-ok');
+  var lbl = btn.querySelector('.lbl');
+  var original = lbl ? lbl.textContent : 'Copy prompt';
   btn.addEventListener('click', async function () {
-    var visible;
-    PANES.forEach(function (p) { if (!p.hasAttribute('hidden')) visible = p; });
-    if (!visible) return;
     try {
-      await navigator.clipboard.writeText(visible.innerText);
+      await navigator.clipboard.writeText(btn.dataset.copy || '');
       btn.classList.add('ok');
-      if (ico) ico.setAttribute('hidden', '');
-      if (ok)  ok.removeAttribute('hidden');
+      if (lbl) lbl.textContent = 'Copied';
       setTimeout(function () {
         btn.classList.remove('ok');
-        if (ico) ico.removeAttribute('hidden');
-        if (ok)  ok.setAttribute('hidden', '');
+        if (lbl) lbl.textContent = original;
       }, 1600);
     } catch (e) {}
   });
@@ -214,6 +180,14 @@ function stripScheme(url: string): string {
 function escapeText(s: string): string {
   return s
     .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function escapeAttr(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
 }

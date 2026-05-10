@@ -164,39 +164,36 @@ it. **Don't** add a third row of marketing prose between them.
 
 ### 5.3 Prompt block (`.prompt`)
 
-Dark code card holding the prompt the human pastes into their agent.
-Two-tab layout (`npm` / `claude`) with an inline copy icon. Switching
-tabs swaps the body; the copy button copies whichever pane is visible.
-This is a deliberate exception to the "no fake mac chrome" rule (5.4);
-it earns its keep because the prompt block is the single most important
-clickable surface on the landing page and needs to stand out. Modeled
-loosely on the paperclip onboarding card.
+Dark single-pane card holding the prompt the human pastes into their
+agent. This is a deliberate exception to the "no fake mac chrome"
+rule (5.4); it earns its keep because the prompt block is the single
+most important clickable surface on the landing page and needs to
+stand out. The visual rhythm (dots on the left, pill on the right)
+is borrowed loosely from the paperclip onboarding card; the *content*
+is a single real prompt — we deliberately don't fake a CLI we don't
+ship or a `curl` command that careful agents flag as unsafe.
 
 - Background `--code-bg` (`#0A0A0A`), 14px border-radius, soft shadow
 - Title bar (`.prompt-chrome`):
   - Three traffic-light dots on the left (red `#FF5F57`, yellow
     `#FEBC2E`, green `#28C840`) — small (11px), purely decorative
-  - Tab pair on the right (`.prompt-tabs`): two `<button role="tab">`
-    elements (`npm`, `claude`). Active tab is a soft pill
-    (`rgba(255,255,255,0.10)` background, `--code-fg` text); inactive
-    is `--code-dim`. The earlier centered `iterm2` title is retired.
+  - Static `claude` pill on the right (`.prompt-mark`): mono, soft
+    white-on-dark. Visual context indicator only — not a tab, not
+    interactive. Tells the human "this is meant for an agent." The
+    earlier centered `iterm2` title is retired.
   - **No** hairline beneath the title bar — title and body share the
-    same surface
-- Body (`.prompt-body`): two `<pre data-pane>` blocks; only one is
-  visible at a time (the inactive one carries `hidden`). 13.5px mono,
-  `--code-fg`, 22px padding (right padding 56px to clear the copy
-  icon).
-- Inline copy icon (`.prompt-copy`): 28×28 ghost button, top-right of
-  the body. 16×16 SVG. "Copied" state swaps the clipboard glyph for a
-  green check for 1.6s.
+    same surface so the card reads as one continuous slab
+- Body (`.prompt-body`): single `<pre>` with the prompt. 13.5px mono,
+  `--code-fg`, 22px padding.
+- CTA button **below** the block (`.copy-cta`):
+  - Solid red (`--red`), white text, 13px mono uppercase
+  - Label `Copy prompt`, with the copy/clipboard SVG
+  - "Copied" state goes solid green
 - Cue line **above** the block (`.prompt-cue`): muted mono, short:
-  `↓ paste into your agent` (the tab labels say which agent).
-- Aftermath line **below** (`.prompt-aftermath`): explains what
-  happens after copying. Muted regular sans.
+  `↓ paste into your agent`.
+- Aftermath line **below** the CTA (`.prompt-aftermath`): explains
+  what happens after copying. Muted regular sans.
 - Emphasis text in `--code-em`.
-- The active tab is persisted to `localStorage` under
-  `htmlbin:promptTab`; default is `npm`. Keyboard ←/→ moves focus
-  between tabs (standard tablist behavior).
 
 ### 5.4 Body prose (`.body`)
 
@@ -262,11 +259,13 @@ hairlines normally would.
                                                                        
    ↓ paste into your agent                                             
    ┌──────────────────────────────────────────────────────┐             
-   │  ●●●                              [ npm ] [ claude ] │             
+   │  ●●●                                       [ claude ]│             
    │                                                      │             
-   │  $ npx htmlbin onboard --yes                     [⧉] │             
+   │  Please publish to htmlbin                           │             
+   │  https://htmlbin.dev/llms.txt                        │             
    │                                                      │             
    └──────────────────────────────────────────────────────┘             
+   [ Copy prompt ]   ◀ red CTA, mono uppercase                         
                                                                        
    First publish needs one human click; after that, the agent owns it. 
                                                                        
