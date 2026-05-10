@@ -95,12 +95,15 @@ back; merges to `main` deploy to production.
 | `GET /api/onboard` | JSON protocol descriptor (default). `Accept: text/markdown` or `?format=md` returns the same protocol as a markdown walkthrough. |
 | `GET /openapi.json` | OpenAPI 3.1 spec |
 | `GET /.well-known/agent-card.json` | Compact capability descriptor |
+| `GET /.well-known/agent-skills/index.json` | [Agent Skills Discovery](https://github.com/cloudflare/agent-skills-discovery-rfc) RFC v0.2.0 index (entry skill: `htmlbin/SKILL.md`) |
+| `GET /.well-known/api-catalog` | [RFC 9727](https://www.rfc-editor.org/rfc/rfc9727) `linkset+json` |
 | `GET /llms.txt` | [llmstxt.org](https://llmstxt.org)-style site index |
 | `GET /robots.txt` | Explicit allow-list of GPT/Claude/Perplexity bots |
 | `GET /sitemap.xml` | Sitemap |
 | `GET /index.md` | Landing rendered as Markdown via Workers AI (`Accept: text/markdown` on `/` works too) |
 | `GET /favicon.svg` | Single source-of-truth favicon (auto-adapts to light/dark) |
-| `GET /og.svg` | Open Graph card image, 1200×630 |
+| `GET /og.png`, `GET /og.svg` | Open Graph card for the landing, 1200×630. PNG is what unfurlers consume; SVG is the lightweight fallback. |
+| `GET /p/:id/og.png`, `GET /p/:id/og.svg` | Per-drop OG card (title-focused). Same PNG/SVG split. |
 
 The landing page also sets a `Link:` HTTP header advertising all of the above.
 
@@ -165,20 +168,28 @@ src/
   index.ts          ─ Hono app: routes + chrome
   auth.ts           ─ device-code flow + Bearer middleware
   drops.ts          ─ /api/drops CRUD with versioning
-  onboard.ts        ─ /api/onboard markdown
+  onboard.ts        ─ /api/onboard JSON descriptor + markdown walkthrough
+  skill.ts          ─ /.well-known/agent-skills/* (RFC v0.2.0)
   crypto.ts         ─ Web Crypto wrappers (PBKDF2, HMAC)
   slug.ts           ─ short alphanumeric id generator
   db.ts             ─ D1 helpers + rate limiter
-  discoverability.ts─ robots.txt, llms.txt, sitemap, agent-card, openapi
-  styles.ts         ─ shared CSS (served at /style.css)
+  discoverability.ts─ robots.txt, llms.txt, sitemap, agent-card, openapi, api-catalog
+  styles.ts         ─ shared CSS + STYLE_HREF (auto-bumping cache buster)
   types.ts          ─ shared types
   views/
     chrome.ts       ─ shared top bar, footer, HTTP-memo card
+    favicon.ts      ─ inline SVG favicon
+    og-image.ts     ─ inline SVG OG card (fallback / per-tab source)
+    og-png.ts       ─ satori + resvg-wasm PNG renderer (1200×630)
     landing.ts      ─ /
     verify.ts       ─ /verify
     viewer.ts       ─ /p/:id + password gate (with version switcher)
+skills/htmlbin/
+  SKILL.md          ─ human-browsable mirror of src/skill.ts
+.github/workflows/
+  deploy.yml        ─ production deploy on main, versioned preview on PR
 schema.sql          ─ D1 schema
-wrangler.toml       ─ Cloudflare config
+wrangler.toml       ─ Cloudflare config (incl. [[rules]] CompiledWasm for OG fonts)
 scripts/
   setup.mjs         ─ one-shot provisioning
   agent-e2e.sh      ─ full functional test
@@ -204,7 +215,9 @@ DB table, URL path, and user-facing copy all align: **drops**.
 Visual system documented in [DESIGN.md](./DESIGN.md). Short version:
 white paper, Geist + Geist Mono, single red accent, HTTP-style memo on
 every page, vim-modeline breadcrumb top bar. **Single source of truth
-is `src/styles.ts`** — edit one file, every page updates.
+is `src/styles.ts`** — edit one file, every page updates. The link is
+content-hashed (`/style.css?v=<hash>`) so the edge cache busts itself
+on every CSS change.
 
 ## Why HTML?
 

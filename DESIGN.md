@@ -1,18 +1,18 @@
-# DESIGN — htmd
+# DESIGN — htmlbin
 
-The visual and tonal system for htmd.sh. One source of truth for typography,
-palette, components, page anatomy, and (just as importantly) what we
-deliberately don't do. Touch [`src/styles.ts`](./src/styles.ts) and every
-page in this app reflects the change.
+The visual and tonal system for htmlbin.dev. One source of truth for
+typography, palette, components, page anatomy, and (just as importantly)
+what we deliberately don't do. Touch [`src/styles.ts`](./src/styles.ts)
+and every page in this app reflects the change.
 
 ---
 
 ## 1. Philosophy
 
-htmd is a **document, not a marketing site**. Every page reads like the
-output of a curl that an agent ran — formal, terse, unembellished. The
-whole product is one paragraph, one URL, and a Bearer token; the design
-should match that economy.
+htmlbin is a **document, not a marketing site**. Every page reads like
+the output of a curl that an agent ran — formal, terse, unembellished.
+The whole product is one paragraph, one URL, and a Bearer token; the
+design should match that economy.
 
 The aesthetic borrows from three places:
 - **Vercel** (geometric sans, sharp hairlines, white-on-white density)
@@ -46,8 +46,10 @@ What we **avoid**:
 - Lede: 19px
 - Inline code: 0.86em (relative)
 - Mono microcopy (headers, footers, labels): 11–13px
-- Headlines: only on `/htmd` (44–52px). The landing page has **no marketing
-  headline** — the HTTP-request memo replaces it.
+- Hero headline on `/`: 40–52px, Geist 700, with `<em>` for the red word.
+  This is the one place the landing page does carry a marketing headline
+  ("API for *agents* to share HTML.") — the HTTP-memo sits above it as
+  the document's first line.
 
 **Letter-spacing:**
 - Tight on big sans (`-0.025em` on h1.title)
@@ -99,7 +101,7 @@ appears sparingly — it's a signal, not a treatment.
 ## 4. The wordmark
 
 ```
-<htmd>
+<htmlbin>
 ```
 
 - Pure mono, weight 500, font-size 13.5px in headers / 14px otherwise
@@ -107,6 +109,9 @@ appears sparingly — it's a signal, not a treatment.
   in `var(--red)` so the brand name itself stays black
 - Favicon is the same mark, drawn as inline SVG with the same red angle
   brackets, so favicons across pages always match the wordmark visually
+- The OG card (`og-png.ts`) reuses the same composition: red-bracket
+  `<htmlbin>` wordmark on white, hairline rule, mono caption — same look
+  whether you're seeing it in a tab, an unfurl, or a share sheet
 - **Never** use a solid filled square logomark — that was an early attempt
   that copied getadb.com too closely
 
@@ -117,9 +122,9 @@ appears sparingly — it's a signal, not a treatment.
 ### 5.1 Top bar (`.page-head`)
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│  <htmd>  ● live · v1                /htmd  /llms.txt  /api/onboard│
-└──────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────┐
+│  <htmlbin>  ● live · v1            /llms.txt  /api/onboard  /openapi│
+└────────────────────────────────────────────────────────────────────┘
 ```
 
 - 12px vertical padding, monospace 12px text
@@ -135,9 +140,9 @@ exactly like the verbose output of `curl -v`, color-coded:
 
 ```
 ▸ GET / HTTP/1.1
-  host:    htmd.sh
+  host:    htmlbin.dev
   to:      any agent reading this
-  from:    htmd <htmd.sh>
+  from:    htmlbin <htmlbin.dev>
   re:      publishing HTML to a public URL
   date:    May 9, 2026
   accept:  text/agent-friendly, text/markdown, application/json
@@ -152,8 +157,10 @@ exactly like the verbose output of `curl -v`, color-coded:
 - The `▸` prefix sits at `left: -22px` (hidden on mobile)
 - The trailing `200 OK` line uses `--green-dot` for the status code
 
-The memo replaces the marketing headline pattern entirely. **No "Drop HTML.
-Get a URL." pitch above it. The memo is the pitch.**
+The memo opens every public page. On `/` the hero headline ("API for
+*agents* to share HTML.") sits *below* the memo — the memo is still the
+first line of the document, the hero is just one short sentence under
+it. **Don't** add a third row of marketing prose between them.
 
 ### 5.3 Prompt block (`.prompt`)
 
@@ -207,24 +214,21 @@ on the landing page and needs to stand out.
 ### 5.6 Footer (`footer.tail`)
 
 Two-column mono row at 11.5px in `--ink-soft`:
-- Left: `htmd v1 · open source · agent-friendly`
-- Right: the host (e.g. `htmd.sh`)
+- Left: `htmlbin v1 · open source · agent-friendly`
+- Right: the host (e.g. `htmlbin.dev`)
 
 Background `--bg-2`, 1px top hairline. **No** "powered by" or implementation
 references. The hosting platform is an implementation detail.
 
-### 5.7 Numbered list (`ol.principles`) and table (`table.types`)
+### 5.7 Hero headline (`section.hero`, landing only)
 
-Used only on `/htmd` (the manifesto). Both lean on hairlines (`--rule-soft`)
-between rows. The number prefix on the principles list is `decimal-leading-zero`
-in red.
+The one place the page carries a marketing-style headline. Sits directly
+under the HTTP-memo, before the prompt block.
 
-### 5.8 Manifesto headlines (`/htmd` only)
-
-- `h1.title` — Geist 700, 36–52px, with `<em>` showing the word in red
-  (still upright, not italic)
-- `h2.section` — mono 12px, uppercase, letter-spaced, in red. Used as
-  section headings throughout the manifesto.
+- `h1` — Geist 700, 40–52px, tight letter-spacing (`-0.025em`)
+- `<em>` inside the headline shows the emphasized word in red, **upright**
+  (never italic — italics belong to serif design languages we avoid)
+- One short subline (`<p>`) beneath, body sans, `--ink-soft`
 
 ---
 
@@ -237,27 +241,32 @@ flows from there. Whitespace + typography do the sectioning work that
 hairlines normally would.
 
 ```
-                                                                    
-   <htmd> / GET / · v1                       /htmd  /api/onboard    
-                                                                    
-   ▸ GET / HTTP/1.1                                                 
-     host:    htmd.sh                                               
-     to:      any agent reading this                                
-     from:    htmd <htmd.sh>                                        
-     re:      publishing HTML to a public URL                       
-     200 OK   content-type: text/html; charset=utf-8                
-                                                                    
-   body prose flows directly from the memo, no rule between them    
-                                                                    
-   ┌─ prompt block (dark) ─────────────────────[Copy]┐              
-   │  monospace …                                     │              
-   └────────────────────────────────────────────────┘              
-                                                                    
-   more body prose                                                  
-                                                                    
-   — htmd            read the thinking · /api/onboard               
-                                                                    
-   htmd v1 · open source · agent-friendly       htmd.sh             
+                                                                       
+   <htmlbin> / GET / · v1            /llms.txt  /api/onboard  /openapi 
+                                                                       
+   ▸ GET / HTTP/1.1                                                    
+     host:    htmlbin.dev                                              
+     to:      any agent reading this                                   
+     from:    htmlbin <htmlbin.dev>                                    
+     re:      publishing HTML to a public URL                          
+     200 OK   content-type: text/html; charset=utf-8                   
+                                                                       
+   API for *agents* to share HTML.   ◀ hero headline (one line, sans)  
+   Agent-native, end to end.         ◀ subline                         
+                                                                       
+   ↓ paste this prompt into Claude, Codex, Cursor, or any agent        
+   ┌─ iterm2 ────────────────────────────────────────────┐             
+   │  ●●●  iterm2                                         │             
+   │  Make a delightful HTML page …                       │             
+   │  Publish to htmlbin.dev. Credentials at /api/onboard │             
+   └──────────────────────────────────────────────────────┘             
+   [ Copy prompt ]   ◀ red CTA, mono uppercase                         
+                                                                       
+   First publish needs one human click; after that, the agent owns it. 
+                                                                       
+   — htmlbin                  agent-card  ·  /api/onboard              
+                                                                       
+   htmlbin v1 · open source · agent-friendly        htmlbin.dev        
 ```
 
 The viewer page (`/p/:slug`) uses a slim variant of this — a single
@@ -294,7 +303,7 @@ the design language.
   address agents through the *whole* memo, not through a sidebar.
 - **No "powered by" / "built on Cloudflare" / "edge:" / impl details
   in user-facing copy.** Status pill says `live · v1`. Footer says
-  `htmd v1 · open source · agent-friendly`. The platform is an
+  `htmlbin v1 · open source · agent-friendly`. The platform is an
   implementation detail.
 - **No headline pattern of the form "Give your agent a [X]"** or
   "No [X]. No [Y]." That's getadb's exact rhythm.
@@ -312,11 +321,19 @@ the design language.
 ## 8. Single source of truth
 
 All styles live in [`src/styles.ts`](./src/styles.ts) and are served from
-`/style.css` with a 5-min edge cache. Every view links to that one file:
+`/style.css` with a 5-min edge cache. Every view links via the
+content-hashed `STYLE_HREF` constant exported from the same file:
 
-```html
-<link rel="stylesheet" href="/style.css" />
+```ts
+import { STYLE_HREF } from "../styles";
+// → /style.css?v=<short-hash-of-the-css-string>
 ```
+
+The hash changes the moment you edit the CSS, so the edge cache busts
+automatically on deploy — no need to hard-refresh, no manual version
+bumps. Every view (landing, verify, viewer) links via `STYLE_HREF`; if
+you ever introduce a new view, **don't** hard-code `/style.css` — import
+the constant.
 
 Per-page overrides are kept inline in their view file and should remain
 *small* (the viewer needs `body { display: flex; flex-direction: column }`
@@ -324,8 +341,7 @@ because of its full-bleed iframe — that's the kind of override we accept).
 
 To restyle the whole product:
 1. Edit `src/styles.ts`
-2. Save — wrangler hot-reloads
-3. Hard-refresh any open tab to bust the 300s edge cache
+2. Save — wrangler hot-reloads, hash bumps automatically
 
 ---
 
@@ -348,9 +364,14 @@ that's the whole vocabulary.
 These exist for agents, not humans. They follow the same minimalism rule
 (no fluff, machine-parseable, content-negotiated where useful):
 
-- `GET /api/onboard` — markdown by default, JSON via `Accept`
+- `GET /api/onboard` — JSON protocol descriptor by default, markdown via
+  `Accept: text/markdown` or `?format=md`
 - `GET /openapi.json` — OpenAPI 3.1 spec
 - `GET /.well-known/agent-card.json` — capability descriptor
+- `GET /.well-known/agent-skills/index.json` — Agent Skills Discovery
+  RFC v0.2.0 index, with `htmlbin/SKILL.md` as the entry skill
+- `GET /.well-known/api-catalog` — RFC 9727 `linkset+json` pointing at
+  the OpenAPI spec and onboard descriptor
 - `GET /llms.txt` — agent-friendly site index ([llmstxt.org](https://llmstxt.org))
 - `GET /robots.txt` — explicit allow-list of GPTBot, ClaudeBot,
   PerplexityBot, etc.
@@ -366,8 +387,13 @@ in the same change. They're a single contract.
 
 Not every aesthetic call has been made. When the moment comes:
 
-- **OG image:** keep the `<htmd>` mark on white with a thin red rule.
-  No screenshots. No photographs.
+- **OG image:** ✅ shipped. `og-png.ts` renders 1200×630 PNGs via
+  satori + resvg-wasm — `<htmlbin>` mark on white with a thin red rule
+  for the landing card; per-drop cards put the title (Geist 700, up to
+  ~120px depending on length) above a mono caption with the slug. KV
+  caches per slug+version (`og-png:<slug>:v<n>`). No screenshots, no
+  photographs. SVG variants stay around as the `?_=svg` fallback and
+  for the redirect when the PNG renderer fails.
 - **Dark mode:** if added, keep the same three-color logic. Background
   near-black, text near-white, red unchanged. **No** auto-switch — agent
   tools render in light mode by default and the memo aesthetic depends

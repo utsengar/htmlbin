@@ -63,12 +63,18 @@ Token prefix is **`hb_`** (short for htmlbin).
 
 White paper, Geist + Geist Mono, single red accent (`#E11D2C`), HTTP-style
 memo at the top of every page, vim-modeline-style breadcrumb in the top
-bar, monochrome dark code blocks with no fake macOS chrome. The HTTP-memo
-is a real `<details open>` so users can collapse it.
+bar, monochrome dark code blocks. **One** deliberate exception to "no
+fake mac chrome": the prompt block on `/` carries an `iterm2` title bar
+with three traffic-light dots — it's the primary CTA and earns the
+visual handle. Everywhere else stays flat. The HTTP-memo is a real
+`<details open>` so users can collapse it.
 
 **Single source of truth:** [`src/styles.ts`](./src/styles.ts) →
-served at `/style.css`. Every page links to it. Touch that file → every
-page updates. Per-page overrides should stay tiny.
+served at `/style.css`. Every view imports `STYLE_HREF` (=
+`/style.css?v=<short-hash>`) from that file — the hash auto-bumps on any
+CSS edit, so the edge cache busts on deploy without a manual version
+change. Per-page overrides should stay tiny. Don't hard-code
+`/style.css` in new views; import the constant.
 
 The full design doc with rationale, components, and don'ts is in
 [DESIGN.md](./DESIGN.md).
@@ -159,6 +165,92 @@ https://blog.cloudflare.com/markdown-for-agents/ for the underlying API.
 User-uploaded drops at `/p/:id` are **not** auto-converted — agents
 own their HTML; the markdown variant is only for our own pages.
 
+## Discoverability surfaces (one contract)
+
+These endpoints exist for agents and crawlers; treat them as a single
+contract — when you add or rename a public surface, update **all** of
+them in the same change so they don't drift:
+
+- `GET /api/onboard` — JSON descriptor (default), markdown via `Accept`
+- `GET /openapi.json` — OpenAPI 3.1 spec
+- `GET /.well-known/agent-card.json` — capability descriptor
+- `GET /.well-known/agent-skills/index.json` — Agent Skills Discovery
+  RFC v0.2.0 index. Entry skill is `htmlbin/SKILL.md`, served from
+  `.well-known/agent-skills/htmlbin/SKILL.md`. Skill content lives in
+  `src/skill.ts` (deployed copy) and `skills/htmlbin/SKILL.md`
+  (human-browsable mirror) — they must stay in sync.
+- `GET /.well-known/api-catalog` — RFC 9727 `linkset+json`
+- `GET /llms.txt` — agent-friendly site index
+- `GET /robots.txt` — explicit allow-list of GPTBot, ClaudeBot,
+  PerplexityBot, etc.
+- `GET /sitemap.xml`
+- `Link:` HTTP header on `/` advertising all of the above
+
+`src/discoverability.ts` is the source of truth for everything except
+the skill (`src/skill.ts`).
+
+## OG card rendering (PNG)
+
+Slack, Twitter, iMessage, and most unfurlers don't render SVG OG cards
+— they need PNG. `src/views/og-png.ts` produces 1200×630 PNGs via
+**satori + resvg-wasm** inside the Worker:
+
+- `GET /og.png` — landing card (red-bracket `<htmlbin>` wordmark)
+- `GET /p/:slug/og.png` — per-drop card (title up top, mono caption
+  with the slug)
+
+WASM gotchas (don't relitigate):
+- Workers block `WebAssembly.compile`. We use `satori/standalone` and
+  call `init(yogaWasmModule)` with a precompiled `WebAssembly.Module`
+  imported via wrangler's `[[rules]] type = "CompiledWasm"` glob. Same
+  trick for `@resvg/resvg-wasm/index_bg.wasm`.
+- `satori-html` was removed because it doesn't decode HTML entities
+  (the `<htmlbin>` wordmark rendered literally as `&lt;htmlbin&gt;`).
+  We build the satori AST directly with small `el/div/span` helpers and
+  real `<` / `>` characters as text children.
+- Geist + Geist Mono are fetched once from jsDelivr `@fontsource/geist`,
+  cached in module memory, then bundled into a single KV blob
+  (`og-fonts:v1`) so cold starts only do the network fetch once per
+  edge node lifetime.
+- Rendered PNGs are KV-cached per slug+version
+  (`og-png:<slug>:v<n>:<rev>`) and per landing
+  (`og-png:landing:v<rev>`). Bump the `:rev` suffix to invalidate.
+- If satori or resvg fail at request time, the route redirects to the
+  SVG variant so social cards never hard-fail. `?debug=1` on the route
+  surfaces the underlying error.
+
+`og-image.ts` (SVG) and `og-png.ts` are **both** in tree on purpose:
+the SVG is the lightweight fallback + per-tab rendering source; the
+PNG is what social platforms actually consume.
+
+## Viewer page title format
+
+`src/views/viewer.ts` formats `<title>` and `og:title` as:
+
+```
+<drop title, truncated to 15 words> - <slug> - htmlbin.dev
+```
+
+`truncateWords()` adds `…` if the title was longer. Both `<title>` and
+`og:title` use the same string so the unfurled card matches the tab.
+
+## CI / continuous deploy
+
+`.github/workflows/deploy.yml` runs on every push to `main` and on
+every PR:
+
+- **Push to `main`** — type-check, then `wrangler deploy` to production
+- **PR** — type-check, then `wrangler versions upload` + a comment
+  on the PR with the versioned preview URL
+
+Concurrency cancels superseded PR runs but never cancels a mid-flight
+`main` deploy. The only secret needed in GitHub is
+`CLOUDFLARE_API_TOKEN` (template "Edit Cloudflare Workers"). Worker
+secrets (`TOKEN_PEPPER`, `TURNSTILE_SECRET_KEY`) are managed via
+`wrangler secret put`, not GitHub Actions; they're shared between the
+production deployment and preview versions because they live on the
+same Worker.
+
 ## Local dev gotchas
 
 - **Turnstile test secret.** `.dev.vars` uses Cloudflare's published
@@ -171,8 +263,12 @@ own their HTML; the markdown variant is only for our own pages.
 - **Token prefix is `hb_`.** If you change it, update both
   `src/auth.ts` (regex) AND `src/crypto.ts:newApiToken` AND
   `src/index.ts` (existing-token validation regex).
-- **Hot reload** picks up most edits; if pages look stale, hard-refresh
-  to bust the 300s `/style.css` edge cache.
+- **Style cache busts itself.** `STYLE_HREF` in `src/styles.ts` is
+  `/style.css?v=<hash-of-css>`; the hash auto-bumps on any CSS edit so
+  you don't need to hard-refresh after a deploy. New views must import
+  the constant rather than hard-coding `/style.css`.
+- **Slack/Twitter unfurl cache.** ~24h TTL per URL. To force a re-fetch
+  during development, append a throwaway query string (`?_=2`).
 
 ## Files
 
@@ -181,23 +277,31 @@ src/
   index.ts          ─ Hono routes (/, /verify, /p/:slug, +discoverability)
   auth.ts           ─ device-code flow + Bearer middleware
   drops.ts          ─ /api/drops CRUD with versioning + context
-  onboard.ts        ─ JSON descriptor (default) + markdown walkthrough for /api/onboard
+  onboard.ts        ─ /api/onboard JSON descriptor + markdown walkthrough
+  skill.ts          ─ /.well-known/agent-skills/* (Agent Skills RFC v0.2.0)
   crypto.ts         ─ Web Crypto wrappers
   slug.ts           ─ 7-char base62 id generator
   db.ts             ─ D1 helpers + rate limiter
-  discoverability.ts─ robots.txt, llms.txt, sitemap, agent-card, openapi
-  styles.ts         ─ THE stylesheet (single source of truth)
+  discoverability.ts─ robots.txt, llms.txt, sitemap, agent-card, openapi, api-catalog
+  styles.ts         ─ THE stylesheet + STYLE_HREF (auto-bumping cache buster)
   types.ts          ─ shared types
   views/
     chrome.ts       ─ shared top-bar, footer, httpMemo() helper
     favicon.ts      ─ inline SVG favicon (light/dark adaptive)
-    og-image.ts     ─ inline SVG OG card (1200×630, served at /og.svg)
+    og-image.ts     ─ inline SVG OG card (1200×630) — fallback / per-tab source
+    og-png.ts       ─ satori + resvg-wasm PNG renderer (landing + per-drop)
     landing.ts      ─ /
     verify.ts       ─ /verify (with cross-machine token transfer)
     viewer.ts       ─ /p/:slug viewer + password gate
 
+skills/
+  htmlbin/SKILL.md  ─ human-browsable mirror of src/skill.ts (must stay in sync)
+
+.github/workflows/
+  deploy.yml        ─ production deploy on main, versioned preview on PR
+
 schema.sql          ─ D1 schema (idempotent)
-wrangler.toml       ─ Cloudflare config (name=htmlbin, db=htmlbin-db)
+wrangler.toml       ─ Cloudflare config (Worker name, D1, KV, AI, [[rules]] CompiledWasm)
 scripts/
   setup.mjs         ─ provisions D1 + KV, applies schema, sets pepper
   agent-e2e.sh      ─ full functional test
