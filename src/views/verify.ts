@@ -1,5 +1,6 @@
 import type { Bindings } from "../types";
 import { httpMemo, pageHead } from "./chrome";
+import { STYLE_HREF } from "../styles";
 
 export function verifyPage(
   env: Bindings,
@@ -167,7 +168,7 @@ function wrapPage(
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>${escapeHtml(title)}</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-<link rel="stylesheet" href="/style.css" />
+<link rel="stylesheet" href="${STYLE_HREF}" />
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
 </head>
 <body>

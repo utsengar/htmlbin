@@ -601,3 +601,16 @@ iframe.canvas { border: 0; width: 100%; background: #fff; flex: 1; }
 /* ---------- locked drop gate ---------- */
 .gate-lede { font-size: 19px; line-height: 1.5; color: var(--ink); margin-bottom: 22px; max-width: 56ch; }
 `;
+
+// Cache-bust the stylesheet automatically on every CSS change. The version
+// is a short hash of STYLES_CSS computed once at module load. When the CSS
+// content changes the URL changes, so browsers and Cloudflare's edge can
+// keep their long caches without ever serving a stale stylesheet after a
+// deploy. No manual bumping required.
+function styleHash(s: string): string {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
+  return h.toString(36);
+}
+export const STYLE_VER = styleHash(STYLES_CSS);
+export const STYLE_HREF = `/style.css?v=${STYLE_VER}`;

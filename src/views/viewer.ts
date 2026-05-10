@@ -1,5 +1,6 @@
 import type { Bindings, Drop } from "../types";
 import { httpMemo, pageHead } from "./chrome";
+import { STYLE_HREF } from "../styles";
 
 type VersionItem = {
   version: number;
@@ -35,6 +36,14 @@ export function viewerPage(
   const total = drop.latest_version;
   const current = state.viewVersion;
   const isLatest = current === total;
+
+  // Title format: <title trimmed to 15 words> - <slug> - htmlbin.dev.
+  // Used for both the HTML <title> and og:title so social unfurls show
+  // the human-meaningful name first, the slug for disambiguation, and
+  // the brand last.
+  const titleShort = escapeHtml(truncateWords(drop.title, 15));
+  const HOST = stripScheme(env.PUBLIC_URL);
+  const pageTitle = `${titleShort} - ${slug} - ${HOST}`;
   const currentVersionRow = state.versions.find((v) => v.version === current);
   const contextText = currentVersionRow?.context ?? null;
   const versionsJson = JSON.stringify(
@@ -52,25 +61,25 @@ export function viewerPage(
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>${title} · htmlbin</title>
+<title>${pageTitle}</title>
 <meta name="description" content="${description || `htmlbin drop: ${title}`}" />
 <meta name="robots" content="noindex" />
 <!-- Open Graph: per-drop card. Slug + version + date in the SVG; title/description here. -->
 <meta property="og:type" content="article" />
-<meta property="og:title" content="/p/${slug} · htmlbin" />
+<meta property="og:title" content="${pageTitle}" />
 <meta property="og:description" content="${description || `htmlbin drop · v${total} · updated ${updated}`}" />
 <meta property="og:url" content="${escapeHtml(env.PUBLIC_URL)}/p/${slug}" />
-<meta property="og:image" content="${escapeHtml(env.PUBLIC_URL)}/p/${slug}/og.svg" />
-<meta property="og:image:type" content="image/svg+xml" />
+<meta property="og:image" content="${escapeHtml(env.PUBLIC_URL)}/p/${slug}/og.png" />
+<meta property="og:image:type" content="image/png" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
 <meta property="og:image:alt" content="htmlbin drop /p/${slug}" />
 <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="/p/${slug} · htmlbin" />
+<meta name="twitter:title" content="${pageTitle}" />
 <meta name="twitter:description" content="${description || `htmlbin drop · v${total} · updated ${updated}`}" />
-<meta name="twitter:image" content="${escapeHtml(env.PUBLIC_URL)}/p/${slug}/og.svg" />
+<meta name="twitter:image" content="${escapeHtml(env.PUBLIC_URL)}/p/${slug}/og.png" />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-<link rel="stylesheet" href="/style.css" />
+<link rel="stylesheet" href="${STYLE_HREF}" />
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <style>
   /* viewer is full-bleed; override the default body */
@@ -271,7 +280,7 @@ export function passwordGatePage(
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>${title} · locked · htmlbin</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-<link rel="stylesheet" href="/style.css" />
+<link rel="stylesheet" href="${STYLE_HREF}" />
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
 </head>
 <body>
@@ -305,4 +314,17 @@ function escapeHtml(s: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+function stripScheme(url: string): string {
+  return url.replace(/^https?:\/\//, "");
+}
+
+// Trim a string to the first N words. If we cut anything, append "…".
+// Whitespace is collapsed so titles with line breaks render cleanly in
+// social previews.
+function truncateWords(s: string, n: number): string {
+  const words = (s ?? "").trim().split(/\s+/).filter(Boolean);
+  if (words.length <= n) return words.join(" ");
+  return words.slice(0, n).join(" ") + "…";
 }

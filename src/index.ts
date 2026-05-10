@@ -8,6 +8,8 @@ import { verifyPage } from "./views/verify";
 import { viewerPage, passwordGatePage } from "./views/viewer";
 import { FAVICON_SVG } from "./views/favicon";
 import { OG_SVG, dropOgSvg } from "./views/og-image";
+import { renderDropOgPng, renderLandingOgPng } from "./views/og-png";
+import { agentSkillsIndex, getSkillContent } from "./skill";
 import {
   agentCard,
   linkHeader,
@@ -16,7 +18,7 @@ import {
   robotsTxt,
   sitemapXml,
 } from "./discoverability";
-import { STYLES_CSS } from "./styles";
+import { STYLES_CSS, STYLE_HREF } from "./styles";
 import {
   hashToken,
   newApiToken,
@@ -120,7 +122,17 @@ app.get("/favicon.svg", () => {
 // (browsers handle the mime type; we send a 301 to keep things tidy).
 app.get("/favicon.ico", (c) => c.redirect("/favicon.svg", 301));
 
-// ----- Open Graph image (single SVG, edge-cached) -------------------
+// ----- Open Graph images ------------------------------------------------
+//
+// We serve both PNG and SVG variants. The PNG is what `og:image` meta
+// tags point at — Slack, Twitter, iMessage, and Facebook do not render
+// SVG og:images, so PNG is non-negotiable for social previews. The SVG
+// stays around for direct viewing/embedding (it's tiny and crisp).
+//
+// PNG rendering goes through satori → resvg-wasm. KV caches the rendered
+// bytes per slug+version so each unique drop's OG card is rendered once,
+// not once per Slack/Twitter/iMessage preview bot.
+
 app.get("/og.svg", () => {
   return new Response(OG_SVG, {
     headers: {
@@ -130,9 +142,31 @@ app.get("/og.svg", () => {
   });
 });
 
-// Per-drop OG card. Cached briefly so new versions show up in social
-// previews within ~10 minutes. No auth — slug + version + date are all
-// public knowledge once you have the URL.
+app.get("/og.png", async (c) => {
+  const cacheKey = "og-png:landing:v1";
+  const cached = await c.env.DROPS_KV.get(cacheKey, { type: "arrayBuffer" });
+  if (cached) return pngResponse(cached, true);
+
+  try {
+    const png = await renderLandingOgPng(c.env, { publicUrl: c.env.PUBLIC_URL });
+    c.executionCtx.waitUntil(
+      c.env.DROPS_KV.put(cacheKey, png.buffer, {
+        expirationTtl: 60 * 60 * 24 * 7,
+      })
+    );
+    return pngResponse(png.buffer);
+  } catch (e) {
+    console.error("og.png landing render failed", e);
+    if (c.req.query("debug") === "1") {
+      return c.json({ error: String(e), stack: (e as Error)?.stack }, 500);
+    }
+    return c.redirect("/og.svg", 302);
+  }
+});
+
+// Per-drop OG card. Cached per slug+version: any new version invalidates
+// the cache (different key), so social previews update within Slack /
+// Twitter's own unfurl TTLs.
 app.get("/p/:slug/og.svg", async (c) => {
   const slug = c.req.param("slug");
   if (!isValidSlug(slug)) return c.notFound();
@@ -153,6 +187,52 @@ app.get("/p/:slug/og.svg", async (c) => {
     },
   });
 });
+
+app.get("/p/:slug/og.png", async (c) => {
+  const slug = c.req.param("slug");
+  if (!isValidSlug(slug)) return c.notFound();
+  const drop = await getDrop(c.env.DB, slug);
+  if (!drop) return c.notFound();
+
+  const cacheKey = `og-png:${slug}:v${drop.latest_version}`;
+  const cached = await c.env.DROPS_KV.get(cacheKey, { type: "arrayBuffer" });
+  if (cached) return pngResponse(cached, true);
+
+  try {
+    const png = await renderDropOgPng(c.env, {
+      slug: drop.slug,
+      title: drop.title,
+      isLocked: !!drop.password_hash,
+      latestVersion: drop.latest_version,
+      updatedAt: drop.updated_at,
+      publicUrl: c.env.PUBLIC_URL,
+    });
+    c.executionCtx.waitUntil(
+      c.env.DROPS_KV.put(cacheKey, png.buffer, {
+        expirationTtl: 60 * 60 * 24 * 30,
+      })
+    );
+    return pngResponse(png.buffer);
+  } catch (e) {
+    // Render failure shouldn't 500 the social preview — Slack will just
+    // skip the image. Fall back to the SVG endpoint, which always works.
+    console.error("og.png drop render failed", slug, e);
+    if (c.req.query("debug") === "1") {
+      return c.json({ error: String(e), stack: (e as Error)?.stack }, 500);
+    }
+    return c.redirect(`/p/${slug}/og.svg`, 302);
+  }
+});
+
+function pngResponse(body: ArrayBuffer, fromCache = false): Response {
+  return new Response(body, {
+    headers: {
+      "Content-Type": "image/png",
+      "Cache-Control": "public, max-age=300, s-maxage=86400",
+      "X-Og-Cache": fromCache ? "hit" : "miss",
+    },
+  });
+}
 
 // ----- Agent-ready discoverability ---------------------------------------
 app.get("/robots.txt", (c) => {
@@ -181,6 +261,60 @@ app.get("/.well-known/agent-card.json", (c) => {
 });
 app.get("/openapi.json", (c) => {
   return c.json(openApiSpec(c.env.PUBLIC_URL));
+});
+
+// Agent Skills Discovery (RFC v0.2.0). Both routes support GET + HEAD
+// per spec. SKILL.md is bundled at build time from skills/htmlbin/SKILL.md.
+app.on(["GET", "HEAD"], "/.well-known/agent-skills/index.json", async (c) => {
+  const index = await agentSkillsIndex(c.env.PUBLIC_URL);
+  return new Response(JSON.stringify(index, null, 2), {
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "public, max-age=300, s-maxage=3600",
+    },
+  });
+});
+app.on(["GET", "HEAD"], "/.well-known/agent-skills/htmlbin/SKILL.md", () => {
+  return new Response(getSkillContent(), {
+    headers: {
+      "Content-Type": "text/markdown; charset=utf-8",
+      "Cache-Control": "public, max-age=300, s-maxage=3600",
+    },
+  });
+});
+
+// API Catalog (RFC 9727). application/linkset+json describing the API
+// surface — link relations point to the OpenAPI spec, llms.txt as
+// service-doc, and the well-known agent-card as a status-adjacent
+// descriptor (htmlbin has no separate health endpoint).
+app.on(["GET", "HEAD"], "/.well-known/api-catalog", (c) => {
+  const host = c.env.PUBLIC_URL.replace(/\/$/, "");
+  const catalog = {
+    linkset: [
+      {
+        anchor: `${host}/api/`,
+        "service-desc": [
+          {
+            href: `${host}/openapi.json`,
+            type: "application/openapi+json",
+          },
+        ],
+        "service-doc": [
+          { href: `${host}/api/onboard`, type: "application/json" },
+          { href: `${host}/llms.txt`, type: "text/plain" },
+        ],
+        status: [
+          { href: `${host}/.well-known/agent-card.json`, type: "application/json" },
+        ],
+      },
+    ],
+  };
+  return new Response(JSON.stringify(catalog, null, 2), {
+    headers: {
+      "Content-Type": "application/linkset+json",
+      "Cache-Control": "public, max-age=300, s-maxage=3600",
+    },
+  });
 });
 
 // ----- Agent onboarding ---------------------------------------------------
@@ -541,7 +675,7 @@ function notFoundHtml(publicUrl: string): string {
 <html><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>404 · htmlbin</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-<link rel="stylesheet" href="/style.css" />
+<link rel="stylesheet" href="${STYLE_HREF}" />
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
 </head>
 <body>
