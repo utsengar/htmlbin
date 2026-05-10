@@ -16,10 +16,10 @@ export const STYLES_CSS = /* css */ `${FONT_FACE_CSS}
   --ink-softer: #A3A3A3;
   --rule: #E5E5E5;
   --rule-soft: #F0F0F0;
-  --red: #E11D2C;
-  --red-press: #B91624;
-  --red-bg: #FEF2F3;
-  --red-bg-stroke: #F4C7CB;
+  --red: #D93025;
+  --red-press: #A52714;
+  --red-bg: #FCE8E6;
+  --red-bg-stroke: #F4C7C3;
   --green-dot: #1F8F4A;
   --code-bg: #0A0A0A;
   --code-fg: #FAFAFA;

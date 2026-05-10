@@ -76,10 +76,10 @@ appears sparingly — it's a signal, not a treatment.
 --rule:      #E5E5E5   /* hairlines */
 --rule-soft: #F0F0F0   /* deeper-nested hairlines (steps, table rows) */
 
---red:       #E11D2C   /* THE accent: angle brackets, hover, em, status verb */
---red-press: #B91624   /* hover-active state on red elements */
---red-bg:    #FEF2F3   /* error background only */
---red-bg-stroke: #F4C7CB
+--red:       #D93025   /* THE accent: angle brackets, hover, em, status verb (Gmail/Google red) */
+--red-press: #A52714   /* hover-active state on red elements */
+--red-bg:    #FCE8E6   /* error background only */
+--red-bg-stroke: #F4C7C3
 
 --green-dot: #1F8F4A   /* status indicator dot only — never type */
 

@@ -73,7 +73,7 @@ Token prefix is **`hb_`** (short for htmlbin).
 
 ## Design — one-liner
 
-White paper, Geist + Geist Mono, single red accent (`#E11D2C`), HTTP-style
+White paper, Geist + Geist Mono, single red accent (`#D93025`, Gmail/Google red), HTTP-style
 memo at the top of every page, vim-modeline-style breadcrumb in the top
 bar, monochrome dark code blocks. **One** deliberate exception to "no
 fake mac chrome": the prompt block on `/` carries traffic-light dots and

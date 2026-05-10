@@ -25,13 +25,13 @@ export const OG_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200
   <text x="100" y="170"
         font-family="${MONO}"
         font-size="44" font-weight="500" fill="#0A0A0A">
-    <tspan fill="#E11D2C">&lt;</tspan>htmlbin<tspan fill="#E11D2C">&gt;</tspan>
+    <tspan fill="#D93025">&lt;</tspan>htmlbin<tspan fill="#D93025">&gt;</tspan>
   </text>
   <!-- hero line (one statement, two rows) -->
   <text x="100" y="345"
         font-family="${SANS}"
         font-size="84" font-weight="700" fill="#0A0A0A"
-        letter-spacing="-2.5">API for <tspan fill="#E11D2C">agents</tspan></text>
+        letter-spacing="-2.5">API for <tspan fill="#D93025">agents</tspan></text>
   <text x="100" y="445"
         font-family="${SANS}"
         font-size="84" font-weight="700" fill="#0A0A0A"
@@ -92,7 +92,7 @@ export function dropOgSvg(opts: {
   <text x="100" y="140"
         font-family="${MONO}"
         font-size="36" font-weight="500" fill="#0A0A0A">
-    <tspan fill="#E11D2C">&lt;</tspan>htmlbin<tspan fill="#E11D2C">&gt;</tspan>
+    <tspan fill="#D93025">&lt;</tspan>htmlbin<tspan fill="#D93025">&gt;</tspan>
   </text>
 
   <!-- hero (title or fallback slug) -->
@@ -101,7 +101,7 @@ export function dropOgSvg(opts: {
         font-size="${heroSize}" font-weight="${heroWeight}" fill="#0A0A0A"
         letter-spacing="${heroMono ? -2 : -1.5}">${
     heroMono
-      ? `/p/<tspan fill="#E11D2C">${escapeForSvg(slug)}</tspan>`
+      ? `/p/<tspan fill="#D93025">${escapeForSvg(slug)}</tspan>`
       : escapeForSvg(heroText)
   }</text>
 
