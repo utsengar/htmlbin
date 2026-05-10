@@ -46,6 +46,18 @@ them ships something the user will reject:
    English, not a coined term we own. We do not have authority to define
    a new format spec, so don't act like we do.
 6. **Aesthetic stays in DESIGN.md.** Don't drift.
+7. **Never deploy to production directly.** No `wrangler deploy` from
+   the local shell. No `git push origin main`. Every change ships
+   through this exact flow:
+     1. Create a new branch (`git checkout -b <name>`).
+     2. Commit and `git push -u origin <name>`.
+     3. Open a PR. GitHub Actions runs `wrangler versions upload` and
+        posts a Cloudflare preview URL as a sticky comment on the PR.
+     4. Test against that preview URL. Wait for the user's approval.
+     5. After the user approves, merge the PR. The merge-to-`main`
+        workflow runs `wrangler deploy` for production — that is the
+        only path code reaches `htmlbin.dev`.
+   Even for a one-line copy fix. No exceptions.
 
 ## Naming history (so future sessions don't relitigate)
 
@@ -289,22 +301,36 @@ PNG is what social platforms actually consume.
 `truncateWords()` adds `…` if the title was longer. Both `<title>` and
 `og:title` use the same string so the unfurled card matches the tab.
 
-## CI / continuous deploy
+## CI / continuous deploy — the *only* deploy path
 
-`.github/workflows/deploy.yml` runs on every push to `main` and on
-every PR:
+`.github/workflows/deploy.yml` is the **single way** code reaches
+production. Hard rule #7 above: never `wrangler deploy` locally and
+never push directly to `main`. Both bypass review.
 
-- **Push to `main`** — type-check, then `wrangler deploy` to production
-- **PR** — type-check, then `wrangler versions upload` + a comment
-  on the PR with the versioned preview URL
+The workflow:
+
+- **PR opened or pushed to** — type-check, `wrangler versions upload`,
+  post the Cloudflare preview URL as a sticky comment on the PR
+  (`https://<version-id>-htmlbin.<account>.workers.dev`).
+- **Merge to `main`** — type-check, `wrangler deploy` to production.
+  Triggered by the merge, never by a human running wrangler.
+
+Mandatory loop for every change:
+
+1. `git checkout -b <branch>` from `main`.
+2. Make changes, commit, `git push -u origin <branch>`.
+3. Open a PR. Wait for the CI comment with the preview URL.
+4. Test on the preview URL. Iterate by pushing more commits to the
+   same branch — each push refreshes the same sticky comment.
+5. Hand the preview URL to the user, wait for explicit approval.
+6. Merge the PR → production deploys automatically.
 
 Concurrency cancels superseded PR runs but never cancels a mid-flight
-`main` deploy. The only secret needed in GitHub is
-`CLOUDFLARE_API_TOKEN` (template "Edit Cloudflare Workers"). Worker
-secrets (`TOKEN_PEPPER`, `TURNSTILE_SECRET_KEY`) are managed via
-`wrangler secret put`, not GitHub Actions; they're shared between the
-production deployment and preview versions because they live on the
-same Worker.
+`main` deploy. The only secret in GitHub is `CLOUDFLARE_API_TOKEN`
+(template "Edit Cloudflare Workers"). Worker secrets (`TOKEN_PEPPER`,
+`TURNSTILE_SECRET_KEY`) are managed via `wrangler secret put` against
+production; preview versions share the same bindings because they
+live on the same Worker.
 
 ## Local dev gotchas
 
