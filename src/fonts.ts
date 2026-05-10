@@ -6,32 +6,27 @@
 // for each, on the critical path) to a single same-origin request
 // against the Worker (no extra DNS, reuses the existing TLS connection).
 //
-// The .woff2 files live in assets/fonts/ and are bundled into the
-// Worker as ArrayBuffers via wrangler's `type = "Data"` rule.
+// The .woff2 bytes are base64-inlined in src/fonts-data.ts (generated
+// from assets/fonts/*.woff2 by scripts/build-fonts.mjs). Wrangler's
+// [[rules]] type="Data" loader does not honor imports outside src/
+// with ES module Workers, so base64 is the reliable path.
 //
 // Geist + Geist Mono are SIL Open Font License (OFL-1.1).
 
-// @ts-expect-error — wrangler Data loader yields an ArrayBuffer at build time
-import geist400 from "../assets/fonts/Geist-400.woff2";
-// @ts-expect-error
-import geist500 from "../assets/fonts/Geist-500.woff2";
-// @ts-expect-error
-import geist600 from "../assets/fonts/Geist-600.woff2";
-// @ts-expect-error
-import geist700 from "../assets/fonts/Geist-700.woff2";
-// @ts-expect-error
-import geistMono400 from "../assets/fonts/GeistMono-400.woff2";
-// @ts-expect-error
-import geistMono500 from "../assets/fonts/GeistMono-500.woff2";
+import { FONTS_BASE64 } from "./fonts-data";
 
-export const FONTS: Record<string, ArrayBuffer> = {
-  "Geist-400.woff2": geist400 as ArrayBuffer,
-  "Geist-500.woff2": geist500 as ArrayBuffer,
-  "Geist-600.woff2": geist600 as ArrayBuffer,
-  "Geist-700.woff2": geist700 as ArrayBuffer,
-  "GeistMono-400.woff2": geistMono400 as ArrayBuffer,
-  "GeistMono-500.woff2": geistMono500 as ArrayBuffer,
-};
+function decodeBase64(b64: string): ArrayBuffer {
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes.buffer;
+}
+
+// Decode once at module init (cold-start cost only). Each entry is a
+// fresh ArrayBuffer ready to ship as a Response body.
+export const FONTS: Record<string, ArrayBuffer> = Object.fromEntries(
+  Object.entries(FONTS_BASE64).map(([name, b64]) => [name, decodeBase64(b64)])
+);
 
 // Standard @font-face CSS for the local fonts. Inlined into the global
 // stylesheet so there is no extra request for the @font-face declarations.
