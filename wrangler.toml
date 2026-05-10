@@ -4,6 +4,11 @@ compatibility_date = "2025-04-01"
 compatibility_flags = ["nodejs_compat"]
 account_id = "8a9eb8a6efdca98aa450343a55b484cc"
 
+# Each `wrangler versions upload` returns a workers.dev preview URL we
+# can post on PRs. Production traffic still goes through the custom
+# domain routes below — preview URLs are isolated workers.dev addresses.
+preview_urls = true
+
 # Bind the worker to your custom domain. The DNS for htmlbin.dev is
 # already configured under your Cloudflare account; this tells Workers
 # to attach itself.
