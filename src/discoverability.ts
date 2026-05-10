@@ -196,7 +196,7 @@ export function agentCard(publicUrl: string): object {
       {
         id: "publish_html",
         description:
-          "Upload self-contained HTML up to 2 MB; receive a permanent public URL. Creates v1.",
+          "Upload self-contained HTML up to 2 MB; receive a permanent public URL. Creates v1. Returns the full Drop with status 201.",
         method: "POST",
         path: "/api/drops",
         accepts: ["title", "description?", "html", "password?", "context?"],
@@ -204,10 +204,18 @@ export function agentCard(publicUrl: string): object {
       {
         id: "update_html",
         description:
-          "PUT mints a NEW version on the same slug — URL is preserved across iterations.",
+          "PUT mints a NEW version on the same slug — URL is preserved across iterations. `html` is required; title/description optional alongside the new version.",
         method: "PUT",
         path: "/api/drops/:slug",
-        accepts: ["html?", "title?", "description?", "context?"],
+        accepts: ["html", "title?", "description?", "context?"],
+      },
+      {
+        id: "update_metadata",
+        description:
+          "PATCH updates title and/or description without minting a new version. Returns 400 metadata_only_on_patch if `html` is included.",
+        method: "PATCH",
+        path: "/api/drops/:slug",
+        accepts: ["title?", "description?"],
       },
       {
         id: "list_versions",
@@ -222,27 +230,37 @@ export function agentCard(publicUrl: string): object {
       },
       {
         id: "delete_drop",
+        description: "Returns 204 No Content.",
         method: "DELETE",
         path: "/api/drops/:slug",
       },
       {
         id: "delete_version",
         description:
-          "Delete a single version. Refused for the last remaining version; if the deleted version was the head, latest_version is recomputed.",
+          "Delete a single version. Refused for the last remaining version; if the deleted version was the head, latest_version is recomputed. Returns the updated Drop.",
         method: "DELETE",
         path: "/api/drops/:slug/v/:n",
       },
       {
         id: "list_my_drops",
+        description:
+          "Paginated list. Query params: page (default 1), pageSize (default 50, max 200), sortBy (created_at|updated_at|view_count), sortOrder (asc|desc).",
         method: "GET",
         path: "/api/drops",
       },
       {
         id: "lock_with_password",
         description:
-          "Set, change, or remove a password gate. Pass empty string to remove.",
+          "Set, change, or remove a password gate. Pass empty string to remove. Returns the updated Drop.",
         method: "POST",
         path: "/api/drops/:slug/password",
+      },
+      {
+        id: "whoami",
+        description:
+          "Returns user_id, created_at, drop_count, and current token info (id, label, created_at, last_used_at).",
+        method: "GET",
+        path: "/api/me",
       },
       {
         id: "list_my_tokens",
@@ -254,11 +272,18 @@ export function agentCard(publicUrl: string): object {
       {
         id: "revoke_token",
         description:
-          "Revoke a specific token by its short id (first 12 hex chars of the hash).",
+          "Revoke a specific token by its short id (first 12 hex chars of the hash). Returns 204 No Content.",
         method: "DELETE",
         path: "/api/tokens/:id",
       },
     ],
+    error_shape: {
+      shape: "{ error: { code, message, details? } }",
+      switch_on: "error.code",
+      note:
+        "All 4xx/5xx responses use this shape. Rate-limited responses (429) additionally carry a Retry-After header.",
+    },
+    naming_convention: "snake_case",
     versioning: {
       semantics:
         "Every PUT with a new html body increments the version. Slug + URL stay stable.",
@@ -294,11 +319,11 @@ export function openApiSpec(publicUrl: string): object {
     openapi: "3.1.0",
     info: {
       title: "htmlbin API",
-      version: "1.0.0",
+      version: "1.1.0",
       summary:
         "Agent-first HTML hosting. Drop self-contained HTML, get a public URL.",
       description:
-        "All endpoints under /api/. Auth uses a Bearer token minted via the /api/auth/start device-code flow.",
+        "All endpoints under /api/. Auth uses a Bearer token minted via the /api/auth/start device-code flow. All field names use snake_case. All 4xx/5xx responses share the same Error shape (see components.schemas.Error).",
       contact: { url: publicUrl },
       license: { name: "MIT" },
     },
@@ -356,8 +381,35 @@ export function openApiSpec(publicUrl: string): object {
         },
         Error: {
           type: "object",
+          description:
+            "Canonical error envelope. Every 4xx/5xx response uses this shape; switch on `error.code` (not `error.message`).",
           required: ["error"],
-          properties: { error: { type: "string" } },
+          properties: {
+            error: {
+              type: "object",
+              required: ["code", "message"],
+              properties: {
+                code: {
+                  type: "string",
+                  description: "Machine-readable identifier, e.g. 'html_too_large', 'not_found', 'rate_limited'.",
+                },
+                message: { type: "string", description: "Human-readable summary." },
+                details: { type: "object", description: "Optional context (limits, fields, retry_after_seconds, etc.)." },
+              },
+            },
+          },
+        },
+        Pagination: {
+          type: "object",
+          required: ["page", "page_size", "total_items", "total_pages", "sort_by", "sort_order"],
+          properties: {
+            page: { type: "integer" },
+            page_size: { type: "integer" },
+            total_items: { type: "integer" },
+            total_pages: { type: "integer" },
+            sort_by: { type: "string", enum: ["created_at", "updated_at", "view_count"] },
+            sort_order: { type: "string", enum: ["asc", "desc"] },
+          },
         },
       },
     },
@@ -453,18 +505,87 @@ export function openApiSpec(publicUrl: string): object {
           },
         },
       },
-      "/api/drops": {
+      "/api/me": {
         get: {
-          summary: "List your drops",
+          summary: "Caller identity, drop count, and current token info",
           security: [{ bearerAuth: [] }],
           responses: {
             "200": {
-              description: "Array of drops",
+              description: "Caller info",
               content: {
                 "application/json": {
                   schema: {
-                    type: "array",
-                    items: { $ref: "#/components/schemas/Drop" },
+                    type: "object",
+                    properties: {
+                      user_id: { type: "string" },
+                      created_at: { type: "integer", nullable: true },
+                      drop_count: { type: "integer" },
+                      token: {
+                        type: "object",
+                        nullable: true,
+                        properties: {
+                          id: { type: "string" },
+                          label: { type: "string", nullable: true },
+                          created_at: { type: "integer" },
+                          last_used_at: { type: "integer", nullable: true },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            "401": { description: "Unauthorized", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          },
+        },
+      },
+      "/api/tokens": {
+        get: {
+          summary: "List active tokens for the caller",
+          security: [{ bearerAuth: [] }],
+          responses: {
+            "200": {
+              description: "Array of tokens (no plaintext)",
+              content: { "application/json": { schema: { type: "array", items: { type: "object" } } } },
+            },
+          },
+        },
+      },
+      "/api/tokens/{id}": {
+        delete: {
+          summary: "Revoke a token by its 12-hex id",
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { name: "id", in: "path", required: true, schema: { type: "string", pattern: "^[0-9a-f]{12}$" } },
+          ],
+          responses: {
+            "204": { description: "Revoked" },
+            "404": { description: "No matching token", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          },
+        },
+      },
+      "/api/drops": {
+        get: {
+          summary: "List your drops (paginated)",
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { name: "page",      in: "query", schema: { type: "integer", minimum: 1, default: 1 } },
+            { name: "pageSize",  in: "query", schema: { type: "integer", minimum: 1, maximum: 200, default: 50 } },
+            { name: "sortBy",    in: "query", schema: { type: "string", enum: ["created_at", "updated_at", "view_count"], default: "created_at" } },
+            { name: "sortOrder", in: "query", schema: { type: "string", enum: ["asc", "desc"], default: "desc" } },
+          ],
+          responses: {
+            "200": {
+              description: "Paginated drops",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    required: ["data", "pagination"],
+                    properties: {
+                      data: { type: "array", items: { $ref: "#/components/schemas/Drop" } },
+                      pagination: { $ref: "#/components/schemas/Pagination" },
+                    },
                   },
                 },
               },
@@ -472,7 +593,7 @@ export function openApiSpec(publicUrl: string): object {
           },
         },
         post: {
-          summary: "Upload a new drop",
+          summary: "Upload a new drop (creates v1)",
           security: [{ bearerAuth: [] }],
           requestBody: {
             required: true,
@@ -486,6 +607,7 @@ export function openApiSpec(publicUrl: string): object {
                     description: { type: "string", maxLength: 500 },
                     html: { type: "string" },
                     password: { type: "string", minLength: 4 },
+                    context: { type: "string", description: "Optional reasoning trace (≤64KB, opt-in)" },
                   },
                 },
               },
@@ -493,49 +615,56 @@ export function openApiSpec(publicUrl: string): object {
           },
           responses: {
             "201": {
-              description: "Created",
-              content: {
-                "application/json": {
-                  schema: { $ref: "#/components/schemas/Drop" },
-                },
-              },
+              description: "Created — returns the full Drop",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/Drop" } } },
             },
-            "400": {
-              description: "Validation error",
-              content: {
-                "application/json": {
-                  schema: { $ref: "#/components/schemas/Error" },
-                },
-              },
-            },
+            "400": { description: "Validation error", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+            "429": { description: "Rate limited or quota exceeded (Retry-After header)", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
           },
         },
       },
       "/api/drops/{slug}": {
         parameters: [
-          {
-            name: "slug",
-            in: "path",
-            required: true,
-            schema: { type: "string" },
-          },
+          { name: "slug", in: "path", required: true, schema: { type: "string" } },
         ],
         get: {
           summary: "Get metadata for one of your drops",
           security: [{ bearerAuth: [] }],
           responses: {
-            "200": {
-              description: "Drop metadata",
-              content: {
-                "application/json": {
-                  schema: { $ref: "#/components/schemas/Drop" },
+            "200": { description: "Drop", content: { "application/json": { schema: { $ref: "#/components/schemas/Drop" } } } },
+            "404": { description: "Not found", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          },
+        },
+        put: {
+          summary: "Mint a new version (html required)",
+          description: "PUT always mints a new version. `html` is required. `title`/`description` may be updated alongside the new version. Use PATCH for metadata-only updates.",
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["html"],
+                  properties: {
+                    html: { type: "string" },
+                    title: { type: "string", maxLength: 200 },
+                    description: { type: "string", maxLength: 500 },
+                    context: { type: "string", description: "Optional reasoning trace (≤64KB, opt-in)" },
+                  },
                 },
               },
             },
           },
+          responses: {
+            "200": { description: "Updated — returns the full Drop with bumped latest_version", content: { "application/json": { schema: { $ref: "#/components/schemas/Drop" } } } },
+            "400": { description: "Missing html / validation", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+            "429": { description: "Rate limit, daily quota, or per-drop version cap (Retry-After header where applicable)", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          },
         },
-        put: {
-          summary: "Update drop (slug stays the same)",
+        patch: {
+          summary: "Update metadata only (no new version)",
+          description: "PATCH updates title and/or description. Including `html` returns 400 metadata_only_on_patch.",
           security: [{ bearerAuth: [] }],
           requestBody: {
             content: {
@@ -543,20 +672,64 @@ export function openApiSpec(publicUrl: string): object {
                 schema: {
                   type: "object",
                   properties: {
-                    title: { type: "string" },
-                    description: { type: "string" },
-                    html: { type: "string" },
+                    title: { type: "string", maxLength: 200 },
+                    description: { type: "string", maxLength: 500 },
                   },
                 },
               },
             },
           },
-          responses: { "200": { description: "Updated" } },
+          responses: {
+            "200": { description: "Updated — returns the full Drop (latest_version unchanged)", content: { "application/json": { schema: { $ref: "#/components/schemas/Drop" } } } },
+            "400": { description: "Included html or other validation error", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          },
         },
         delete: {
-          summary: "Delete drop",
+          summary: "Delete drop (all versions)",
           security: [{ bearerAuth: [] }],
-          responses: { "200": { description: "Deleted" } },
+          responses: {
+            "204": { description: "Deleted (no body)" },
+            "404": { description: "Not found", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          },
+        },
+      },
+      "/api/drops/{slug}/versions": {
+        get: {
+          summary: "List versions of a drop",
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { name: "slug", in: "path", required: true, schema: { type: "string" } },
+          ],
+          responses: {
+            "200": {
+              description: "Array of versions",
+              content: { "application/json": { schema: { type: "array", items: { $ref: "#/components/schemas/VersionListItem" } } } },
+            },
+          },
+        },
+      },
+      "/api/drops/{slug}/v/{n}": {
+        parameters: [
+          { name: "slug", in: "path", required: true, schema: { type: "string" } },
+          { name: "n",    in: "path", required: true, schema: { type: "integer", minimum: 1 } },
+        ],
+        get: {
+          summary: "Get one version's metadata + context",
+          security: [{ bearerAuth: [] }],
+          responses: {
+            "200": { description: "Version", content: { "application/json": { schema: { $ref: "#/components/schemas/Version" } } } },
+            "404": { description: "Not found", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          },
+        },
+        delete: {
+          summary: "Delete a single version (refused for the last remaining)",
+          description: "Returns the updated Drop. If the deleted version was the head, latest_version is recomputed.",
+          security: [{ bearerAuth: [] }],
+          responses: {
+            "200": { description: "Deleted — returns the updated Drop", content: { "application/json": { schema: { $ref: "#/components/schemas/Drop" } } } },
+            "404": { description: "Drop or version not found", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+            "409": { description: "last_version_cannot_be_deleted", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          },
         },
       },
       "/api/drops/{slug}/password": {
@@ -564,12 +737,7 @@ export function openApiSpec(publicUrl: string): object {
           summary: "Set, change, or remove the password on a drop",
           security: [{ bearerAuth: [] }],
           parameters: [
-            {
-              name: "slug",
-              in: "path",
-              required: true,
-              schema: { type: "string" },
-            },
+            { name: "slug", in: "path", required: true, schema: { type: "string" } },
           ],
           requestBody: {
             required: true,
@@ -579,16 +747,16 @@ export function openApiSpec(publicUrl: string): object {
                   type: "object",
                   required: ["password"],
                   properties: {
-                    password: {
-                      type: "string",
-                      description: "Empty string to remove",
-                    },
+                    password: { type: "string", description: "Empty string to remove" },
                   },
                 },
               },
             },
           },
-          responses: { "200": { description: "Updated" } },
+          responses: {
+            "200": { description: "Updated — returns the full Drop", content: { "application/json": { schema: { $ref: "#/components/schemas/Drop" } } } },
+            "400": { description: "Validation error", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          },
         },
       },
       "/p/{slug}": {

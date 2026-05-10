@@ -6,12 +6,15 @@
 //     body schemas. This is what agents should consume by default.
 //   - buildOnboardText() — the same protocol as a friendly markdown
 //     walkthrough, returned only when Accept: text/markdown is requested.
-//     Useful for humans previewing the API and for debug output.
 //
-// We default to JSON because "fetch a URL and follow what it says" is the
-// shape of a prompt-injection payload — agents are (rightly) trained to
-// be wary of it. A structured descriptor with named fields reads as data,
-// not as instructions, and slips through the same agents without friction.
+// JSON is the default because "fetch a URL and follow what it says" is the
+// shape of a prompt-injection payload — agents are (rightly) trained to be
+// wary of it. A structured descriptor with named fields reads as data, not
+// as instructions, and slips through the same agents without friction.
+//
+// This file IS the contract. All other agent surfaces (agent-card.json,
+// openapi.json, SKILL.md, llms.txt) must align with what this returns —
+// don't introduce divergent claims about request/response shapes elsewhere.
 
 export function buildOnboardJson(publicUrl: string): object {
   return {
@@ -20,11 +23,25 @@ export function buildOnboardJson(publicUrl: string): object {
     public_url: publicUrl,
     summary:
       "Agent-first HTML hosting. Drop self-contained HTML, get a public URL.",
+    naming_convention: "snake_case for all request and response field names",
     spec: {
       openapi: `${publicUrl}/openapi.json`,
       agent_card: `${publicUrl}/.well-known/agent-card.json`,
+      api_catalog: `${publicUrl}/.well-known/api-catalog`,
+      agent_skills_index: `${publicUrl}/.well-known/agent-skills/index.json`,
       llms_txt: `${publicUrl}/llms.txt`,
       onboard_markdown: `${publicUrl}/api/onboard (Accept: text/markdown)`,
+    },
+    error_shape: {
+      description:
+        "Every 4xx/5xx response uses this canonical shape. Switch on `code`, not on `message`.",
+      example: {
+        error: {
+          code: "html_too_large",
+          message: "HTML exceeds 2097152 bytes.",
+          details: { max_bytes: 2097152 },
+        },
+      },
     },
     auth: {
       type: "device_code",
@@ -44,7 +61,7 @@ export function buildOnboardJson(publicUrl: string): object {
           url: `${publicUrl}/api/auth/start`,
           body: { label: "string (optional, e.g. 'claude-code')" },
           returns: {
-            code: "string (8 chars; show this to the human)",
+            code: "string (show this to the human)",
             verification_url: "string (open this in a browser)",
             poll_token: "string (use in step 3)",
             expires_in: "integer (seconds)",
@@ -56,7 +73,7 @@ export function buildOnboardJson(publicUrl: string): object {
           human_action:
             "Open verification_url, complete the Cloudflare Turnstile challenge, click verify.",
           note:
-            "This is the only human moment. After this the agent is autonomous.",
+            "Only human moment. After this the agent is autonomous.",
         },
         {
           step: 3,
@@ -64,7 +81,7 @@ export function buildOnboardJson(publicUrl: string): object {
           url: `${publicUrl}/api/auth/poll`,
           query: { token: "<poll_token from step 1>" },
           returns: {
-            status: "'pending' | 'verified' | 'expired' | 'claimed'",
+            status: "'pending' | 'verified' | 'expired' | 'claimed' | 'not_found'",
             api_token: "string (only on first 'verified' read; revealed exactly once)",
             user_id: "string (only on first 'verified' read)",
           },
@@ -72,6 +89,22 @@ export function buildOnboardJson(publicUrl: string): object {
             "Poll every poll_interval seconds until status != 'pending'. The api_token is shown once — store it.",
         },
       ],
+    },
+    drop_shape: {
+      description:
+        "Every endpoint that creates, reads, or mutates a single drop returns this shape.",
+      example: {
+        slug: "aB3xK7g",
+        title: "My page",
+        description: "Optional subtitle",
+        url: `${publicUrl}/p/aB3xK7g`,
+        raw_url: `${publicUrl}/p/aB3xK7g/raw`,
+        locked: false,
+        latest_version: 3,
+        view_count: 17,
+        created_at: 0,
+        updated_at: 0,
+      },
     },
     publish: {
       method: "POST",
@@ -87,27 +120,68 @@ export function buildOnboardJson(publicUrl: string): object {
         password: "string (optional, ≥4 chars; sets a viewer password gate)",
         context: "string (optional, ≤64 KB; reasoning trace — opt-in per the human)",
       },
-      returns: {
-        slug: "string",
-        url: `string (e.g. ${publicUrl}/p/<slug>)`,
-        raw_url: `string (e.g. ${publicUrl}/p/<slug>/raw)`,
-        version: "integer (1 on create)",
-      },
+      returns: "Drop (see drop_shape)",
+      status: 201,
     },
     iterate: {
-      method: "PUT",
-      url: `${publicUrl}/api/drops/<slug>`,
-      body: {
-        html: "string (optional; if present, mints a new version)",
-        title: "string (optional)",
-        description: "string (optional)",
-        context: "string (optional, ≤64 KB)",
+      description:
+        "Two distinct operations on an existing drop: PUT for a new version, PATCH for metadata-only changes.",
+      new_version: {
+        method: "PUT",
+        url: `${publicUrl}/api/drops/<slug>`,
+        body: {
+          html: "string (required — PUT always mints a new version)",
+          title: "string (optional, ≤200 chars)",
+          description: "string (optional, ≤500 chars)",
+          context: "string (optional, ≤64 KB)",
+        },
+        returns: "Drop (with bumped latest_version)",
+        note:
+          "Slug + public URL stay stable. Humans switch versions in the viewer with ?v=N.",
       },
-      note:
-        "Each PUT with a new html body increments the version. Slug + URL stay stable. Humans switch versions in the viewer with ?v=N.",
+      metadata_only: {
+        method: "PATCH",
+        url: `${publicUrl}/api/drops/<slug>`,
+        body: {
+          title: "string (optional, ≤200 chars)",
+          description: "string (optional, ≤500 chars)",
+        },
+        returns: "Drop (latest_version unchanged)",
+        note: "Including `html` here returns 400 metadata_only_on_patch — use PUT.",
+      },
+    },
+    list_my_drops: {
+      method: "GET",
+      url: `${publicUrl}/api/drops`,
+      query: {
+        page: "integer (default 1, min 1)",
+        pageSize: "integer (default 50, max 200)",
+        sortBy: "'created_at' | 'updated_at' | 'view_count' (default 'created_at')",
+        sortOrder: "'asc' | 'desc' (default 'desc')",
+      },
+      returns: {
+        data: "Drop[]",
+        pagination: {
+          page: "integer",
+          page_size: "integer",
+          total_items: "integer",
+          total_pages: "integer",
+          sort_by: "string",
+          sort_order: "string",
+        },
+      },
     },
     other_endpoints: {
-      list_my_drops: { method: "GET", url: `${publicUrl}/api/drops` },
+      whoami: {
+        method: "GET",
+        url: `${publicUrl}/api/me`,
+        returns: {
+          user_id: "string",
+          created_at: "integer (unix ms)",
+          drop_count: "integer",
+          token: { id: "string (12 hex)", label: "string|null", created_at: "integer", last_used_at: "integer|null" },
+        },
+      },
       get_drop: { method: "GET", url: `${publicUrl}/api/drops/<slug>` },
       list_versions: {
         method: "GET",
@@ -120,23 +194,27 @@ export function buildOnboardJson(publicUrl: string): object {
       delete_drop: {
         method: "DELETE",
         url: `${publicUrl}/api/drops/<slug>`,
+        returns: "204 No Content",
       },
       delete_version: {
         method: "DELETE",
         url: `${publicUrl}/api/drops/<slug>/v/<n>`,
+        returns: "Drop (with possibly-updated latest_version)",
         note:
-          "Refused for the last remaining version. If the deleted version was the head, latest_version is recomputed.",
+          "Refused with 409 last_version_cannot_be_deleted on the only remaining version.",
       },
       set_password: {
         method: "POST",
         url: `${publicUrl}/api/drops/<slug>/password`,
         body: { password: "string ('' to remove)" },
+        returns: "Drop",
       },
       list_my_tokens: { method: "GET", url: `${publicUrl}/api/tokens` },
       revoke_token: {
         method: "DELETE",
         url: `${publicUrl}/api/tokens/<id>`,
         note: "id = first 12 hex chars of the token hash",
+        returns: "204 No Content",
       },
     },
     cross_machine: {
@@ -153,17 +231,43 @@ export function buildOnboardJson(publicUrl: string): object {
       drops_per_account: 500,
       verification_ttl_seconds: 600,
     },
+    rate_limits: {
+      response: "429 with `error.code = rate_limited` (or daily_quota_exceeded / quota_exceeded)",
+      retry_after_header: "Set to seconds until the next window opens.",
+      retry_after_details: "Also returned as `details.retry_after_seconds` in the body.",
+    },
     errors: {
-      shape: { error: "<code>" },
-      common: [
+      shape: {
+        error: {
+          code: "<machine-readable identifier>",
+          message: "<human-readable summary>",
+          details: "<optional object with context, e.g. { max_bytes: 2097152 }>",
+        },
+      },
+      common_codes: [
         "unauthorized",
         "invalid_token",
         "rate_limited",
+        "daily_quota_exceeded",
+        "quota_exceeded",
         "html_too_large",
+        "html_required",
+        "title_required",
+        "title_too_long",
+        "description_too_long",
+        "context_too_large",
+        "password_required",
+        "password_too_short",
+        "metadata_only_on_patch",
         "forbidden",
         "not_found",
-        "expired_code",
-        "password_too_short",
+        "version_not_found",
+        "last_version_cannot_be_deleted",
+        "version_limit_reached",
+        "invalid_slug",
+        "invalid_arg",
+        "invalid_json",
+        "token_required",
       ],
     },
     notes: [
@@ -191,6 +295,23 @@ htmlbin is built for agents: the workflow below is the canonical, fastest path.
 4. POST /api/drops (Bearer api_token) → upload HTML, receive a public URL
 
 The api_token is shown exactly once. Store it for reuse on this machine.
+
+## Naming + error conventions
+
+- All request and response field names are **snake_case** (\`raw_url\`, \`latest_version\`, \`created_at\`, etc.).
+- All 4xx/5xx responses share this shape:
+
+\`\`\`json
+{
+  "error": {
+    "code": "html_too_large",
+    "message": "HTML exceeds 2097152 bytes.",
+    "details": { "max_bytes": 2097152 }
+  }
+}
+\`\`\`
+
+Switch on \`error.code\`. \`error.message\` is for human display. \`details\` is optional.
 
 ## Step 1: Authenticate (one-time per agent install)
 
@@ -234,8 +355,7 @@ chmod 600 ./.htmlbin/token
 
 The verification URL drops the human onto a Cloudflare Turnstile widget —
 the same anti-bot checkbox that protects countless other sites. That click
-is the only human step. It exists so bots can't mint tokens; your token
-is yours after that, and it doesn't expire (revocable via /api/tokens).
+is the only human step.
 
 ## Step 2: Generate HTML
 
@@ -246,10 +366,6 @@ iframe, so it must look right standalone.
 - All JS in \`<script>\` (CDNs OK)
 - No build step on our side — what you upload is what's served
 - Up to 2 MB per file
-- For React, use ES module imports + esm.sh; do NOT use Babel standalone
-
-If the user asked for several variants, upload each as its own prototype with
-clearly distinct titles ("Dashboard — A: cards", "Dashboard — B: table").
 
 ## Step 3: Upload (creates v1)
 
@@ -261,95 +377,116 @@ HTMLEOF
 
 jq -n --arg title "My Prototype" \\
        --arg description "What this is showing" \\
-       --arg context "Optional: the prompt or reasoning that produced this drop." \\
        --rawfile html /tmp/htmlbin.html \\
-       '{title:$title, description:$description, html:$html, context:$context}' \\
+       '{title:$title, description:$description, html:$html}' \\
 | curl -s -X POST ${publicUrl}/api/drops \\
     -H "Authorization: Bearer $HTMLBIN_TOKEN" \\
     -H "Content-Type: application/json" \\
     -d @-
 \`\`\`
 
-Response: \`{ "slug": "...", "version": 1, "url": "${publicUrl}/p/...", ... }\`.
+Response (HTTP 201): the full \`Drop\` object:
+\`\`\`json
+{
+  "slug": "aB3xK7g",
+  "title": "My Prototype",
+  "description": "What this is showing",
+  "url": "${publicUrl}/p/aB3xK7g",
+  "raw_url": "${publicUrl}/p/aB3xK7g/raw",
+  "locked": false,
+  "latest_version": 1,
+  "view_count": 0,
+  "created_at": 0,
+  "updated_at": 0
+}
+\`\`\`
+
 Print the \`url\` to the user.
 
-## Versioning
+## Iterating: PUT for new versions, PATCH for metadata
 
-Each PUT with a new \`html\` body creates a **new version** at the same slug.
-The URL never changes. Iterate freely:
+**\`PUT /api/drops/<slug>\`** mints a new version (html required):
 
 \`\`\`bash
-# Mint v2 of an existing drop (URL stays the same)
 jq -n --rawfile html /tmp/htmlbin.html \\
-       --arg context "Tweaked color contrast based on user feedback" \\
+       --arg context "Tweaked colors after user feedback" \\
        '{html:$html, context:$context}' \\
 | curl -s -X PUT ${publicUrl}/api/drops/<slug> \\
     -H "Authorization: Bearer $HTMLBIN_TOKEN" \\
     -H "Content-Type: application/json" \\
     -d @-
-
-# List all versions of a drop
-curl -s ${publicUrl}/api/drops/<slug>/versions \\
-  -H "Authorization: Bearer $HTMLBIN_TOKEN"
-
-# Get specific version metadata (incl. context)
-curl -s ${publicUrl}/api/drops/<slug>/v/3 \\
-  -H "Authorization: Bearer $HTMLBIN_TOKEN"
 \`\`\`
 
-Humans can switch versions in the viewer with \`?v=N\`. Default = latest.
+**\`PATCH /api/drops/<slug>\`** updates title/description without minting a version:
+
+\`\`\`bash
+curl -s -X PATCH ${publicUrl}/api/drops/<slug> \\
+  -H "Authorization: Bearer $HTMLBIN_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{"title":"Better title"}'
+\`\`\`
+
+Including \`html\` in a PATCH returns \`400 metadata_only_on_patch\`.
+
+Humans switch versions in the viewer with \`?v=N\`. Default = latest.
 
 ## Context (optional, opt-in)
 
-The \`context\` field on create/update lets you record the prompt, reasoning,
+The \`context\` field on POST/PUT lets you record the prompt, reasoning,
 or thinking trace that produced the HTML. **It is opt-in and may be
 sensitive — only include it if the human has agreed.** When present, the
 viewer exposes it under a discreet "context" toggle.
 
-## Password protection
+## Listing your drops (paginated)
 
-To upload locked content, include \`"password": "…"\` in the create body. Visitors
-will see a password gate before the iframe renders.
-
-To change a password later:
 \`\`\`bash
-curl -s -X POST ${publicUrl}/api/drops/<slug>/password \\
-  -H "Authorization: Bearer $HTMLBIN_TOKEN" \\
-  -H "Content-Type: application/json" \\
-  -d '{"password":"correct horse battery staple"}'
+curl -s "${publicUrl}/api/drops?page=1&pageSize=50&sortBy=updated_at&sortOrder=desc" \\
+  -H "Authorization: Bearer $HTMLBIN_TOKEN"
 \`\`\`
 
-Pass \`"password": ""\` to unlock.
+Response:
+\`\`\`json
+{
+  "data": [ /* Drop[] */ ],
+  "pagination": {
+    "page": 1, "page_size": 50, "total_items": 142, "total_pages": 3,
+    "sort_by": "updated_at", "sort_order": "desc"
+  }
+}
+\`\`\`
 
-## Update / delete / list
+## Delete
 
 \`\`\`bash
-# Update HTML on the same slug (URL doesn't change)
-curl -s -X PUT ${publicUrl}/api/drops/<slug> \\
-  -H "Authorization: Bearer $HTMLBIN_TOKEN" \\
-  -H "Content-Type: application/json" \\
-  -d "$(jq -n --rawfile html /tmp/htmlbin.html '{html:$html}')"
+# Delete a single version (refused on the only remaining one) — returns the updated Drop
+curl -s -X DELETE ${publicUrl}/api/drops/<slug>/v/<n> \\
+  -H "Authorization: Bearer $HTMLBIN_TOKEN"
 
-# Delete
+# Delete the whole drop — returns 204 No Content
 curl -s -X DELETE ${publicUrl}/api/drops/<slug> \\
   -H "Authorization: Bearer $HTMLBIN_TOKEN"
-
-# List your own
-curl -s ${publicUrl}/api/drops \\
-  -H "Authorization: Bearer $HTMLBIN_TOKEN"
 \`\`\`
 
-## Limits
+## Password protection
 
-- 2 MB per HTML
-- 60 writes / minute / token
-- 500 drops per account (delete old ones to free space)
+Set, change, or remove a password via \`POST /api/drops/<slug>/password\` with
+\`{ "password": "..." }\`. Pass \`"password": ""\` to remove.
+
+## Rate limiting
+
+429 responses carry a \`Retry-After\` header and a
+\`details.retry_after_seconds\` field. Back off accordingly.
+
+Limits: 60 writes/min, 500 writes/day, 500 drops/account, 200 versions/drop, 2 MB / drop.
 
 ## Errors
 
-All errors are JSON: \`{ "error": "<code>", ... }\`.
-Common codes: \`unauthorized\`, \`invalid_token\`, \`rate_limited\`,
-\`html_too_large\`, \`forbidden\`, \`not_found\`, \`expired_code\`.
+All errors share \`{ "error": { "code, message, details? } }\`.
+Switch on \`error.code\`. Common codes: \`unauthorized\`, \`invalid_token\`,
+\`rate_limited\`, \`daily_quota_exceeded\`, \`quota_exceeded\`,
+\`html_too_large\`, \`html_required\`, \`title_required\`, \`forbidden\`,
+\`not_found\`, \`version_not_found\`, \`metadata_only_on_patch\`,
+\`last_version_cannot_be_deleted\`, \`token_required\`.
 
 That's the whole API. Build something good.
 `;

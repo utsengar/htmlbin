@@ -65,18 +65,43 @@ export async function getDrop(
   return row ?? null;
 }
 
+export type DropSort = "created_at" | "updated_at" | "view_count";
+export type SortOrder = "asc" | "desc";
+
 export async function listDropsByUser(
   db: D1Database,
   userId: string,
-  limit = 100
-): Promise<Drop[]> {
-  const { results } = await db
-    .prepare(
-      `SELECT * FROM drops WHERE user_id = ? ORDER BY created_at DESC LIMIT ?`
-    )
-    .bind(userId, limit)
-    .all<Drop>();
-  return results ?? [];
+  opts: {
+    limit?: number;
+    offset?: number;
+    sortBy?: DropSort;
+    sortOrder?: SortOrder;
+  } = {}
+): Promise<{ rows: Drop[]; total: number }> {
+  const limit = Math.min(Math.max(opts.limit ?? 50, 1), 200);
+  const offset = Math.max(opts.offset ?? 0, 0);
+  const sortBy: DropSort = opts.sortBy ?? "created_at";
+  const sortOrder: SortOrder = opts.sortOrder === "asc" ? "asc" : "desc";
+
+  // Whitelist the ORDER BY column to prevent SQL injection.
+  const orderCol =
+    sortBy === "updated_at" ? "updated_at"
+    : sortBy === "view_count" ? "view_count"
+    : "created_at";
+
+  const batchResults = await db.batch<unknown>([
+    db.prepare(
+      `SELECT * FROM drops WHERE user_id = ?
+         ORDER BY ${orderCol} ${sortOrder.toUpperCase()}
+         LIMIT ? OFFSET ?`
+    ).bind(userId, limit, offset),
+    db.prepare(`SELECT COUNT(*) as n FROM drops WHERE user_id = ?`).bind(userId),
+  ]);
+
+  const rows = (batchResults[0]?.results as Drop[] | undefined) ?? [];
+  const countResults = batchResults[1]?.results as Array<{ n: number }> | undefined;
+  const total = countResults?.[0]?.n ?? 0;
+  return { rows, total };
 }
 
 export async function bumpViewCount(
@@ -119,15 +144,20 @@ export async function getVersion(
 }
 
 // Best-effort, single-region rate limiter using D1.
-// Returns true if the request is allowed, false if rate-limited.
+//
+// Returns `{ ok, retryAfter }`: `ok=true` means the request is allowed;
+// when `ok=false`, `retryAfter` is seconds until the next window opens
+// (suitable for the HTTP Retry-After header).
 export async function rateLimit(
   db: D1Database,
   bucketKey: string,
   limit: number,
   windowMs: number
-): Promise<boolean> {
+): Promise<{ ok: boolean; retryAfter: number }> {
   const now = Date.now();
   const windowStart = Math.floor(now / windowMs) * windowMs;
+  const windowEnd = windowStart + windowMs;
+  const retryAfter = Math.max(1, Math.ceil((windowEnd - now) / 1000));
 
   const row = await db
     .prepare(`SELECT count, window_start FROM rate_limits WHERE bucket = ?`)
@@ -142,16 +172,16 @@ export async function rateLimit(
       )
       .bind(bucketKey, windowStart)
       .run();
-    return true;
+    return { ok: true, retryAfter: 0 };
   }
 
-  if (row.count >= limit) return false;
+  if (row.count >= limit) return { ok: false, retryAfter };
 
   await db
     .prepare(`UPDATE rate_limits SET count = count + 1 WHERE bucket = ?`)
     .bind(bucketKey)
     .run();
-  return true;
+  return { ok: true, retryAfter: 0 };
 }
 
 export type Env = Bindings;
