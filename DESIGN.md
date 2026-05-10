@@ -157,16 +157,32 @@ Get a URL." pitch above it. The memo is the pitch.**
 
 ### 5.3 Prompt block (`.prompt`)
 
-Single dark code card holding the prompt the human pastes into their agent.
+Dark code card holding the prompt the human pastes into their agent. Has
+a small fake-macOS title bar to make it instantly read as "code/terminal
+context" instead of a generic dark rectangle. This is a deliberate
+exception to the "no fake mac chrome" rule (5.4); it earns its keep
+because the prompt block is the single most important clickable surface
+on the landing page and needs to stand out.
 
 - Background `--code-bg` (`#0A0A0A`)
-- Pure mono, 13.5px
-- 6px border-radius, no chrome (no fake macOS dots, no title bar)
-- Copy button **inside** the block, top-right corner
-  - Outlined in `#2A2A2A` until hover
-  - Hovers to filled red (`--red`)
-  - "Copied" state goes neutral with a tiny green text accent
-- Placeholder text (`<your html idea here>`) in `--code-dim`
+- 8px border-radius, soft shadow underneath
+- Title bar (`.prompt-chrome`):
+  - Three traffic-light dots on the left (red `#FF5F57`, yellow
+    `#FEBC2E`, green `#28C840`) — small (11px), purely decorative
+  - Centered title `iterm2` in mono, `--code-dim` (it's a terminal-window
+    aesthetic; iterm2 is the canonical macOS terminal so the label reads
+    as "shell context")
+  - 1px hairline border under the bar (`rgba(255,255,255,0.06)`)
+- Body: pure mono, 13.5px, `--code-fg`, 22px padding
+- Cue line **above** the block (`.prompt-cue`): muted mono, e.g.
+  `↓ paste this prompt into Claude, Codex, Cursor, or any agent`
+- CTA button **below** the block (`.copy-cta`):
+  - Solid red (`--red`), white text, 13px mono uppercase
+  - Label: `Copy prompt`. Includes copy/clipboard SVG.
+  - "Copied" state goes solid green
+- Aftermath line (`.prompt-aftermath`): explains what happens after
+  copying. Muted, regular sans (the only sans element near the block —
+  reads as supporting copy, not as part of the prompt).
 - Emphasis text in `--code-em`
 
 ### 5.4 Body prose (`.body`)
@@ -270,8 +286,10 @@ the design language.
 - **No warm cream paper.** Background is pure white.
 - **No orange.** That belongs to getadb.com. Our accent is red.
 - **No black square logomark with a letterform inside.** Wordmark only.
-- **No fake macOS terminal chrome.** No traffic-light dots. No
-  "Your agent" tab labels. No window decorations on code blocks.
+- **No fake macOS terminal chrome anywhere except the prompt block.**
+  The prompt block (5.3) gets dots + an `iterm2` title bar intentionally
+  — it's the primary CTA and needs the visual handle. Everywhere else
+  (HTTP-memo, viewer, raw HTML, password gate) stays flat and chromeless.
 - **No "Are you an agent?" callout.** That phrasing is getadb's. We
   address agents through the *whole* memo, not through a sidebar.
 - **No "powered by" / "built on Cloudflare" / "edge:" / impl details

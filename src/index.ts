@@ -7,7 +7,7 @@ import { landingPage } from "./views/landing";
 import { verifyPage } from "./views/verify";
 import { viewerPage, passwordGatePage } from "./views/viewer";
 import { FAVICON_SVG } from "./views/favicon";
-import { OG_SVG } from "./views/og-image";
+import { OG_SVG, dropOgSvg } from "./views/og-image";
 import {
   agentCard,
   linkHeader,
@@ -126,6 +126,27 @@ app.get("/og.svg", () => {
     headers: {
       "Content-Type": "image/svg+xml",
       "Cache-Control": "public, max-age=86400, s-maxage=2592000",
+    },
+  });
+});
+
+// Per-drop OG card. Cached briefly so new versions show up in social
+// previews within ~10 minutes. No auth — slug + version + date are all
+// public knowledge once you have the URL.
+app.get("/p/:slug/og.svg", async (c) => {
+  const slug = c.req.param("slug");
+  if (!isValidSlug(slug)) return c.notFound();
+  const drop = await getDrop(c.env.DB, slug);
+  if (!drop) return c.notFound();
+  const svg = dropOgSvg({
+    slug: drop.slug,
+    latestVersion: drop.latest_version,
+    updatedAt: drop.updated_at,
+  });
+  return new Response(svg, {
+    headers: {
+      "Content-Type": "image/svg+xml",
+      "Cache-Control": "public, max-age=300, s-maxage=600",
     },
   });
 });
