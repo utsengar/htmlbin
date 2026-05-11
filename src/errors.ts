@@ -33,10 +33,11 @@ export type ErrorCode =
   | "quota_exceeded"
   | "version_limit_reached"
   | "last_version_cannot_be_deleted"
-  | "metadata_only_on_patch";
+  | "metadata_only_on_patch"
+  | "server_misconfigured";
 
 export type HttpStatus =
-  | 400 | 401 | 403 | 404 | 409 | 413 | 422 | 429 | 500;
+  | 400 | 401 | 403 | 404 | 409 | 413 | 422 | 429 | 500 | 503;
 
 export function apiError(
   c: Context,
