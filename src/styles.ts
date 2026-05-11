@@ -480,6 +480,8 @@ footer.tail .row {
   display: flex; gap: 18px; flex-wrap: wrap; justify-content: space-between;
   letter-spacing: 0.02em;
 }
+footer.tail a { color: var(--ink-soft); text-decoration-color: var(--rule); }
+footer.tail a:hover { color: var(--red); text-decoration-color: var(--red); }
 @media (max-width: 720px) { footer.tail .row { padding: 8px 22px 32px; } }
 
 /* ---------- manifesto-specific ---------- */
