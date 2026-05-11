@@ -24,10 +24,12 @@ enabled = true
 # have to maintain two environments.
 [vars]
 PUBLIC_URL = "https://htmlbin.dev"
-# GitHub OAuth app client id (public). Replace with the value from
-# github.com/settings/applications/new (Authorization callback URL =
-# https://htmlbin.dev/auth/github/callback).
-GITHUB_CLIENT_ID = "REPLACE_WITH_PROD_GH_CLIENT_ID"
+# GitHub OAuth app client id (public — appears in the browser during
+# the authorize redirect, so it lives in git, not in secrets).
+# Source: github.com/settings/developers → htmlbin → Client ID.
+# Authorization callback URL on the app must be
+# https://htmlbin.dev/auth/github/callback.
+GITHUB_CLIENT_ID = "Ov23li6nAqCYrRIN3WSf"
 
 # Secrets (set with `wrangler secret put NAME`):
 #   GITHUB_CLIENT_SECRET  → GitHub OAuth app client secret
