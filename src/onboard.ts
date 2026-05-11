@@ -268,6 +268,7 @@ export function buildOnboardJson(publicUrl: string): object {
         "invalid_arg",
         "invalid_json",
         "token_required",
+        "server_misconfigured",
       ],
     },
     notes: [
@@ -488,7 +489,8 @@ Switch on \`error.code\`. Common codes: \`unauthorized\`, \`invalid_token\`,
 \`rate_limited\`, \`daily_quota_exceeded\`, \`quota_exceeded\`,
 \`html_too_large\`, \`html_required\`, \`title_required\`, \`forbidden\`,
 \`not_found\`, \`version_not_found\`, \`metadata_only_on_patch\`,
-\`last_version_cannot_be_deleted\`, \`token_required\`.
+\`last_version_cannot_be_deleted\`, \`token_required\`,
+\`passcode_required\`, \`passcode_too_short\`.
 
 That's the whole API. Build something good.
 `;

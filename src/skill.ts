@@ -301,7 +301,7 @@ Read live values from \`/api/onboard.limits\`; current defaults:
 - Specific version: \`https://htmlbin.dev/p/<slug>?v=<n>\`
 - Raw HTML (no chrome): \`https://htmlbin.dev/p/<slug>/raw\`
 - Per-drop OG card: \`https://htmlbin.dev/p/<slug>/og.svg\` (or \`.png\`)
-- Slugs are 7-char base62: \`^[A-Za-z0-9]{7}$\`
+- Slugs are 9-char base62 (e.g. \`fAI2I51X2\`). Validation regex accepts 6–12 chars to cover earlier 7-char IDs: \`^[A-Za-z0-9]{6,12}$\`
 - Tokens are \`hb_\` + base62: \`^hb_[A-Za-z0-9]+$\`
 
 ## What htmlbin won't do (don't suggest these)
