@@ -117,7 +117,9 @@ identity, read:user scope only) → token (revealed exactly once on
 - GET    /api/drops/:slug/versions   → list versions
 - GET    /api/drops/:slug/v/:n       → version metadata + context
 - DELETE /api/drops/:slug            → delete (all versions)
+- DELETE /api/drops/:slug/v/:n       → delete a single version (refused on the last remaining)
 - POST   /api/drops/:slug/passcode   → set/change/remove passcode
+- GET    /api/me                          → caller identity + drop count + current token info
 - GET    /api/tokens                      → list your active tokens
 - DELETE /api/tokens/:id                  → revoke a token (id = first 12 hex)
 
@@ -153,6 +155,8 @@ export function sitemapXml(publicUrl: string): string {
   const urls = [
     { loc: `${publicUrl}/`, priority: "1.0" },
     { loc: `${publicUrl}/api/onboard`, priority: "0.9" },
+    { loc: `${publicUrl}/.well-known/agent-card.json`, priority: "0.8" },
+    { loc: `${publicUrl}/.well-known/agent-skills/index.json`, priority: "0.7" },
     { loc: `${publicUrl}/llms.txt`, priority: "0.6" },
     { loc: `${publicUrl}/openapi.json`, priority: "0.6" },
   ];
@@ -327,7 +331,7 @@ export function openApiSpec(publicUrl: string): object {
     openapi: "3.1.0",
     info: {
       title: "htmlbin API",
-      version: "1.1.0",
+      version: "2.0.0",
       summary:
         "Agent-first HTML hosting. Drop self-contained HTML, get a public URL.",
       description:
@@ -773,12 +777,8 @@ export function openApiSpec(publicUrl: string): object {
         get: {
           summary: "Public viewer (HTML)",
           parameters: [
-            {
-              name: "slug",
-              in: "path",
-              required: true,
-              schema: { type: "string" },
-            },
+            { name: "slug", in: "path",  required: true, schema: { type: "string" } },
+            { name: "v",    in: "query", required: false, schema: { type: "integer", minimum: 1 }, description: "Pin to a specific version. Defaults to latest_version." },
           ],
           responses: {
             "200": { description: "Viewer page" },
@@ -790,17 +790,67 @@ export function openApiSpec(publicUrl: string): object {
         get: {
           summary: "Raw HTML, edge-cached",
           parameters: [
-            {
-              name: "slug",
-              in: "path",
-              required: true,
-              schema: { type: "string" },
-            },
+            { name: "slug", in: "path",  required: true, schema: { type: "string" } },
+            { name: "v",    in: "query", required: false, schema: { type: "integer", minimum: 1 }, description: "Pin to a specific version. Defaults to latest_version." },
           ],
           responses: {
             "200": {
               description: "The drop, served as text/html",
               content: { "text/html": { schema: { type: "string" } } },
+            },
+            "302": { description: "Locked drop without a valid unlock cookie — redirects to /p/{slug} for the passcode gate." },
+          },
+        },
+      },
+      "/p/{slug}/og.png": {
+        get: {
+          summary: "Per-drop OG card (PNG, 1200×630)",
+          description:
+            "Rendered with satori + resvg-wasm. Cached at the edge per slug+version. Use this in og:image / twitter:image meta tags — social platforms unfurl PNGs reliably.",
+          parameters: [
+            { name: "slug", in: "path", required: true, schema: { type: "string" } },
+          ],
+          responses: {
+            "200": {
+              description: "PNG image",
+              content: { "image/png": { schema: { type: "string", format: "binary" } } },
+            },
+            "302": { description: "Falls back to the SVG variant if PNG rendering fails." },
+          },
+        },
+      },
+      "/p/{slug}/og.svg": {
+        get: {
+          summary: "Per-drop OG card (SVG fallback, 1200×630)",
+          parameters: [
+            { name: "slug", in: "path", required: true, schema: { type: "string" } },
+          ],
+          responses: {
+            "200": {
+              description: "SVG image",
+              content: { "image/svg+xml": { schema: { type: "string" } } },
+            },
+          },
+        },
+      },
+      "/og.png": {
+        get: {
+          summary: "Landing OG card (PNG, 1200×630)",
+          responses: {
+            "200": {
+              description: "PNG image",
+              content: { "image/png": { schema: { type: "string", format: "binary" } } },
+            },
+          },
+        },
+      },
+      "/og.svg": {
+        get: {
+          summary: "Landing OG card (SVG fallback, 1200×630)",
+          responses: {
+            "200": {
+              description: "SVG image",
+              content: { "image/svg+xml": { schema: { type: "string" } } },
             },
           },
         },
