@@ -569,6 +569,22 @@ app.post("/p/:slug/unlock", async (c) => {
   });
 });
 
+// Re-lock: clear the unlock cookie and bounce back to the gate.
+// Only side-effect is on the caller's own cookie, so no auth or CSRF
+// token needed (a forged form would just log the forger out of nothing).
+app.post("/p/:slug/lock", async (c) => {
+  const slug = c.req.param("slug");
+  if (!isValidSlug(slug)) return c.notFound();
+  const drop = await getDrop(c.env.DB, slug);
+  if (!drop) return c.notFound();
+  // Same Path as the original cookie so the browser actually expires it.
+  const cookie = `wu_${slug}=; Path=/p/${slug}; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
+  return new Response(null, {
+    status: 302,
+    headers: { Location: `/p/${slug}`, "Set-Cookie": cookie },
+  });
+});
+
 app.on(["GET", "HEAD"], "/p/:slug/raw", async (c) => {
   const slug = c.req.param("slug");
   if (!isValidSlug(slug)) return c.notFound();

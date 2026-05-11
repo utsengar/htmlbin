@@ -215,7 +215,7 @@ ${
   <div class="title">${title}</div>
   ${description ? `<span class="sep desc-sep">·</span><div class="desc">${description}</div>` : ""}
   <div class="right">
-    ${state.locked ? `<span class="lock-pill">unlocked</span>` : ""}
+    ${state.locked ? `<form method="POST" action="/p/${slug}/lock" class="lock-form"><button type="submit" class="lock-pill" aria-label="re-lock this drop"><span class="lock-state">unlocked</span><span class="lock-action">lock</span></button></form>` : ""}
     <span>${updated}</span>
     <button class="vchip ${isLatest ? "latest" : ""}" id="vchip" aria-haspopup="true">
       v${current}<span class="of">/</span>${total}

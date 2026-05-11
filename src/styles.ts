@@ -673,12 +673,24 @@ pre.lifecycle {
     flex-wrap: wrap;
   }
 }
+.lock-form { display: inline-flex; margin: 0; padding: 0; }
 .lock-pill {
   background: var(--ink); color: var(--bg);
   padding: 3px 9px; border-radius: 999px;
   font: 500 10.5px/1 var(--mono);
   letter-spacing: 0.04em; text-transform: uppercase;
+  border: 0;
+  cursor: pointer;
+  display: inline-flex; align-items: center;
+  transition: background 0.12s;
 }
+.lock-pill .lock-action { display: none; }
+.lock-pill:hover,
+.lock-pill:focus-visible { background: var(--red); outline: none; }
+.lock-pill:hover .lock-state,
+.lock-pill:focus-visible .lock-state { display: none; }
+.lock-pill:hover .lock-action,
+.lock-pill:focus-visible .lock-action { display: inline; }
 iframe.canvas { border: 0; width: 100%; background: #fff; flex: 1; }
 
 /* ---------- locked drop gate ---------- */
