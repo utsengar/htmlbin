@@ -32,6 +32,7 @@ export function pageFoot(host: string): string {
 <footer class="tail">
   <div class="row">
     <span>${escapeHtml(host)}</span>
+    <span>Project by <a href="https://x.com/utsengar" target="_blank" rel="noopener noreferrer">@utsengar</a></span>
   </div>
 </footer>`;
 }
