@@ -321,14 +321,40 @@ code, .mono {
 .prompt-chrome .dot.y { background: #FEBC2E; }
 .prompt-chrome .dot.g { background: #28C840; }
 .prompt-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font: 500 12px/1 var(--mono);
   letter-spacing: 0.02em;
-  padding: 5px 11px;
+  padding: 5px 10px 5px 8px;
   border-radius: 5px;
+  border: none;
   background: rgba(255,255,255,0.10);
   color: var(--code-fg);
   user-select: none;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+  -webkit-tap-highlight-color: transparent;
 }
+.prompt-mark:hover { background: rgba(255,255,255,0.16); }
+.prompt-mark:active { background: rgba(255,255,255,0.22); }
+.prompt-mark:focus-visible {
+  outline: 1px solid var(--code-em);
+  outline-offset: 2px;
+}
+.prompt-mark .prompt-mark-icon,
+.prompt-mark .prompt-mark-check {
+  width: 11px;
+  height: 11px;
+  flex: 0 0 auto;
+}
+.prompt-mark .prompt-mark-check { display: none; }
+.prompt-mark.ok {
+  background: rgba(40, 200, 64, 0.18);
+  color: #34D058;
+}
+.prompt-mark.ok .prompt-mark-icon { display: none; }
+.prompt-mark.ok .prompt-mark-check { display: inline-block; }
 .prompt-body {
   padding: 18px 22px 22px;
 }

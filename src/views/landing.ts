@@ -116,7 +116,16 @@ ${pageHead({ verb: "GET", path: "/" })}
         <span class="dots" aria-hidden="true">
           <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
         </span>
-        <span class="prompt-mark" aria-hidden="true">claude</span>
+        <button
+          class="prompt-mark js-copy-prompt"
+          type="button"
+          data-copy="${escapeAttr(AGENT_PROMPT)}"
+          aria-label="Copy the prompt to your clipboard"
+        >
+          <svg class="prompt-mark-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="square" aria-hidden="true"><rect x="8" y="8" width="11" height="11"/><path d="M5 14V5h9"/></svg>
+          <svg class="prompt-mark-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M5 12.5l4.2 4.2L19 7"/></svg>
+          <span class="lbl">copy</span>
+        </button>
       </div>
       <div class="prompt-body">
 <pre>Make a delightful HTML page to explain a concept or a problem — show me what HTML can do that markdown or a flat file can't. Something visual, interactive, alive.
@@ -125,7 +134,7 @@ Publish to <span class="em">htmlbin.dev</span>. Credentials and API at <span cla
       </div>
     </div>
 
-    <button class="copy-cta" id="copyPrompt" type="button" data-copy="${escapeAttr(AGENT_PROMPT)}">
+    <button class="copy-cta js-copy-prompt" type="button" data-copy="${escapeAttr(AGENT_PROMPT)}">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="square" aria-hidden="true"><rect x="8" y="8" width="11" height="11"/><path d="M5 14V5h9"/></svg>
       <span class="lbl">Copy prompt</span>
     </button>
@@ -157,20 +166,23 @@ ${pageFoot(HOST)}
 
 <script>
 (function () {
-  var btn = document.getElementById('copyPrompt');
-  if (!btn) return;
-  var lbl = btn.querySelector('.lbl');
-  var original = lbl ? lbl.textContent : 'Copy prompt';
-  btn.addEventListener('click', async function () {
-    try {
-      await navigator.clipboard.writeText(btn.dataset.copy || '');
-      btn.classList.add('ok');
-      if (lbl) lbl.textContent = 'Copied';
-      setTimeout(function () {
-        btn.classList.remove('ok');
-        if (lbl) lbl.textContent = original;
-      }, 1600);
-    } catch (e) {}
+  var btns = document.querySelectorAll('.js-copy-prompt');
+  if (!btns.length) return;
+  btns.forEach(function (btn) {
+    var lbl = btn.querySelector('.lbl');
+    var original = lbl ? lbl.textContent : '';
+    var doneLabel = btn.classList.contains('prompt-mark') ? 'copied' : 'Copied';
+    btn.addEventListener('click', async function () {
+      try {
+        await navigator.clipboard.writeText(btn.dataset.copy || '');
+        btn.classList.add('ok');
+        if (lbl) lbl.textContent = doneLabel;
+        setTimeout(function () {
+          btn.classList.remove('ok');
+          if (lbl) lbl.textContent = original;
+        }, 1600);
+      } catch (e) {}
+    });
   });
 })();
 </script>

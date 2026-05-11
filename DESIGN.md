@@ -177,10 +177,17 @@ ship or a `curl` command that careful agents flag as unsafe.
 - Title bar (`.prompt-chrome`):
   - Three traffic-light dots on the left (red `#FF5F57`, yellow
     `#FEBC2E`, green `#28C840`) — small (11px), purely decorative
-  - Static `claude` pill on the right (`.prompt-mark`): mono, soft
-    white-on-dark. Visual context indicator only — not a tab, not
-    interactive. Tells the human "this is meant for an agent." The
-    earlier centered `iterm2` title is retired.
+  - `copy` pill on the right (`.prompt-mark`): mono, soft
+    white-on-dark, with a small copy glyph in front of the label.
+    Doubles as the in-chrome copy button — click and the prompt
+    body lands in the clipboard; the pill swaps to a check icon
+    and `copied` for ~1.6s. It's a button, not a static label.
+    The earlier centered `iterm2` title is retired, and the
+    earlier `claude` agent-affinity label is replaced by the
+    plain `copy` label (the function is now the affordance).
+    The large red `Copy prompt` CTA below the card stays for
+    discoverability — both controls share `data-copy` and one
+    event listener (`.js-copy-prompt` in `landing.ts`).
   - **No** hairline beneath the title bar — title and body share the
     same surface so the card reads as one continuous slab
 - Body (`.prompt-body`): single `<pre>` with the prompt. 13.5px mono,
@@ -308,9 +315,10 @@ the design language.
 - **No orange.** That belongs to getadb.com. Our accent is red.
 - **No black square logomark with a letterform inside.** Wordmark only.
 - **No fake macOS terminal chrome anywhere except the prompt block.**
-  The prompt block (5.3) gets dots + an `iterm2` title bar intentionally
-  — it's the primary CTA and needs the visual handle. Everywhere else
-  (HTTP-memo, viewer, raw HTML, password gate) stays flat and chromeless.
+  The prompt block (5.3) gets dots + a static `claude` pill on the right
+  intentionally — it's the primary CTA and needs the visual handle.
+  Everywhere else (HTTP-memo, viewer, raw HTML, password gate) stays
+  flat and chromeless. The earlier centered `iterm2` title is retired.
 - **No "Are you an agent?" callout.** That phrasing is getadb's. We
   address agents through the *whole* memo, not through a sidebar.
 - **No "powered by" / "built on Cloudflare" / "edge:" / impl details
