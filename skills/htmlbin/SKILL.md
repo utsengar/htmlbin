@@ -76,10 +76,15 @@ Token format: `hb_` followed by base62 characters. Validation regex:
 
 ## Auth: device-code flow (one-time, human-in-the-loop)
 
+The human moment is a **Sign in with GitHub** click — htmlbin binds one
+account per GitHub identity (`read:user` scope only: public username +
+numeric id). Cycling tokens recycles the same account, so quotas and
+existing drops follow the human across devices.
+
 ```
 POST /api/auth/start         → { code, verification_url, poll_token, expires_in, poll_interval }
-[print code + URL to human]
-GET  /api/auth/poll?token=…  → { status, api_token? } once human verifies
+[print verification_url to human → they open it and sign in with GitHub]
+GET  /api/auth/poll?token=…  → { status, api_token? } once GitHub returns
 [save api_token to ./.htmlbin/token]
 ```
 
@@ -95,11 +100,12 @@ Walkthrough:
    `https://htmlbin.dev/verify?code=ABCD-EFGH`), `poll_token`,
    `expires_in` (seconds), and `poll_interval` (seconds).
 
-2. Print the code and verification URL clearly so the human can open it in a
-   browser. Example:
+2. Print the verification URL (and the code, for confirmation) so the
+   human can open it in a browser. They'll see a single "Sign in with
+   GitHub" button — that's the only thing they have to click. Example:
 
    ```
-   To authorize htmlbin, open this URL in your browser:
+   To authorize htmlbin, open this URL and sign in with GitHub:
      https://htmlbin.dev/verify?code=ABCD-EFGH
 
    Code: ABCD-EFGH

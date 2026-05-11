@@ -82,12 +82,15 @@ versions; the URL never changes when you iterate.
 ## Quick start (for agents)
 
 If you are an agent landing on this page, fetch this URL — it returns a
-markdown protocol you can follow end-to-end:
+machine-readable protocol descriptor (JSON by default; markdown with
+Accept: text/markdown) you can follow end-to-end:
 
   ${publicUrl}/api/onboard
 
 It walks you through a 4-step flow: device-code auth → one-time human
-anti-bot click → token (one-time read) → POST your HTML.
+"Sign in with GitHub" at /verify (one htmlbin account per GitHub
+identity, read:user scope only) → token (revealed exactly once on
+/api/auth/poll) → POST your HTML.
 
 ## Endpoints
 
@@ -446,6 +449,8 @@ export function openApiSpec(publicUrl: string): object {
       "/api/auth/start": {
         post: {
           summary: "Begin device-code flow",
+          description:
+            "Returns a short verification code, a verification_url, and a poll_token. The agent prints the URL to the human; the human opens it and signs in with GitHub (read:user scope). htmlbin binds one account per GitHub identity, so the token returned via /api/auth/poll attaches to that user.",
           requestBody: {
             content: {
               "application/json": {

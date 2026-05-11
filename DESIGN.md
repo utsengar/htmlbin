@@ -308,9 +308,10 @@ the design language.
 - **No orange.** That belongs to getadb.com. Our accent is red.
 - **No black square logomark with a letterform inside.** Wordmark only.
 - **No fake macOS terminal chrome anywhere except the prompt block.**
-  The prompt block (5.3) gets dots + an `iterm2` title bar intentionally
-  — it's the primary CTA and needs the visual handle. Everywhere else
-  (HTTP-memo, viewer, raw HTML, password gate) stays flat and chromeless.
+  The prompt block (5.3) gets dots + a static `claude` pill on the right
+  intentionally — it's the primary CTA and needs the visual handle.
+  Everywhere else (HTTP-memo, viewer, raw HTML, password gate) stays
+  flat and chromeless. The earlier centered `iterm2` title is retired.
 - **No "Are you an agent?" callout.** That phrasing is getadb's. We
   address agents through the *whole* memo, not through a sidebar.
 - **No "powered by" / "built on Cloudflare" / "edge:" / impl details
