@@ -150,6 +150,30 @@ function runQuery(sql) {
 // ── render helpers ─────────────────────────────────────────────────
 const BAR_WIDTH = 14;
 
+// ANSI styling, disabled when stdout isn't a TTY or NO_COLOR is set.
+const useColor = process.stdout.isTTY && !process.env.NO_COLOR;
+const ansi = (code) => (s) => useColor ? `\x1b[${code}m${s}\x1b[0m` : String(s);
+const bold = ansi("1");
+const dim = ansi("2");
+const red = ansi("31");
+const green = ansi("32");
+const yellow = ansi("33");
+const cyan = ansi("36");
+
+const ANSI_RE = /\x1b\[\d+m/g;
+// Pad to N visible chars, ignoring ANSI escape sequences.
+function padVis(s, n, align = "left") {
+  const str = String(s);
+  const vis = str.replace(ANSI_RE, "").length;
+  const fill = " ".repeat(Math.max(0, n - vis));
+  return align === "right" ? fill + str : str + fill;
+}
+
+function section(name) {
+  console.log();
+  console.log(`${red("↓")} ${bold(name)}`);
+}
+
 function bar(n, max) {
   if (!n) return "";
   const filled = Math.max(1, Math.round((n / Math.max(max, 1)) * BAR_WIDTH));
@@ -177,7 +201,9 @@ function nowStamp() {
 }
 
 // ── data fetch ─────────────────────────────────────────────────────
-console.log(`\nhtmlbin stats — ${nowStamp()}  ·  env: ${ENV_LABEL}\n`);
+console.log(
+  `\n${bold(red("htmlbin"))} stats ${dim("·")} ${nowStamp()} ${dim("·")} env: ${bold(ENV_LABEL)}`,
+);
 
 // User-id → github_login lookup (used to humanize risk rows).
 const usersById = new Map();
@@ -310,89 +336,148 @@ const lockHeavy = runQuery(`
 // ── render ─────────────────────────────────────────────────────────
 
 // Overview
-console.log("OVERVIEW");
+section("OVERVIEW");
+const overviewRow = (name, parts) => {
+  const segs = parts
+    .map(([label, value]) => `${dim(label)} ${padVis(bold(value), 4, "right")}`)
+    .join("   ");
+  console.log(`  ${padVis(name, 14)}${segs}`);
+};
+overviewRow("drops", [
+  ["total", num(dropsRow.total)],
+  ["24h", num(dropsRow.d24h)],
+  ["7d", num(dropsRow.d7d)],
+]);
+overviewRow("users", [
+  ["total", num(usersRow.total)],
+  ["24h", num(usersRow.d24h)],
+  ["7d", num(usersRow.d7d)],
+]);
 console.log(
-  `  drops           total ${String(num(dropsRow.total)).padEnd(8)} 24h ${String(num(dropsRow.d24h)).padEnd(6)} 7d ${num(dropsRow.d7d)}`,
+  `  ${padVis("tokens", 14)}${dim("active")} ${padVis(bold(num(tokensRow.active_7d)), 4, "right")}   ${dim("(last 7d)")}`,
 );
-console.log(
-  `  users           total ${String(num(usersRow.total)).padEnd(8)} 24h ${String(num(usersRow.d24h)).padEnd(6)} 7d ${num(usersRow.d7d)}`,
-);
-console.log(`  tokens active   7d ${num(tokensRow.active_7d)}`);
+
 const conv =
   verifyRow.started > 0
     ? Math.round((Number(verifyRow.completed) / Number(verifyRow.started)) * 100)
     : 0;
+const convPaint = conv >= 70 ? green : conv >= 40 ? yellow : red;
 console.log(
-  `  verify funnel   started ${num(verifyRow.started)}   completed ${num(verifyRow.completed)}   conv ${conv}%`,
+  `  ${padVis("verify", 14)}${dim("started")} ${padVis(bold(num(verifyRow.started)), 4, "right")}   ${dim("completed")} ${padVis(bold(num(verifyRow.completed)), 4, "right")}   ${dim("conv")} ${convPaint(conv + "%")}`,
 );
-console.log();
 
 // Time-series
 const labels = expectedBuckets(WINDOW, BUCKETS);
 const dropsMax = Math.max(1, ...labels.map((l) => dropsByBucket.get(l) ?? 0));
 const usersMax = Math.max(1, ...labels.map((l) => usersByBucket.get(l) ?? 0));
-console.log(`TIMESERIES — ${WINDOW}, last ${labels.length} ${WINDOW}s`);
+section(`TIMESERIES — ${WINDOW}, last ${labels.length} ${WINDOW}s`);
 for (const l of labels) {
   const dn = Number(dropsByBucket.get(l) ?? 0);
   const un = Number(usersByBucket.get(l) ?? 0);
+  const db = bar(dn, dropsMax);
+  const ub = bar(un, usersMax);
+  const dnStr = dn > 0 ? bold(String(dn)) : dim(String(dn));
+  const unStr = un > 0 ? bold(String(un)) : dim(String(un));
   console.log(
-    `  ${l.padEnd(11)}  drops ${bar(dn, dropsMax).padEnd(BAR_WIDTH)} ${String(dn).padStart(4)}   users ${bar(un, usersMax).padEnd(BAR_WIDTH)} ${String(un).padStart(4)}`,
+    `  ${dim(padVis(l, 11))} ${dim("drops")} ${padVis(db, BAR_WIDTH)} ${padVis(dnStr, 4, "right")}   ${dim("users")} ${padVis(ub, BAR_WIDTH)} ${padVis(unStr, 4, "right")}`,
   );
 }
-console.log();
 
 // Top drops
 if (topDrops.length > 0) {
-  console.log("TOP DROPS BY VIEWS");
+  section("TOP DROPS BY VIEWS");
   for (const d of topDrops) {
-    const slug = `/p/${d.slug}`.padEnd(12);
-    const title = truncate(d.title ?? "", 42).padEnd(43);
-    console.log(`  ${slug} ${title} ${String(num(d.view_count)).padStart(6)}`);
+    const slug = dim(`/p/${d.slug}`);
+    const title = truncate(d.title ?? "", 42);
+    console.log(
+      `  ${padVis(slug, 12)} ${padVis(title, 43)} ${padVis(bold(num(d.view_count)), 6, "right")}`,
+    );
   }
-  console.log();
 }
 
 // Top users
 if (topUsers.length > 1) {
-  console.log("TOP USERS BY DROPS");
+  section("TOP USERS BY DROPS");
   for (const u of topUsers) {
-    const h = (u.github_login ? `@${u.github_login}` : `user_${String(u.id).slice(0, 8)}`).padEnd(20);
+    const raw = u.github_login
+      ? `@${u.github_login}`
+      : `user_${String(u.id).slice(0, 8)}`;
+    const h = u.github_login ? cyan(raw) : dim(raw);
     console.log(
-      `  ${h} ${String(num(u.drops)).padStart(3)} drops   ${String(num(u.views)).padStart(7)} views`,
+      `  ${padVis(h, 20)} ${padVis(bold(num(u.drops)), 3, "right")} ${dim("drops")}   ${padVis(bold(num(u.views)), 7, "right")} ${dim("views")}`,
     );
   }
-  console.log();
 }
 
-// Risk signals — only the rows that triggered.
-const riskLines = [];
+// Risk signals — only the rows that triggered. Heavy = abuse-like, soft = informational.
+const SIG_W = 16;
+const heavy = (label, body) =>
+  `  ${red("●")} ${padVis(red(label), SIG_W)} ${body}`;
+const soft = (label, body) =>
+  `  ${yellow("●")} ${padVis(yellow(label), SIG_W)} ${body}`;
 
+const riskLines = [];
 for (const r of burstWrites) {
-  riskLines.push(`  burst writes      ${handle(r.user_id)} created ${num(r.n)} drops in last 24h`);
+  riskLines.push(
+    heavy(
+      "burst writes",
+      `${handle(r.user_id)} created ${bold(num(r.n))} drops in last 24h`,
+    ),
+  );
 }
 for (const r of zeroViewAging) {
-  riskLines.push(`  zero-view aging   ${handle(r.user_id)} has ${num(r.n)} drops >24h old with 0 views`);
+  riskLines.push(
+    heavy(
+      "zero-view aging",
+      `${handle(r.user_id)} has ${bold(num(r.n))} drops >24h old with 0 views`,
+    ),
+  );
 }
 for (const r of rateLimitHits) {
-  riskLines.push(`  rate-limit hits   bucket ${truncate(r.bucket, 32)} at ${num(r.c)} hits`);
+  riskLines.push(
+    heavy(
+      "rate-limit hits",
+      `bucket ${truncate(r.bucket, 32)} at ${bold(num(r.c))} hits`,
+    ),
+  );
 }
 if (verifyRow.started >= 10 && conv < 50) {
-  riskLines.push(`  verify drop-off   24h conversion ${conv}% (${num(verifyRow.completed)}/${num(verifyRow.started)})`);
+  riskLines.push(
+    heavy(
+      "verify drop-off",
+      `24h conversion ${bold(conv + "%")} (${num(verifyRow.completed)}/${num(verifyRow.started)})`,
+    ),
+  );
 }
 for (const r of storageOutliers) {
   if (Number(r.bytes) === 0) continue;
-  riskLines.push(`  storage outlier   ${handle(r.user_id)} ${fmtBytes(Number(r.bytes))} across ${num(r.drops)} drops`);
+  riskLines.push(
+    soft(
+      "storage outlier",
+      `${handle(r.user_id)} ${bold(fmtBytes(Number(r.bytes)))} across ${num(r.drops)} drops`,
+    ),
+  );
 }
 for (const r of editSpam) {
-  riskLines.push(`  edit-spam         /p/${r.slug} at v${r.latest_version} of 200`);
+  riskLines.push(
+    soft(
+      "edit-spam",
+      `/p/${r.slug} at ${bold("v" + r.latest_version)} of 200`,
+    ),
+  );
 }
 for (const r of lockHeavy) {
-  riskLines.push(`  lock-heavy        ${handle(r.user_id)} ${Math.round(Number(r.r) * 100)}% password-locked across ${num(r.n)} drops`);
+  riskLines.push(
+    soft(
+      "lock-heavy",
+      `${handle(r.user_id)} ${bold(Math.round(Number(r.r) * 100) + "%")} password-locked across ${num(r.n)} drops`,
+    ),
+  );
 }
 
-console.log("RISK SIGNALS");
+section("RISK SIGNALS");
 if (riskLines.length === 0) {
-  console.log("  none");
+  console.log(`  ${dim("· none")}`);
 } else {
   for (const l of riskLines) console.log(l);
 }
