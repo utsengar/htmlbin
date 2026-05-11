@@ -195,28 +195,28 @@ RAW2=$(curl -s "$BASE/p/$SLUG/raw")
 assert_contains "$RAW2" "updated by agent" "raw HTML reflects update"
 
 # ---------------------------------------------------------------------------
-section "5. password lifecycle"
+section "5. passcode lifecycle"
 # ---------------------------------------------------------------------------
-curl -s -X POST "$BASE/api/drops/$SLUG/password" \
+curl -s -X POST "$BASE/api/drops/$SLUG/passcode" \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"password":"e2e-secret"}' -o "$TMP/lock.json"
-assert_json "$TMP/lock.json" '.locked' 'true' "POST /password locks the drop"
+  -d '{"passcode":"e2e-secret"}' -o "$TMP/lock.json"
+assert_json "$TMP/lock.json" '.locked' 'true' "POST /passcode locks the drop"
 
 LC=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/p/$SLUG/raw")
 assert_eq "$LC" "302" "locked /raw returns 302"
 
 GATE=$(curl -s "$BASE/p/$SLUG")
-assert_contains "$GATE" "locked" "viewer shows password gate when locked"
-assert_contains "$GATE" "needs a password" "gate explains the lock"
+assert_contains "$GATE" "locked" "viewer shows passcode gate when locked"
+assert_contains "$GATE" "soft gate" "gate explains the lock"
 
 WRONG=$(curl -s -X POST "$BASE/p/$SLUG/unlock" \
-  -H "Content-Type: application/x-www-form-urlencoded" --data-urlencode "password=nope")
-assert_contains "$WRONG" "incorrect" "wrong password is rejected"
+  -H "Content-Type: application/x-www-form-urlencoded" --data-urlencode "passcode=nope")
+assert_contains "$WRONG" "incorrect" "wrong passcode is rejected"
 
 RIGHT_HEAD=$(curl -s -i -c "$TMP/cookies" -X POST "$BASE/p/$SLUG/unlock" \
-  -H "Content-Type: application/x-www-form-urlencoded" --data-urlencode "password=e2e-secret")
+  -H "Content-Type: application/x-www-form-urlencoded" --data-urlencode "passcode=e2e-secret")
 RIGHT_CODE=$(echo "$RIGHT_HEAD" | head -1 | awk '{print $2}')
-assert_eq "$RIGHT_CODE" "302" "correct password returns 302"
+assert_eq "$RIGHT_CODE" "302" "correct passcode returns 302"
 grep -q "wu_$SLUG" "$TMP/cookies" && ok "unlock sets wu_$SLUG cookie" || fail "unlock cookie" "missing"
 
 WRAW=$(curl -s -b "$TMP/cookies" "$BASE/p/$SLUG/raw")
@@ -225,17 +225,17 @@ assert_contains "$WRAW" "updated by agent" "with cookie, raw HTML loads"
 NOCOOKIE=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/p/$SLUG/raw")
 assert_eq "$NOCOOKIE" "302" "without cookie, still locked"
 
-curl -s -X POST "$BASE/api/drops/$SLUG/password" \
+curl -s -X POST "$BASE/api/drops/$SLUG/passcode" \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"password":""}' -o "$TMP/unlock.json"
-assert_json "$TMP/unlock.json" '.locked' 'false' "POST /password with empty unlocks"
+  -d '{"passcode":""}' -o "$TMP/unlock.json"
+assert_json "$TMP/unlock.json" '.locked' 'false' "POST /passcode with empty unlocks"
 PUB=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/p/$SLUG/raw")
 assert_eq "$PUB" "200" "after unlock, /raw is 200 again"
 
-SHORT=$(curl -s -X POST "$BASE/api/drops/$SLUG/password" \
+SHORT=$(curl -s -X POST "$BASE/api/drops/$SLUG/passcode" \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"password":"ab"}')
-assert_contains "$SHORT" "password_too_short" "password < 4 chars rejected"
+  -d '{"passcode":"ab"}')
+assert_contains "$SHORT" "passcode_too_short" "passcode < 4 chars rejected"
 
 # ---------------------------------------------------------------------------
 section "6. ownership + validation (second user)"

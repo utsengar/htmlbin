@@ -682,7 +682,93 @@ pre.lifecycle {
 iframe.canvas { border: 0; width: 100%; background: #fff; flex: 1; }
 
 /* ---------- locked drop gate ---------- */
-.gate-lede { font-size: 19px; line-height: 1.5; color: var(--ink); margin-bottom: 22px; max-width: 56ch; }
+/* Centered, minimal, Apple-ish. The HTTP memo above stays as our signature
+   chrome; the gate itself is one column of essentials and nothing more. */
+.gate {
+  display: flex; flex-direction: column; align-items: center;
+  text-align: center;
+  width: 100%; max-width: 360px;
+  margin: 56px auto 0;
+}
+.gate-title {
+  font-size: 22px; font-weight: 500; letter-spacing: -0.3px; line-height: 1.25;
+  color: var(--ink);
+  margin: 0;
+  max-width: 100%;
+  word-break: break-word;
+}
+.gate-sub {
+  font: 500 11px/1 var(--mono);
+  color: var(--ink-soft);
+  letter-spacing: 0.16em; text-transform: uppercase;
+  margin: 10px 0 40px;
+}
+.gate-form { width: 100%; display: flex; flex-direction: column; align-items: center; }
+.gate-row {
+  position: relative;
+  width: 100%;
+  margin-bottom: 28px;
+}
+.gate-input {
+  width: 100%; box-sizing: border-box;
+  font-family: var(--mono); font-size: 20px;
+  background: transparent; border: 0;
+  border-bottom: 1.5px solid var(--ink);
+  padding: 10px 56px 10px 4px;
+  text-align: center;
+  letter-spacing: 0.18em;
+  color: var(--ink);
+  outline: none;
+  -webkit-text-security: disc;
+  text-security: disc;
+  transition: border-color 0.12s;
+}
+/* Don't mask the placeholder text or stretch its tracking. */
+.gate-input::placeholder {
+  -webkit-text-security: none; text-security: none;
+  letter-spacing: 0.04em;
+  color: var(--ink-softer);
+  font-size: 16px;
+}
+.gate-input:focus { border-color: var(--red); }
+.gate-show {
+  position: absolute; right: 0; bottom: 8px;
+  background: transparent; border: 0;
+  font: 500 10.5px/1 var(--mono);
+  color: var(--ink-softer);
+  letter-spacing: 0.12em; text-transform: uppercase;
+  padding: 8px 6px;
+  cursor: pointer;
+  transition: color 0.12s;
+}
+.gate-show:hover { color: var(--ink); }
+.gate-show:focus-visible { outline: 1px dotted var(--ink-soft); outline-offset: 2px; }
+.gate-submit {
+  background: var(--ink); color: var(--bg);
+  border: 1px solid var(--ink);
+  font: 500 12px/1 var(--mono);
+  letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 12px 32px; border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+.gate-submit:hover { background: var(--red); border-color: var(--red); }
+.gate-error {
+  font-family: var(--mono); font-size: 12px;
+  color: var(--red);
+  letter-spacing: 0.04em;
+  margin: 18px 0 0;
+}
+.gate-fine {
+  font-family: var(--mono); font-size: 11.5px;
+  color: var(--ink-softer);
+  letter-spacing: 0.04em;
+  margin: 48px 0 0;
+}
+@media (max-width: 480px) {
+  .gate { margin-top: 36px; max-width: 100%; padding: 0 8px; }
+  .gate-input { font-size: 18px; }
+}
 `;
 
 // Cache-bust the stylesheet automatically on every CSS change. The version

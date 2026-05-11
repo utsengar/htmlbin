@@ -81,7 +81,7 @@ export function dropOgSvg(opts: {
   const subtitle = safeTitle
     ? `${host}/p/${slug}`
     : isLocked
-      ? "password protected drop"
+      ? "locked drop"
       : "";
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">

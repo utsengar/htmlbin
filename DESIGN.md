@@ -317,7 +317,7 @@ the design language.
 - **No fake macOS terminal chrome anywhere except the prompt block.**
   The prompt block (5.3) gets dots + a static `claude` pill on the right
   intentionally — it's the primary CTA and needs the visual handle.
-  Everywhere else (HTTP-memo, viewer, raw HTML, password gate) stays
+  Everywhere else (HTTP-memo, viewer, raw HTML, passcode gate) stays
   flat and chromeless. The earlier centered `iterm2` title is retired.
 - **No "Are you an agent?" callout.** That phrasing is getadb's. We
   address agents through the *whole* memo, not through a sidebar.

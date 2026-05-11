@@ -117,7 +117,7 @@ export function buildOnboardJson(publicUrl: string): object {
         title: "string (required, ≤200 chars)",
         description: "string (optional, ≤500 chars)",
         html: "string (required, full self-contained HTML document, ≤2 MB)",
-        password: "string (optional, ≥4 chars; sets a viewer password gate)",
+        passcode: "string (optional, ≥4 chars; soft gate, not encryption — shown on /p/<slug> before the body)",
         context: "string (optional, ≤64 KB; reasoning trace — opt-in per the human)",
       },
       returns: "Drop (see drop_shape)",
@@ -203,10 +203,10 @@ export function buildOnboardJson(publicUrl: string): object {
         note:
           "Refused with 409 last_version_cannot_be_deleted on the only remaining version.",
       },
-      set_password: {
+      set_passcode: {
         method: "POST",
-        url: `${publicUrl}/api/drops/<slug>/password`,
-        body: { password: "string ('' to remove)" },
+        url: `${publicUrl}/api/drops/<slug>/passcode`,
+        body: { passcode: "string ('' to remove)" },
         returns: "Drop",
       },
       list_my_tokens: { method: "GET", url: `${publicUrl}/api/tokens` },
@@ -256,8 +256,8 @@ export function buildOnboardJson(publicUrl: string): object {
         "title_too_long",
         "description_too_long",
         "context_too_large",
-        "password_required",
-        "password_too_short",
+        "passcode_required",
+        "passcode_too_short",
         "metadata_only_on_patch",
         "forbidden",
         "not_found",
@@ -468,10 +468,11 @@ curl -s -X DELETE ${publicUrl}/api/drops/<slug> \\
   -H "Authorization: Bearer $HTMLBIN_TOKEN"
 \`\`\`
 
-## Password protection
+## Passcode (soft gate)
 
-Set, change, or remove a password via \`POST /api/drops/<slug>/password\` with
-\`{ "password": "..." }\`. Pass \`"password": ""\` to remove.
+Set, change, or remove a passcode via \`POST /api/drops/<slug>/passcode\` with
+\`{ "passcode": "..." }\`. Pass \`"passcode": ""\` to remove. This is a soft
+share gate — not encryption.
 
 ## Rate limiting
 

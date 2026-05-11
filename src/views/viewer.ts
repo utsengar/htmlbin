@@ -30,7 +30,7 @@ export function viewerPage(
   });
 
   if (state.locked && !state.unlocked) {
-    return passwordGatePage(env, drop, { error: false });
+    return passcodeGatePage(env, drop, { error: false });
   }
 
   const total = drop.latest_version;
@@ -289,7 +289,7 @@ ${
 </html>`;
 }
 
-export function passwordGatePage(
+export function passcodeGatePage(
   env: Bindings,
   drop: Drop,
   state: { error: boolean }
@@ -314,19 +314,51 @@ ${pageHead({ verb: "GET", path: `/p/${slug}` })}
     verb: "GET",
     path: `/p/${slug}`,
     rows: [{ k: "re", v: "locked drop", em: true }],
-    res: { status: "401 Unauthorized", ok: false, trailing: "www-authenticate: password" },
+    res: { status: "401 Unauthorized", ok: false, trailing: "www-authenticate: passcode" },
   })}
-  <p class="lede">This drop is locked. <strong>${title}</strong> needs a password.</p>
-  <p>Ask whoever shared the link — or your agent — for it.</p>
-  ${state.error ? `<div class="error">incorrect password</div>` : ""}
-  <form method="POST" action="/p/${slug}/unlock" class="form">
-    <div class="field">
-      <span class="lbl">password</span>
-      <input type="password" name="password" autofocus required />
-    </div>
-    <button type="submit" class="primary">unlock</button>
-  </form>
+  <section class="gate">
+    <h2 class="gate-title">${title}</h2>
+    <p class="gate-sub">locked</p>
+    <form method="POST" action="/p/${slug}/unlock" class="gate-form" autocomplete="off">
+      <div class="gate-row">
+        <input
+          type="text"
+          id="passcode-input"
+          name="passcode"
+          class="gate-input"
+          placeholder="passcode"
+          autocomplete="off"
+          autocapitalize="off"
+          autocorrect="off"
+          spellcheck="false"
+          inputmode="text"
+          autofocus
+          required
+        />
+        <button type="button" id="passcode-toggle" class="gate-show" aria-label="show passcode">show</button>
+      </div>
+      <button type="submit" class="gate-submit">unlock</button>
+      ${state.error ? `<p class="gate-error">incorrect passcode</p>` : ""}
+    </form>
+    <p class="gate-fine">soft gate · not encryption</p>
+  </section>
 </main>
+<script>
+(function(){
+  var input = document.getElementById('passcode-input');
+  var toggle = document.getElementById('passcode-toggle');
+  if (!input || !toggle) return;
+  toggle.addEventListener('click', function(){
+    var showing = input.dataset.show === '1';
+    input.dataset.show = showing ? '0' : '1';
+    input.style.webkitTextSecurity = showing ? 'disc' : 'none';
+    input.style.textSecurity       = showing ? 'disc' : 'none';
+    input.style.letterSpacing      = showing ? '0.18em' : '0.04em';
+    toggle.textContent             = showing ? 'show' : 'hide';
+    toggle.setAttribute('aria-label', showing ? 'show passcode' : 'hide passcode');
+  });
+})();
+</script>
 </body>
 </html>`;
 }

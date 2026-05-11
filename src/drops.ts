@@ -180,14 +180,14 @@ apiRoutes.post("/drops", async (c) => {
         title?: string;
         description?: string;
         html?: string;
-        password?: string;
+        passcode?: string;
         context?: string;
       }
     | null;
   if (!body) return apiError(c, "invalid_json", "Request body must be JSON.", 400);
 
   const badTypes = nonStringFields(body as Record<string, unknown>, [
-    "title", "description", "html", "password", "context",
+    "title", "description", "html", "passcode", "context",
   ]);
   if (badTypes.length > 0)
     return apiError(
@@ -202,7 +202,7 @@ apiRoutes.post("/drops", async (c) => {
   if (valid.error)
     return apiError(c, valid.error.code, valid.error.message, 400, valid.error.details);
 
-  const { title, description, html, password, context } = valid.value;
+  const { title, description, html, passcode, context } = valid.value;
 
   // Per-user drop quota — 429 since it's a "too many" condition.
   const countRow = await c.env.DB.prepare(
@@ -227,13 +227,15 @@ apiRoutes.post("/drops", async (c) => {
     slug = generateSlug(title);
   }
 
-  // Password
-  let passwordHash: string | null = null;
-  let passwordSalt: string | null = null;
-  if (password) {
-    const { hash, salt } = await hashPassword(password);
-    passwordHash = hash;
-    passwordSalt = salt;
+  // Passcode (stored in the legacy `password_hash` / `password_salt` columns
+  // — the columns predate the user-facing rename to "passcode" but the
+  // hashing semantics are identical).
+  let passcodeHash: string | null = null;
+  let passcodeSalt: string | null = null;
+  if (passcode) {
+    const { hash, salt } = await hashPassword(passcode);
+    passcodeHash = hash;
+    passcodeSalt = salt;
   }
 
   const now = Date.now();
@@ -246,7 +248,7 @@ apiRoutes.post("/drops", async (c) => {
          (slug, user_id, title, description, password_hash, password_salt,
           latest_version, view_count, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, 1, 0, ?, ?)`
-    ).bind(slug, user.id, title, description, passwordHash, passwordSalt, now, now),
+    ).bind(slug, user.id, title, description, passcodeHash, passcodeSalt, now, now),
     c.env.DB.prepare(
       `INSERT INTO versions (slug, version, size_bytes, context, created_at)
        VALUES (?, 1, ?, ?, ?)`
@@ -590,10 +592,10 @@ apiRoutes.delete("/drops/:slug", async (c) => {
 });
 
 // ───────────────────────────────────────────────────────────────────────
-// POST /api/drops/:slug/password — set / change / remove password.
-// Pass `password: ""` to remove. Returns the full Drop.
+// POST /api/drops/:slug/passcode — set / change / remove passcode.
+// Pass `passcode: ""` to remove. Returns the full Drop.
 // ───────────────────────────────────────────────────────────────────────
-apiRoutes.post("/drops/:slug/password", async (c) => {
+apiRoutes.post("/drops/:slug/passcode", async (c) => {
   const user = c.get("user");
   const slug = c.req.param("slug");
   if (!isValidSlug(slug))
@@ -604,12 +606,12 @@ apiRoutes.post("/drops/:slug/password", async (c) => {
     return apiError(c, "forbidden", "This drop belongs to another user.", 403);
 
   const body = (await c.req.json().catch(() => null)) as
-    | { password?: string }
+    | { passcode?: string }
     | null;
-  if (!body || typeof body.password !== "string")
-    return apiError(c, "password_required", "Body must include `password`.", 400);
+  if (!body || typeof body.passcode !== "string")
+    return apiError(c, "passcode_required", "Body must include `passcode`.", 400);
 
-  if (body.password === "") {
+  if (body.passcode === "") {
     await c.env.DB.prepare(
       `UPDATE drops SET password_hash = NULL, password_salt = NULL,
               updated_at = ? WHERE slug = ?`
@@ -617,15 +619,15 @@ apiRoutes.post("/drops/:slug/password", async (c) => {
       .bind(Date.now(), slug)
       .run();
   } else {
-    if (body.password.length < 4)
+    if (body.passcode.length < 4)
       return apiError(
         c,
-        "password_too_short",
-        "Password must be at least 4 characters.",
+        "passcode_too_short",
+        "Passcode must be at least 4 characters.",
         400,
         { min: 4 }
       );
-    const { hash, salt } = await hashPassword(body.password);
+    const { hash, salt } = await hashPassword(body.passcode);
     await c.env.DB.prepare(
       `UPDATE drops SET password_hash = ?, password_salt = ?, updated_at = ?
          WHERE slug = ?`
@@ -680,7 +682,7 @@ type CreateBody = {
   title: string;
   description: string;
   html: string;
-  password: string;
+  passcode: string;
   context: string;
 };
 
@@ -695,15 +697,15 @@ function validateCreateBody(body: {
   title?: string;
   description?: string;
   html?: string;
-  password?: string;
+  passcode?: string;
   context?: string;
 }): { error?: ValidationError; value: CreateBody } {
   const title = (body.title ?? "").trim();
   const description = (body.description ?? "").trim();
   const html = body.html ?? "";
-  const password = body.password ?? "";
+  const passcode = body.passcode ?? "";
   const context = body.context ?? "";
-  const value = { title, description, html, password, context };
+  const value = { title, description, html, passcode, context };
 
   if (!title)
     return { error: { code: "title_required", message: "Title is required." }, value };
