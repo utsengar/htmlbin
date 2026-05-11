@@ -124,9 +124,10 @@ Walkthrough:
    chmod 600 .htmlbin/token
    \`\`\`
 
-**Linking a second machine to the same identity:** the \`/verify\` form has
-an optional "existing token" field. Paste an existing \`hb_…\` from another
-device to bind the new session to the same \`user_id\`.
+**Linking a second machine to the same identity:** open \`/verify\` on the
+new machine and sign in with the same GitHub account. We bind one htmlbin
+account per GitHub identity, so the new device's token attaches to the
+same \`user_id\` automatically.
 
 ## Common operations
 

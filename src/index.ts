@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { Bindings, Variables } from "./types";
 import { authRoutes } from "./auth";
+import { githubOAuthRoutes } from "./github-oauth";
 import { apiRoutes } from "./drops";
 import { buildOnboardJson, buildOnboardText } from "./onboard";
 import { landingPage } from "./views/landing";
@@ -21,18 +22,13 @@ import {
 import { STYLES_CSS, STYLE_HREF } from "./styles";
 import { FONTS } from "./fonts";
 import {
-  hashToken,
-  newApiToken,
-  newUserId,
   signUnlockToken,
   verifyPassword,
   verifyUnlockToken,
 } from "./crypto";
 import {
   bumpViewCount,
-  createUser,
   getDrop,
-  insertToken,
   listVersions,
 } from "./db";
 import { isValidSlug } from "./slug";
@@ -449,129 +445,18 @@ app.route("/api", authRoutes);
 app.route("/api", apiRoutes);
 
 // ----- Human verification page -------------------------------------------
+//
+// The human handoff used to live at POST /verify with a Turnstile widget +
+// optional "paste existing token" field. It's now a single "Sign in with
+// GitHub" button that hands off to githubOAuthRoutes (/auth/github/*).
+// Identity is bound to github_user_id, which is UNIQUE per htmlbin
+// account — cycling tokens no longer creates fresh accounts.
 app.get("/verify", (c) => {
   const code = c.req.query("code") ?? "";
   return c.html(verifyPage(c.env, { code }));
 });
 
-app.post("/verify", async (c) => {
-  const form = await c.req.formData();
-  const code = String(form.get("code") ?? "").trim().toUpperCase();
-  const turnstileToken = String(form.get("cf-turnstile-response") ?? "");
-  const existingToken = String(form.get("existing_token") ?? "").trim();
-  const ip = c.req.header("CF-Connecting-IP") ?? "unknown";
-
-  if (!code) {
-    return c.html(
-      verifyPage(c.env, { code: "", error: "Code is required." })
-    );
-  }
-  if (!turnstileToken) {
-    return c.html(
-      verifyPage(c.env, {
-        code,
-        error: "Anti-bot challenge missing. Please tick the box and retry.",
-      })
-    );
-  }
-
-  // Verify Turnstile against Cloudflare. Skip the network round-trip when
-  // using a Cloudflare-published test secret (always passes / always fails).
-  const ts = await verifyTurnstile(
-    turnstileToken,
-    c.env.TURNSTILE_SECRET_KEY,
-    ip
-  );
-  if (!ts.success) {
-    // Log to Worker logs so `wrangler tail` shows what Turnstile actually said.
-    console.error("turnstile_failed", JSON.stringify(ts));
-    const codes = ts.errorCodes?.join(", ") ?? "unknown";
-    return c.html(
-      verifyPage(c.env, {
-        code,
-        error: `Anti-bot check didn't verify (reason: ${codes}). Reload and try again.`,
-      })
-    );
-  }
-
-  // Look up the verification.
-  const row = await c.env.DB.prepare(
-    `SELECT code, status, label, expires_at FROM verifications WHERE code = ?`
-  )
-    .bind(code)
-    .first<{
-      code: string;
-      status: string;
-      label: string | null;
-      expires_at: number;
-    }>();
-  if (!row) {
-    return c.html(
-      verifyPage(c.env, {
-        code,
-        error: `No pending request for "${code}". Did the agent print a different code?`,
-      })
-    );
-  }
-  if (row.expires_at < Date.now()) {
-    return c.html(
-      verifyPage(c.env, {
-        code,
-        error: "This code has expired. Ask your agent to start a new flow.",
-      })
-    );
-  }
-  if (row.status !== "pending") {
-    return c.html(
-      verifyPage(c.env, {
-        code,
-        error: `This code is already ${row.status}.`,
-      })
-    );
-  }
-
-  // Optional: link to an existing identity. If the human pasted a valid
-  // existing token, the new device joins that user_id instead of creating
-  // a fresh one. This is how the same human runs multiple agents / machines.
-  let userId: string;
-  let linked = false;
-  if (existingToken && /^hb_[A-Za-z0-9]+$/.test(existingToken)) {
-    const existingHash = await hashToken(existingToken, c.env.TOKEN_PEPPER);
-    const existing = await c.env.DB.prepare(
-      `SELECT user_id FROM tokens WHERE token_hash = ? AND revoked_at IS NULL`
-    )
-      .bind(existingHash)
-      .first<{ user_id: string }>();
-    if (existing) {
-      userId = existing.user_id;
-      linked = true;
-    } else {
-      return c.html(
-        verifyPage(c.env, {
-          code,
-          error:
-            "The 'existing token' you pasted didn't match a known identity. " +
-            "Leave that field empty to create a fresh identity instead.",
-        })
-      );
-    }
-  } else {
-    userId = newUserId();
-    await createUser(c.env.DB, userId, null);
-  }
-
-  const apiToken = newApiToken();
-  const tokenHash = await hashToken(apiToken, c.env.TOKEN_PEPPER);
-  await insertToken(c.env.DB, tokenHash, userId, row.label);
-
-  await c.env.DB.prepare(
-    `UPDATE verifications SET status = 'verified', user_id = ?, api_token = ? WHERE code = ?`
-  )
-    .bind(userId, apiToken, code)
-    .run();
-
-  return c.html(verifyPage(c.env, { code, success: true, linked }));
-});
+app.route("/", githubOAuthRoutes);
 
 // ----- Public prototype viewer ------------------------------------------
 app.on(["GET", "HEAD"], "/p/:slug", async (c) => {
@@ -710,41 +595,6 @@ app.notFound((c) => {
 });
 
 // ----- Helpers ------------------------------------------------------------
-
-// Cloudflare's published test secrets — always passes / always fails.
-// https://developers.cloudflare.com/turnstile/troubleshooting/testing/
-const TURNSTILE_TEST_PASS = "1x0000000000000000000000000000000AA";
-const TURNSTILE_TEST_FAIL = "2x0000000000000000000000000000000AA";
-
-async function verifyTurnstile(
-  token: string,
-  secret: string,
-  ip: string
-): Promise<{ success: boolean; errorCodes?: string[] }> {
-  if (secret === TURNSTILE_TEST_PASS) return { success: true };
-  if (secret === TURNSTILE_TEST_FAIL)
-    return { success: false, errorCodes: ["test-fail"] };
-  try {
-    const res = await fetch(
-      "https://challenges.cloudflare.com/turnstile/v0/siteverify",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({ secret, response: token, remoteip: ip }),
-      }
-    );
-    const json = (await res.json()) as {
-      success: boolean;
-      "error-codes"?: string[];
-    };
-    return {
-      success: !!json.success,
-      errorCodes: json["error-codes"],
-    };
-  } catch (e) {
-    return { success: false, errorCodes: [`fetch-error: ${String(e)}`] };
-  }
-}
 
 function mdHeaders(): Record<string, string> {
   return {

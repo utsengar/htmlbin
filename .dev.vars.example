@@ -3,12 +3,14 @@
 
 # Local dev overrides — production uses the values in wrangler.toml.
 PUBLIC_URL="http://localhost:8787"
-TURNSTILE_SITE_KEY="1x00000000000000000000AA"
 
 # Random 32+ char string. Generate with:  openssl rand -hex 32
 TOKEN_PEPPER="REPLACE_ME_WITH_A_LONG_RANDOM_STRING"
 
-# Cloudflare Turnstile secret key.
-# For local dev, the Cloudflare-published always-passes test secret is:
-#   1x0000000000000000000000000000000AA
-TURNSTILE_SECRET_KEY="1x0000000000000000000000000000000AA"
+# GitHub OAuth. The sentinel "dev-mock" short-circuits the round-trip
+# to github.com — /auth/github/start jumps straight to
+# /auth/github/callback with a synthesized github user id derived from
+# the `?mock_login=…` query param. The e2e script uses this. Production
+# sets these to real values from github.com/settings/applications/new.
+GITHUB_CLIENT_ID="dev-mock"
+GITHUB_CLIENT_SECRET="dev-mock"

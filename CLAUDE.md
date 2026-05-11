@@ -22,7 +22,11 @@ reference only — none of it ships in the public version.
   Workers framework. Don't reach for Next.js.
 - **D1** — relational data (users, tokens, drops, versions, reports).
 - **KV** — HTML bodies, keyed by `html:<slug>:v<n>`.
-- **Turnstile** — single human checkpoint during device-code auth.
+- **GitHub OAuth** — single human checkpoint during device-code auth.
+  Replaced Turnstile in May 2026 (see "Auth model" below) so identity
+  is bound to a UNIQUE `github_user_id` and cycling tokens no longer
+  resets quotas. GitHub is an identity provider, not a paid SaaS — the
+  Worker talks directly to `github.com/login/oauth/*`.
 - **Web Crypto** — PBKDF2/HMAC. Not Node crypto.
 
 ## Hard rules from the user
@@ -41,6 +45,12 @@ them ships something the user will reject:
 3. **No Webflow.** Off-limits in the public version.
 4. **Don't add signup/login/email/dashboard.** The device-code flow is
    the entire UX. Adding auth surfaces breaks the product thesis.
+   *Documented exception:* GitHub OAuth lives inside the device-code
+   verify step (May 2026) — it replaces Turnstile, doesn't add a new
+   surface. There is still no email, no password, no dashboard, no
+   account page. Sign-in happens once at `/verify` and the agent flow
+   is unchanged from its side. Do not extend this exception to add a
+   user-facing account UI.
 5. **Don't introduce a new keyword (formerly "HTMD").** The product is
    called htmlbin; the artifact is "a drop"; "drop" is just casual
    English, not a coined term we own. We do not have authority to define
@@ -104,16 +114,52 @@ Modeled on OAuth device-code (think `gh auth login`):
 
 1. `POST /api/auth/start` → `{code, verification_url, poll_token}`
 2. Agent prints code + URL to human
-3. Human opens URL, clears Turnstile, clicks verify
+3. Human opens URL, signs in with **GitHub** — we ask for `read:user`
+   only (public username + numeric id). The Worker upserts a user row
+   by `github_user_id` (UNIQUE) and mints a token in the same callback.
 4. `GET /api/auth/poll?token=…` → `{api_token}` revealed exactly once
 5. `Authorization: Bearer hb_…` thereafter
 
-**Cross-machine:** the verify form has an optional "existing token"
-field. Paste an `hb_…` from another device → the new session is bound to
-the same `user_id`. One human, many devices, many tokens, shared drops.
+**Why GitHub, not Turnstile:** Turnstile only proved a human was on the
+page. It did nothing about the same human re-running the flow forever
+to mint fresh tokens. Binding accounts to a UNIQUE `github_user_id`
+means cycling tokens recycles the same account — quotas and drops
+stick. Creating a second GitHub account has real friction (rate limits,
+email verification, account age) which is the point.
+
+**Cross-machine:** sign in with the same GitHub account on the new
+device. The callback finds the existing user by `github_user_id` and
+mints a new token attached to the same `user_id`. The old "paste an
+existing hb_… token" UX was deleted in the same change.
+
+**Routes:** `/auth/github/start` and `/auth/github/callback` live in
+`src/github-oauth.ts`. State binding to the verification row uses the
+verify code as the OAuth `state` param — it's already a short-lived,
+single-use secret. The callback re-checks `verifications.status` after
+GitHub returns, in case the row expired during the round-trip.
+
+**Bindings:** `GITHUB_CLIENT_ID` is a public `[vars]` entry in
+`wrangler.toml`. `GITHUB_CLIENT_SECRET` is a Worker secret
+(`wrangler secret put GITHUB_CLIENT_SECRET`). The OAuth app's
+"Authorization callback URL" must be `https://htmlbin.dev/auth/github/callback`.
+
+**Dev mock:** when `GITHUB_CLIENT_ID === "dev-mock"` (the value in
+`.dev.vars.example`), `/auth/github/start` skips the round-trip to
+github.com and redirects straight to `/auth/github/callback` with a
+synthesized github identity derived from `?mock_login=<x>`. The
+deterministic id (`stableMockId()`) is a SHA-256-based int so two
+different mock logins create two different accounts. **The mock path is
+only reachable when the dev sentinel is set — in production it's
+unreachable.** `scripts/agent-e2e.sh` relies on this.
 
 Tokens are stored as `sha256(pepper || token)` where pepper is in env
 (`TOKEN_PEPPER`). Plaintext is never persisted.
+
+**Legacy users (pre-OAuth):** `users.github_user_id` is NULLABLE on
+purpose. Existing tokens minted before this change still work, but no
+new account can be created with `github_user_id = NULL`. The UNIQUE
+index uses a partial-index `WHERE github_user_id IS NOT NULL` so the
+legacy rows don't collide.
 
 **Token storage convention (agent-side):**
 1. `./.htmlbin/token` — project-local, preferred (no permission prompt for
@@ -404,19 +450,22 @@ Mandatory loop for every change:
 Concurrency cancels superseded PR runs but never cancels a mid-flight
 `main` deploy. The only secret in GitHub is `CLOUDFLARE_API_TOKEN`
 (template "Edit Cloudflare Workers"). Worker secrets (`TOKEN_PEPPER`,
-`TURNSTILE_SECRET_KEY`) are managed via `wrangler secret put` against
+`GITHUB_CLIENT_SECRET`) are managed via `wrangler secret put` against
 production; preview versions share the same bindings because they
 live on the same Worker.
 
 ## Local dev gotchas
 
-- **Turnstile test secret.** `.dev.vars` uses Cloudflare's published
-  test secret `1x0000000000000000000000000000000AA` (always passes).
-  `src/index.ts` short-circuits the network call for that exact value
-  because the local dev proxy 500'd on the multipart fetch to
-  `challenges.cloudflare.com`. Production uses the real secret.
+- **GitHub OAuth dev mock.** `.dev.vars` sets
+  `GITHUB_CLIENT_ID=GITHUB_CLIENT_SECRET="dev-mock"`. With that sentinel,
+  `/auth/github/start` skips github.com and redirects straight to the
+  callback with `?mock_login=<x>`. The deterministic mock id derives
+  from SHA-256 of the login. Production uses real OAuth app credentials
+  from `github.com/settings/applications/new`.
 - **D1** in local mode is in `.wrangler/state/`. Run
-  `npm run db:apply:local` after schema changes.
+  `npm run db:apply:local` after schema changes. For column-only
+  changes against an existing DB, write a new file in `migrations/`
+  and run `npm run db:migrate:local` / `:remote`.
 - **Token prefix is `hb_`.** If you change it, update both
   `src/auth.ts` (regex) AND `src/crypto.ts:newApiToken` AND
   `src/index.ts` (existing-token validation regex).
@@ -433,6 +482,7 @@ live on the same Worker.
 src/
   index.ts          ─ Hono routes (/, /verify, /p/:slug, +discoverability)
   auth.ts           ─ device-code flow + Bearer middleware
+  github-oauth.ts   ─ /auth/github/start + /auth/github/callback
   drops.ts          ─ /api/drops CRUD with versioning + context
   onboard.ts        ─ /api/onboard JSON descriptor + markdown walkthrough
   skill.ts          ─ /.well-known/agent-skills/* (Agent Skills RFC v0.2.0)
@@ -448,7 +498,7 @@ src/
     og-image.ts     ─ inline SVG OG card (1200×630) — fallback / per-tab source
     og-png.ts       ─ satori + resvg-wasm PNG renderer (landing + per-drop)
     landing.ts      ─ /
-    verify.ts       ─ /verify (with cross-machine token transfer)
+    verify.ts       ─ /verify — single "Sign in with GitHub" button
     viewer.ts       ─ /p/:slug viewer + password gate
 
 skills/
@@ -457,12 +507,13 @@ skills/
 .github/workflows/
   deploy.yml        ─ production deploy on main, versioned preview on PR
 
-schema.sql          ─ D1 schema (idempotent)
+schema.sql          ─ D1 schema (idempotent for fresh installs)
+migrations/         ─ ALTER-style migrations against an existing D1
 wrangler.toml       ─ Cloudflare config (Worker name, D1, KV, AI, [[rules]] CompiledWasm)
 scripts/
   setup.mjs         ─ provisions D1 + KV, applies schema, sets pepper
   agent-e2e.sh      ─ full functional test
-.dev.vars.example   ─ TOKEN_PEPPER + TURNSTILE_SECRET_KEY (test value)
+.dev.vars.example   ─ TOKEN_PEPPER + GITHUB_CLIENT_ID/SECRET (dev-mock)
 ```
 
 DB table, URL path, and user-facing copy are all aligned: **drops**

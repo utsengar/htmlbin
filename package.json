@@ -10,6 +10,8 @@
     "tail": "wrangler tail",
     "db:apply:local": "wrangler d1 execute htmlbin-db --local --file=./schema.sql",
     "db:apply:remote": "wrangler d1 execute htmlbin-db --remote --file=./schema.sql",
+    "db:migrate:local": "wrangler d1 execute htmlbin-db --local --file=./migrations/0001-github-oauth.sql",
+    "db:migrate:remote": "wrangler d1 execute htmlbin-db --remote --file=./migrations/0001-github-oauth.sql",
     "setup": "node scripts/setup.mjs",
     "typecheck": "tsc --noEmit",
     "test:e2e": "BASE_URL=http://localhost:8787 ./scripts/agent-e2e.sh"

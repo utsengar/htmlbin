@@ -6,12 +6,27 @@ export async function getUserByTokenHash(
 ): Promise<User | null> {
   const row = await db
     .prepare(
-      `SELECT u.id, u.display_name, u.created_at
+      `SELECT u.id, u.display_name, u.created_at,
+              u.github_user_id, u.github_login
          FROM tokens t
          JOIN users u ON u.id = t.user_id
         WHERE t.token_hash = ? AND t.revoked_at IS NULL`
     )
     .bind(tokenHash)
+    .first<User>();
+  return row ?? null;
+}
+
+export async function getUserByGitHubId(
+  db: D1Database,
+  githubUserId: number
+): Promise<User | null> {
+  const row = await db
+    .prepare(
+      `SELECT id, display_name, created_at, github_user_id, github_login
+         FROM users WHERE github_user_id = ?`
+    )
+    .bind(githubUserId)
     .first<User>();
   return row ?? null;
 }
@@ -29,13 +44,21 @@ export async function touchToken(
 export async function createUser(
   db: D1Database,
   id: string,
-  displayName: string | null
+  displayName: string | null,
+  github: { id: number; login: string } | null = null
 ): Promise<void> {
   await db
     .prepare(
-      `INSERT INTO users (id, display_name, created_at) VALUES (?, ?, ?)`
+      `INSERT INTO users (id, display_name, created_at, github_user_id, github_login)
+       VALUES (?, ?, ?, ?, ?)`
     )
-    .bind(id, displayName, Date.now())
+    .bind(
+      id,
+      displayName,
+      Date.now(),
+      github?.id ?? null,
+      github?.login ?? null
+    )
     .run();
 }
 

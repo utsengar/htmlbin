@@ -3,10 +3,19 @@
 -- Apply to prod: npm run db:apply:remote
 
 CREATE TABLE IF NOT EXISTS users (
-  id            TEXT PRIMARY KEY,
-  display_name  TEXT,
-  created_at    INTEGER NOT NULL
+  id              TEXT PRIMARY KEY,
+  display_name    TEXT,
+  created_at      INTEGER NOT NULL,
+  -- GitHub identity (required for accounts minted after the OAuth migration;
+  -- NULL for legacy pre-OAuth accounts that still carry working tokens).
+  github_user_id  INTEGER,
+  github_login    TEXT
 );
+
+-- Enforce one user per GitHub identity, but only for rows that have one
+-- — NULL legacy rows don't collide.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_github_user_id
+  ON users(github_user_id) WHERE github_user_id IS NOT NULL;
 
 -- API tokens. We store only the SHA-256 hash; plaintext is shown to the agent
 -- exactly once after verification. A single user_id can have many tokens
