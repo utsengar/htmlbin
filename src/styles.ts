@@ -714,7 +714,10 @@ iframe.canvas { border: 0; width: 100%; background: #fff; flex: 1; }
   font-family: var(--mono); font-size: 20px;
   background: transparent; border: 0;
   border-bottom: 1.5px solid var(--ink);
-  padding: 10px 56px 10px 4px;
+  /* Symmetric horizontal padding so `text-align: center` centers within
+     the same content box on both sides. The "show" button is positioned
+     absolutely on top of the right padding — it doesn't affect layout. */
+  padding: 10px 56px;
   text-align: center;
   letter-spacing: 0.18em;
   color: var(--ink);
