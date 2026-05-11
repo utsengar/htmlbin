@@ -126,18 +126,23 @@ function runQuery(sql) {
     ).toString();
   } catch (e) {
     console.error(`\n  query failed: ${flat}`);
-    if (e.stderr) console.error(e.stderr.toString());
+    console.error(`  exit code: ${e.status}`);
+    if (e.stdout?.length) console.error(`  stdout:\n${e.stdout.toString()}`);
+    if (e.stderr?.length) console.error(`  stderr:\n${e.stderr.toString()}`);
     process.exit(1);
   }
-  const jsonStart = out.indexOf("[");
+  // Wrangler --json sometimes prefixes stdout with a banner / warnings.
+  // The actual JSON starts with `[{`, so anchor on that exact pair.
+  const jsonStart = out.indexOf("[{");
   if (jsonStart < 0) {
-    console.error(`\n  unexpected wrangler output:\n${out}`);
+    console.error(`\n  unexpected wrangler output (no JSON found):\n${out}`);
     process.exit(1);
   }
   try {
     return JSON.parse(out.slice(jsonStart))[0]?.results ?? [];
   } catch (e) {
     console.error(`\n  failed to parse wrangler output: ${e.message}`);
+    console.error(`  raw:\n${out}`);
     process.exit(1);
   }
 }
