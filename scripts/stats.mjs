@@ -131,15 +131,15 @@ function runQuery(sql) {
     if (e.stderr?.length) console.error(`  stderr:\n${e.stderr.toString()}`);
     process.exit(1);
   }
-  // Wrangler --json sometimes prefixes stdout with a banner / warnings.
-  // The actual JSON starts with `[{`, so anchor on that exact pair.
-  const jsonStart = out.indexOf("[{");
-  if (jsonStart < 0) {
+  // Wrangler --json pretty-prints to stdout (`[\n  {…}\n]`), so anchor
+  // on the first `[` followed by whitespace + `{`. Warnings go to stderr.
+  const match = out.match(/\[\s*\{/);
+  if (!match) {
     console.error(`\n  unexpected wrangler output (no JSON found):\n${out}`);
     process.exit(1);
   }
   try {
-    return JSON.parse(out.slice(jsonStart))[0]?.results ?? [];
+    return JSON.parse(out.slice(match.index))[0]?.results ?? [];
   } catch (e) {
     console.error(`\n  failed to parse wrangler output: ${e.message}`);
     console.error(`  raw:\n${out}`);
