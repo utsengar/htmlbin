@@ -117,7 +117,7 @@ identity, read:user scope only) → token (revealed exactly once on
 - GET    /api/drops/:slug/versions   → list versions
 - GET    /api/drops/:slug/v/:n       → version metadata + context
 - DELETE /api/drops/:slug            → delete (all versions)
-- POST   /api/drops/:slug/password   → set/change/remove password
+- POST   /api/drops/:slug/passcode   → set/change/remove passcode
 - GET    /api/tokens                      → list your active tokens
 - DELETE /api/tokens/:id                  → revoke a token (id = first 12 hex)
 
@@ -138,7 +138,7 @@ identity, read:user scope only) → token (revealed exactly once on
 
 All errors are JSON: { "error": "<code>" } with appropriate HTTP status.
 Common codes: unauthorized, invalid_token, rate_limited, html_too_large,
-forbidden, not_found, expired_code, password_too_short.
+forbidden, not_found, expired_code, passcode_too_short.
 
 ## Source
 
@@ -202,7 +202,7 @@ export function agentCard(publicUrl: string): object {
           "Upload self-contained HTML up to 2 MB; receive a permanent public URL. Creates v1. Returns the full Drop with status 201.",
         method: "POST",
         path: "/api/drops",
-        accepts: ["title", "description?", "html", "password?", "context?"],
+        accepts: ["title", "description?", "html", "passcode?", "context?"],
       },
       {
         id: "update_html",
@@ -252,11 +252,11 @@ export function agentCard(publicUrl: string): object {
         path: "/api/drops",
       },
       {
-        id: "lock_with_password",
+        id: "lock_with_passcode",
         description:
-          "Set, change, or remove a password gate. Pass empty string to remove. Returns the updated Drop.",
+          "Set, change, or remove a passcode (soft share gate, not encryption). Pass empty string to remove. Returns the updated Drop.",
         method: "POST",
-        path: "/api/drops/:slug/password",
+        path: "/api/drops/:slug/passcode",
       },
       {
         id: "whoami",
@@ -616,7 +616,7 @@ export function openApiSpec(publicUrl: string): object {
                     title: { type: "string", maxLength: 200 },
                     description: { type: "string", maxLength: 500 },
                     html: { type: "string" },
-                    password: { type: "string", minLength: 4 },
+                    passcode: { type: "string", minLength: 4, description: "Soft share gate, not encryption" },
                     context: { type: "string", description: "Optional reasoning trace (≤64KB, opt-in)" },
                   },
                 },
@@ -742,9 +742,9 @@ export function openApiSpec(publicUrl: string): object {
           },
         },
       },
-      "/api/drops/{slug}/password": {
+      "/api/drops/{slug}/passcode": {
         post: {
-          summary: "Set, change, or remove the password on a drop",
+          summary: "Set, change, or remove the passcode (soft share gate) on a drop",
           security: [{ bearerAuth: [] }],
           parameters: [
             { name: "slug", in: "path", required: true, schema: { type: "string" } },
@@ -755,9 +755,9 @@ export function openApiSpec(publicUrl: string): object {
               "application/json": {
                 schema: {
                   type: "object",
-                  required: ["password"],
+                  required: ["passcode"],
                   properties: {
-                    password: { type: "string", description: "Empty string to remove" },
+                    passcode: { type: "string", description: "Empty string to remove" },
                   },
                 },
               },

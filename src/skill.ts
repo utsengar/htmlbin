@@ -28,7 +28,7 @@ Use this skill when the user asks to:
 - Update an existing htmlbin drop with new HTML (mints a new version)
 - Update title or description without re-uploading HTML
 - List previously published drops or look up a specific drop
-- Set or change a password on a drop
+- Set or change a passcode on a drop
 - Delete a single version or the whole drop
 - Authorize a new machine against an existing identity
 
@@ -225,16 +225,18 @@ Query params: \`page\` (default 1), \`pageSize\` (default 50, max 200),
 \`sortBy\` (\`created_at\` | \`updated_at\` | \`view_count\`, default \`created_at\`),
 \`sortOrder\` (\`asc\` | \`desc\`, default \`desc\`).
 
-### Set or change a password
+### Set or change a passcode
 
 \`\`\`bash
-curl -s -X POST "https://htmlbin.dev/api/drops/<slug>/password" \\
+curl -s -X POST "https://htmlbin.dev/api/drops/<slug>/passcode" \\
   -H "Authorization: Bearer $(cat .htmlbin/token)" \\
   -H "Content-Type: application/json" \\
-  -d '{ "password": "secret123" }'
+  -d '{ "passcode": "secret123" }'
 \`\`\`
 
-Pass \`"password": ""\` to remove. Returns the full updated Drop.
+Pass \`"passcode": ""\` to remove. Returns the full updated Drop. The
+passcode is a soft share gate — readers without it see a "locked" page —
+not encryption.
 
 ### Delete a single version
 
@@ -269,7 +271,7 @@ Returns \`user_id\`, \`created_at\`, \`drop_count\`, and the calling token's
 
 - \`title\` (string, ≤200 chars) — human label, shown in viewer chrome and on the per-drop OG card
 - \`description\` (string, ≤500 chars) — subtitle in viewer chrome
-- \`password\` (string, ≥4 chars) — gate access via the \`/p/<slug>\` password form
+- \`passcode\` (string, ≥4 chars) — soft share gate, shown on \`/p/<slug>\` before the body
 - \`context\` (string, ≤64 KB) — the reasoning trace, prompt, or thinking that produced this version. **Opt-in only**: include only after the human has explicitly agreed, since it can include prompt content from the conversation.
 
 ## Rate limiting

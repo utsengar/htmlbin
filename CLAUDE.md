@@ -269,6 +269,28 @@ current head.
 `?v=N` query param on the viewer + raw routes pins to a specific
 version. Default = latest.
 
+## Passcode (soft share gate)
+
+Drops can be gated by a **passcode** (renamed from "password" in May 2026 —
+1Password autofill kept triggering on `type="password"` and the credential
+framing oversold what it actually is). The API field is `passcode`, endpoint
+is `POST /api/drops/:slug/passcode`, error codes are `passcode_required` and
+`passcode_too_short`.
+
+It's a *share gate, not encryption*. The HTML body sits in KV unencrypted;
+the gate only blocks the viewer route and the signed unlock cookie. If you
+ever add a "real" zero-knowledge tier, that's a different surface — don't
+overload `passcode` with it.
+
+**Internal DB columns are still `password_hash` and `password_salt`** —
+SQLite-rename is doable but unnecessary for an internal name, so the
+TypeScript-side mismatch (`Drop.password_hash` / `Drop.password_salt` typed
+fields, snake_case `passcode` on the API) is intentional.
+
+Gate page uses `<input type="text">` + CSS `-webkit-text-security: disc` so
+the value masks like a password field but autofill doesn't fire. A tiny
+inline script flips text-security on a "show/hide" toggle.
+
 ## Context metadata
 
 Each version can carry an optional `context` field (text, ≤64KB) — the
@@ -499,7 +521,7 @@ src/
     og-png.ts       ─ satori + resvg-wasm PNG renderer (landing + per-drop)
     landing.ts      ─ /
     verify.ts       ─ /verify — single "Sign in with GitHub" button
-    viewer.ts       ─ /p/:slug viewer + password gate
+    viewer.ts       ─ /p/:slug viewer + passcode gate (soft share gate, not encryption)
 
 skills/
   htmlbin/SKILL.md  ─ human-browsable mirror of src/skill.ts (must stay in sync)
@@ -527,7 +549,7 @@ npm run test:e2e
 ```
 
 Walks discovery → onboarding → device-code auth → CRUD → versioning →
-context → password lifecycle → ownership → cleanup. Same script works
+context → passcode lifecycle → ownership → cleanup. Same script works
 against deployed `htmlbin.dev` if you change `BASE_URL`.
 
 When you finish meaningful work, re-run that script before claiming the

@@ -26,7 +26,7 @@ agent ─ GET  /api/auth/poll ───┘  → api_token (one-time read)
 agent ─ POST /api/drops  → slug, public URL
                                                   KV ──▶ HTML body
 visitor ─ GET /p/:id  → viewer + iframe           D1 ──▶ metadata
-                          (password gate if locked)
+                          (passcode gate if locked)
 ```
 
 ## Quick start (local)
@@ -122,14 +122,14 @@ The landing page also sets a `Link:` HTTP header advertising all of the above.
 
 | Method | Path | Notes |
 |---|---|---|
-| `POST`   | `/api/drops` | `{title, description?, html, password?, context?}` — creates v1 |
+| `POST`   | `/api/drops` | `{title, description?, html, passcode?, context?}` — creates v1 |
 | `GET`    | `/api/drops` | List your drops |
 | `GET`    | `/api/drops/:slug` | Drop metadata |
 | `PUT`    | `/api/drops/:slug` | Mints a new version (slug + URL preserved) |
 | `GET`    | `/api/drops/:slug/versions` | List all versions |
 | `GET`    | `/api/drops/:slug/v/:n` | Specific version metadata + context |
 | `DELETE` | `/api/drops/:slug` | Deletes all versions |
-| `POST`   | `/api/drops/:slug/password` | Empty string removes the password |
+| `POST`   | `/api/drops/:slug/passcode` | Soft share gate; empty string removes it |
 | `GET`    | `/api/tokens` | List your active tokens (across machines) |
 | `DELETE` | `/api/tokens/:id` | Revoke a token by short id |
 
@@ -137,7 +137,7 @@ The landing page also sets a `Link:` HTTP header advertising all of the above.
 
 | Method | Path | Notes |
 |---|---|---|
-| `GET` | `/p/:id` | Viewer (with password gate when locked) |
+| `GET` | `/p/:id` | Viewer (with passcode gate when locked) |
 | `GET` | `/p/:id?v=N` | Pinned to a specific version |
 | `GET` | `/p/:id/raw` | Raw HTML, edge-cached for unlocked drops |
 
@@ -188,7 +188,7 @@ src/
     og-png.ts       ─ satori + resvg-wasm PNG renderer (1200×630)
     landing.ts      ─ /
     verify.ts       ─ /verify
-    viewer.ts       ─ /p/:id + password gate (with version switcher)
+    viewer.ts       ─ /p/:id + passcode gate (with version switcher)
 skills/htmlbin/
   SKILL.md          ─ human-browsable mirror of src/skill.ts
 .github/workflows/
@@ -206,9 +206,10 @@ DB table, URL path, and user-facing copy all align: **drops**.
 
 - API tokens are stored only as `sha256(pepper || token)`. Plaintext is
   shown to the agent once via the device-code flow and never again.
-- Password-protected drops use PBKDF2-SHA-256 (100k iterations, 16-byte
-  random salt). Unlock cookie is HMAC-SHA-256-signed and scoped to the
-  slug; it does not contain the password.
+- Passcode-protected drops use PBKDF2-SHA-256 (100k iterations, 16-byte
+  random salt) for the soft share gate. Unlock cookie is HMAC-SHA-256-signed
+  and scoped to the slug; it does not contain the passcode. This is a
+  share gate, not encryption — the underlying HTML is unencrypted in KV.
 - Iframe sandbox + CSP `frame-ancestors 'self'` on `/p/:id/raw` to
   prevent UI redress / clickjacking from external sites.
 - Rate limiting is single-region D1 (best-effort). For higher-traffic

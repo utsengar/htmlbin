@@ -6,7 +6,7 @@ import { apiRoutes } from "./drops";
 import { buildOnboardJson, buildOnboardText } from "./onboard";
 import { landingPage } from "./views/landing";
 import { verifyPage } from "./views/verify";
-import { viewerPage, passwordGatePage } from "./views/viewer";
+import { viewerPage, passcodeGatePage } from "./views/viewer";
 import { FAVICON_SVG } from "./views/favicon";
 import { OG_SVG, dropOgSvg } from "./views/og-image";
 import { renderDropOgPng, renderLandingOgPng } from "./views/og-png";
@@ -102,7 +102,7 @@ app.use("*", async (c, next) => {
 // ----- Required-config check ----------------------------------------------
 //
 // TOKEN_PEPPER is required for token hashing AND for HMAC-signed unlock
-// cookies on password-protected drops. An empty/missing pepper causes
+// cookies on passcode-protected drops. An empty/missing pepper causes
 // `crypto.subtle.importKey` to throw `DataError: Imported HMAC key length
 // (0)…` deep in the request — surfacing as an opaque 500. Catch it at the
 // edge with a clear, machine-readable error so misconfigured deploys are
@@ -546,14 +546,14 @@ app.post("/p/:slug/unlock", async (c) => {
   }
 
   const form = await c.req.formData();
-  const password = String(form.get("password") ?? "");
+  const passcode = String(form.get("passcode") ?? "");
   const ok = await verifyPassword(
-    password,
+    passcode,
     drop.password_salt,
     drop.password_hash
   );
   if (!ok) {
-    return c.html(passwordGatePage(c.env, drop, { error: true }));
+    return c.html(passcodeGatePage(c.env, drop, { error: true }));
   }
 
   // 24-hour signed unlock cookie, scoped to this slug.
@@ -566,6 +566,22 @@ app.post("/p/:slug/unlock", async (c) => {
       Location: `/p/${slug}`,
       "Set-Cookie": cookie,
     },
+  });
+});
+
+// Re-lock: clear the unlock cookie and bounce back to the gate.
+// Only side-effect is on the caller's own cookie, so no auth or CSRF
+// token needed (a forged form would just log the forger out of nothing).
+app.post("/p/:slug/lock", async (c) => {
+  const slug = c.req.param("slug");
+  if (!isValidSlug(slug)) return c.notFound();
+  const drop = await getDrop(c.env.DB, slug);
+  if (!drop) return c.notFound();
+  // Same Path as the original cookie so the browser actually expires it.
+  const cookie = `wu_${slug}=; Path=/p/${slug}; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
+  return new Response(null, {
+    status: 302,
+    headers: { Location: `/p/${slug}`, "Set-Cookie": cookie },
   });
 });
 
