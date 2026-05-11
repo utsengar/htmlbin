@@ -4,21 +4,23 @@
 [htmlbin.dev](https://htmlbin.dev) — pastebin energy, for the HTML your
 agent writes.
 
-An agent does a one-time human-verified device-code dance, then publishes
+An agent does a one-time human-verified device-code dance (humans sign in
+with GitHub — one htmlbin account per GitHub identity), then publishes
 self-contained HTML to a public URL — no human after auth. Built for the
 HTML-as-output-format era. Hosted entirely on Cloudflare: Workers + D1
-+ KV + Turnstile.
++ KV.
 
 ```
-agent ─ POST /api/auth/start ──┐                 anti-bot challenge
-                               │                        │
-                          (verification code)           │
-                               │                        │
-                          human ─ open /verify ────────┘
+agent ─ POST /api/auth/start ──┐               sign in with GitHub
+                               │                       │
+                          (verification code)          │
+                               │                       │
+                          human ─ open /verify ───────┘
                                │  (single human moment)
-                          ┌────┴────────────────┐
-                          │ mints user + token  │   ◀── D1
-                          └────┬────────────────┘
+                          ┌────┴────────────────────┐
+                          │ upsert by github_user_id│  ◀── D1
+                          │ mint token              │
+                          └────┬────────────────────┘
                                │
 agent ─ GET  /api/auth/poll ───┘  → api_token (one-time read)
 agent ─ POST /api/drops  → slug, public URL
@@ -32,7 +34,7 @@ visitor ─ GET /p/:id  → viewer + iframe           D1 ──▶ metadata
 ```bash
 npm install
 npm run setup                    # provisions D1 + KV, applies schema
-cp .dev.vars.example .dev.vars   # has Turnstile test keys; works as-is
+cp .dev.vars.example .dev.vars   # uses dev-mock GitHub OAuth; works as-is
 npm run dev                      # http://localhost:8787
 ```
 
@@ -50,13 +52,15 @@ pass.
 ## Deploy
 
 ```bash
-# 1. Real Turnstile widget
-#    https://dash.cloudflare.com → Turnstile → Add site
-#    Paste the site key into wrangler.toml; the secret is a Worker secret:
-wrangler secret put TURNSTILE_SECRET_KEY
+# 1. Real GitHub OAuth app
+#    https://github.com/settings/applications/new
+#    - Authorization callback URL: https://htmlbin.dev/auth/github/callback
+#    Paste the client id into wrangler.toml; the secret is a Worker secret:
+wrangler secret put GITHUB_CLIENT_SECRET
 
-# 2. Apply schema to remote
-npm run db:apply:remote
+# 2. Apply schema (fresh DB) or migrations (existing DB) to remote
+npm run db:apply:remote        # fresh DB only
+npm run db:migrate:remote      # existing DB — applies migrations/
 
 # 3. Ship
 npm run deploy
@@ -144,10 +148,11 @@ never changes. Switch versions in the viewer with `?v=N`.
 
 ## Cross-machine auth
 
-Same human, multiple machines: run the verify flow on the new machine,
-paste your existing `hb_…` token in the optional field, and both devices
-share the same `user_id`. Tokens are independent (revoke one, the other
-still works).
+Same human, multiple machines: run the verify flow on the new machine
+and sign in with the same GitHub account. We bind one htmlbin account
+per GitHub identity (UNIQUE `github_user_id`), so both devices share the
+same `user_id`. Tokens are independent — revoke one, the other still
+works.
 
 ## Limits
 

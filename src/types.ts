@@ -22,9 +22,12 @@ export type Bindings = {
   DROPS_KV: KVNamespace;
   AI: WorkersAI;
   PUBLIC_URL: string;
-  TURNSTILE_SITE_KEY: string;
-  TURNSTILE_SECRET_KEY: string;
   TOKEN_PEPPER: string;
+  // GitHub OAuth — single human identity check on /verify. The dev
+  // setup uses the sentinel "dev-mock" for both values to short-circuit
+  // the round-trip to github.com (see src/github-oauth.ts).
+  GITHUB_CLIENT_ID: string;
+  GITHUB_CLIENT_SECRET: string;
 };
 
 export type Variables = {
@@ -37,6 +40,8 @@ export type User = {
   id: string;
   display_name: string | null;
   created_at: number;
+  github_user_id: number | null;
+  github_login: string | null;
 };
 
 export type Drop = {

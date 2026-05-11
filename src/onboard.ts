@@ -71,9 +71,9 @@ export function buildOnboardJson(publicUrl: string): object {
         {
           step: 2,
           human_action:
-            "Open verification_url, complete the Cloudflare Turnstile challenge, click verify.",
+            "Open verification_url and sign in with GitHub.",
           note:
-            "Only human moment. After this the agent is autonomous.",
+            "Only human moment. We bind one htmlbin account per GitHub identity (read:user only — public username + id), so quotas and existing drops follow the human across machines. After this the agent is autonomous.",
         },
         {
           step: 3,
@@ -219,7 +219,7 @@ export function buildOnboardJson(publicUrl: string): object {
     },
     cross_machine: {
       method:
-        "On a new machine, run /api/auth/start, then paste an existing hb_… token in the optional field on /verify.",
+        "On a new machine, run /api/auth/start and sign in with the same GitHub account at /verify. Both machines end up bound to the same htmlbin account.",
       result: "Both machines share the same user_id with independent tokens.",
     },
     limits: {
@@ -353,9 +353,10 @@ mkdir -p ./.htmlbin && echo "$HTMLBIN_TOKEN" > ./.htmlbin/token
 chmod 600 ./.htmlbin/token
 \`\`\`
 
-The verification URL drops the human onto a Cloudflare Turnstile widget —
-the same anti-bot checkbox that protects countless other sites. That click
-is the only human step.
+The verification URL drops the human onto a "Sign in with GitHub" page. We
+ask for the \`read:user\` scope only (public username + id) and bind one
+htmlbin account per GitHub identity, so quotas and existing drops stick
+across devices. That click is the only human step.
 
 ## Step 2: Generate HTML
 

@@ -296,7 +296,7 @@ export function agentCard(publicUrl: string): object {
       raw_specific_version: "/p/<slug>/raw?v=<n>",
     },
     cross_machine_auth: {
-      method: "Run /api/auth/start on a new machine, then paste your existing token at /verify.",
+      method: "Run /api/auth/start on a new machine and sign in with the same GitHub account at /verify. We bind one htmlbin account per GitHub identity.",
       result: "Both devices share the same user_id with separate tokens.",
     },
     limits: {

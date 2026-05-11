@@ -111,14 +111,18 @@ assert_contains "$PEND" '"pending"' "poll before verify returns pending"
 NF=$(curl -s "$BASE/api/auth/poll?token=does-not-exist")
 assert_contains "$NF" '"not_found"' "poll with bad token returns not_found"
 
-# Human verifies (test Turnstile secret auto-passes locally)
-VRESP=$(curl -s -o "$TMP/verify.html" -w "%{http_code}" -X POST "$BASE/verify" \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  --data-urlencode "code=$VCODE" \
-  --data-urlencode "cf-turnstile-response=fake")
-assert_eq "$VRESP" "200" "human POST /verify returns 200"
+# Human signs in with GitHub (dev-mock short-circuits github.com so the
+# script doesn't need a browser or a real OAuth app — see
+# src/github-oauth.ts). Each run picks a unique mock login so successive
+# test runs against the same local D1 don't collide on github_user_id.
+GH_LOGIN_1="e2e-$RANDOM-$RANDOM"
+VRESP=$(curl -sL -o "$TMP/verify.html" -w "%{http_code}" \
+  "$BASE/auth/github/start?code=$VCODE&mock_login=$GH_LOGIN_1")
+assert_eq "$VRESP" "200" "GET /auth/github/start returns 200 after callback"
 grep -q -i "done\|verified\|complete" "$TMP/verify.html" \
   && ok "verify page shows success" || fail "verify success" "no confirmation text"
+grep -q "$GH_LOGIN_1" "$TMP/verify.html" \
+  && ok "verify page shows the github login" || fail "github login on success" "missing $GH_LOGIN_1"
 
 # Poll AFTER → verified, returns api_token (one-time read)
 curl -s "$BASE/api/auth/poll?token=$POLL" -o "$TMP/verified.json"
@@ -178,7 +182,8 @@ assert_json "$TMP/meta.json" '.slug' "$SLUG" "GET /api/drops/:slug returns own m
 assert_json "$TMP/meta.json" '.locked' 'false' "fresh drop is not locked"
 
 curl -s "$BASE/api/drops" -H "Authorization: Bearer $TOKEN" -o "$TMP/list.json"
-assert_json "$TMP/list.json" "[.[] | select(.slug==\"$SLUG\")] | length" '1' "GET /api/drops lists my drop"
+assert_json "$TMP/list.json" "[.data[] | select(.slug==\"$SLUG\")] | length" '1' "GET /api/drops lists my drop"
+assert_json "$TMP/list.json" '.pagination.page' '1' "GET /api/drops returns pagination block"
 
 # Update
 jq -n '{html:"<h1>updated by agent</h1>"}' \
@@ -239,9 +244,8 @@ curl -s -X POST "$BASE/api/auth/start" -H "Content-Type: application/json" \
   -d '{"label":"agent-2"}' -o "$TMP/start2.json"
 C2=$(jq -r .code < "$TMP/start2.json")
 P2=$(jq -r .poll_token < "$TMP/start2.json")
-curl -s -o /dev/null -X POST "$BASE/verify" \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  --data-urlencode "code=$C2" --data-urlencode "cf-turnstile-response=x"
+GH_LOGIN_2="e2e2-$RANDOM-$RANDOM"
+curl -sL -o /dev/null "$BASE/auth/github/start?code=$C2&mock_login=$GH_LOGIN_2"
 curl -s "$BASE/api/auth/poll?token=$P2" -o "$TMP/verified2.json"
 TOKEN2=$(jq -r .api_token < "$TMP/verified2.json")
 [[ "$TOKEN2" == hb_* ]] && ok "second agent gets its own token" || fail "second token" "$TOKEN2"
@@ -281,14 +285,14 @@ assert_eq "$NS" "404" "nonexistent slug → 404"
 
 # Second user's list is empty
 curl -s "$BASE/api/drops" -H "Authorization: Bearer $TOKEN2" -o "$TMP/list2.json"
-assert_json "$TMP/list2.json" 'length' '0' "second agent's list is empty"
+assert_json "$TMP/list2.json" '.data | length' '0' "second agent's list is empty"
 
 # ---------------------------------------------------------------------------
 section "7. cleanup"
 # ---------------------------------------------------------------------------
-curl -s -X DELETE "$BASE/api/drops/$SLUG" \
-  -H "Authorization: Bearer $TOKEN" -o "$TMP/del.json"
-assert_json "$TMP/del.json" '.deleted' "$SLUG" "DELETE returns deleted=$SLUG"
+DCODE=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE "$BASE/api/drops/$SLUG" \
+  -H "Authorization: Bearer $TOKEN")
+assert_eq "$DCODE" "204" "DELETE /api/drops/:slug returns 204 No Content"
 
 GONE=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/p/$SLUG")
 assert_eq "$GONE" "404" "after delete, /p/:slug is 404"

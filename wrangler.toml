@@ -20,16 +20,19 @@ routes = [
 [observability]
 enabled = true
 
-# Production values. Local dev overrides PUBLIC_URL + TURNSTILE_SITE_KEY
-# via .dev.vars, so you don't have to maintain two environments.
+# Production values. Local dev overrides via .dev.vars, so you don't
+# have to maintain two environments.
 [vars]
 PUBLIC_URL = "https://htmlbin.dev"
-# Cloudflare Turnstile site key (public, embedded in /verify).
-# Replace with the real site key from dash.cloudflare.com → Turnstile.
-TURNSTILE_SITE_KEY = "0x4AAAAAADMWcc6zelKUOSlH"
+# GitHub OAuth app client id (public — appears in the browser during
+# the authorize redirect, so it lives in git, not in secrets).
+# Source: github.com/settings/developers → htmlbin → Client ID.
+# Authorization callback URL on the app must be
+# https://htmlbin.dev/auth/github/callback.
+GITHUB_CLIENT_ID = "Ov23li6nAqCYrRIN3WSf"
 
 # Secrets (set with `wrangler secret put NAME`):
-#   TURNSTILE_SECRET_KEY  → Turnstile server secret
+#   GITHUB_CLIENT_SECRET  → GitHub OAuth app client secret
 #   TOKEN_PEPPER          → random 32+ char string used to hash API tokens
 
 [[kv_namespaces]]
