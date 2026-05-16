@@ -4,6 +4,9 @@
   "private": true,
   "description": "Agent-first HTML hosting. Drop HTML, get a URL. htmlbin.dev",
   "type": "module",
+  "workspaces": [
+    "cli"
+  ],
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",

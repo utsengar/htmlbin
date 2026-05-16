@@ -15,6 +15,15 @@ Public reinvention of an internal Webflow tool ("wrop"). The Webflow
 codebase lives at `/Users/utkarshsengar/dev/prototypes/Prototypes` for
 reference only — none of it ships in the public version.
 
+**The `cli/` directory is a separate npm package, `@htmlbin/cli`** —
+shares the brand, ships independently, runs on Node, talks to multiple
+backends (htmlbin.dev cloud by default, plus GitHub Pages and Cloudflare
+Pages + Access as opt-in backends for org-internal hosting). See
+[cli/README.md](./cli/README.md). The Worker and the CLI share no
+runtime code; `src/errors.ts`'s `ErrorCode` union is mirrored in
+`cli/src/errors.ts` by copy so exit codes match the API's `error.code`
+shape.
+
 ## Stack (and why)
 
 - **Cloudflare Workers + Hono** — single Worker, no Next.js.

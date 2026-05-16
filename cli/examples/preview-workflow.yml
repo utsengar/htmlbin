@@ -1,0 +1,60 @@
+# Drop-in PR preview workflow using @htmlbin/cli's gh-pages backend.
+#
+# Copy this file to .github/workflows/preview.yml in your repo. On every
+# PR push, it builds the project, publishes ./out/index.html to a per-PR
+# directory on the `gh-pages` branch, and posts a sticky comment with the
+# URL. GitHub Pages serves the URL; if the repo is private and Pages is
+# set to "Private" (Settings → Pages → Access control), org SSO gates it.
+#
+# Prerequisites:
+#   1. Repo has GitHub Pages enabled with source = gh-pages branch.
+#   2. Repo is Private or Internal (for SSO gating).
+#   3. Org plan: GitHub Enterprise Cloud or Teams with private Pages.
+#
+# One-time setup:
+#   GITHUB_TOKEN=$(gh auth token) npx @htmlbin/cli setup --to gh-pages
+
+name: PR preview
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write       # to push commits to gh-pages
+  pull-requests: write  # to post the sticky comment
+
+concurrency:
+  group: pr-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build
+        run: |
+          npm ci
+          npm run build   # adjust to your repo's build command
+
+      - name: Publish preview
+        id: publish
+        run: |
+          URL=$(npx @htmlbin/cli publish ./out/index.html --to gh-pages)
+          echo "url=$URL" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: htmlbin-preview
+          message: |
+            🔍 **Preview:** ${{ steps.publish.outputs.url }}
+
+            Updated on every push to this branch. GitHub Pages typically
+            rebuilds within ~60s; if the URL 404s for a moment, refresh.

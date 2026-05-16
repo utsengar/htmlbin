@@ -1,0 +1,53 @@
+{
+  "name": "@htmlbin/cli",
+  "version": "0.1.0",
+  "description": "CLI for htmlbin. Publish HTML, get a URL. Cloud by default, pluggable backends for org-internal hosting (GitHub Pages, Cloudflare Pages + Access).",
+  "type": "module",
+  "bin": {
+    "htmlbin": "./dist/bin.cjs"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "htmlbin",
+    "html",
+    "cli",
+    "pastebin",
+    "github-pages",
+    "cloudflare-pages",
+    "agent"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@octokit/rest": "^21.0.2",
+    "commander": "^12.1.0",
+    "execa": "^9.5.2",
+    "smol-toml": "^1.3.1",
+    "undici": "^7.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}
