@@ -67,6 +67,7 @@ export function landingPage(env: Bindings): string {
 <meta name="theme-color" content="#0A0A0A" media="(prefers-color-scheme: dark)" />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <link rel="stylesheet" href="${STYLE_HREF}" />
+<script src="/sentry.js" defer></script>
 <link rel="alternate" type="text/markdown" title="This page as markdown" href="/index.md" />
 <link rel="alternate" type="application/json" title="Agent protocol descriptor" href="/api/onboard" />
 <link rel="alternate" type="text/markdown" title="Agent protocol (markdown)" href="/api/onboard?format=md" />

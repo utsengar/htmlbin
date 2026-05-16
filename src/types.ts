@@ -28,6 +28,10 @@ export type Bindings = {
   // the round-trip to github.com (see src/github-oauth.ts).
   GITHUB_CLIENT_ID: string;
   GITHUB_CLIENT_SECRET: string;
+  // Sentry observability. Optional — when unset, both the Worker
+  // wrapper and the browser /sentry.js route no-op. DSN is public by
+  // design (Sentry expects it in client code).
+  SENTRY_DSN?: string;
 };
 
 export type Variables = {

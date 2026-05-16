@@ -64,3 +64,4 @@ coverage/
 # --- private to this checkout ---
 private/
 TODO.local.md
+.htmlbin/
