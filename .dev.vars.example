@@ -14,3 +14,9 @@ TOKEN_PEPPER="REPLACE_ME_WITH_A_LONG_RANDOM_STRING"
 # sets these to real values from github.com/settings/applications/new.
 GITHUB_CLIENT_ID="dev-mock"
 GITHUB_CLIENT_SECRET="dev-mock"
+
+# Sentry observability. Optional in dev. When unset, both the Worker
+# wrapper and the browser /sentry.js route no-op. DSN is public — Sentry
+# expects it in client code. Set in production via:
+#   wrangler secret put SENTRY_DSN
+# SENTRY_DSN="https://<publicKey>@oXXXXX.ingest.sentry.io/<project>"

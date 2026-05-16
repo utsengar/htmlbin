@@ -498,6 +498,36 @@ live on the same Worker.
 - **Slack/Twitter unfurl cache.** ~24h TTL per URL. To force a re-fetch
   during development, append a throwaway query string (`?_=2`).
 
+## Observability (Sentry)
+
+Both Worker (server) and browser (chrome pages) are wired to Sentry.
+Both no-op when `SENTRY_DSN` is unset, so dev and pre-config preview
+URLs work without any DSN.
+
+- **Server (Worker):** `src/index.ts` wraps the default export with
+  `Sentry.withSentry(...)` from `@sentry/cloudflare`. `tracesSampleRate:
+  0.1` (10% performance traces). `sendDefaultPii: false`. DSN read from
+  `env.SENTRY_DSN` at request time.
+- **Browser:** `/sentry.js` is a Worker-served loader. When DSN is set,
+  it injects Sentry's CDN script (`js.sentry-cdn.com/<publicKey>.min.js`)
+  and runs `Sentry.init`. When unset, returns a no-op comment so the
+  `<script src="/sentry.js" defer>` tags in landing/verify/viewer chrome
+  stay harmless. **We never inject Sentry into user-published drop
+  HTML at `/p/:slug/raw`** — that's the user's content, served in an
+  iframe; we don't touch it.
+- **CSP:** the global middleware in `src/index.ts` conditionally
+  appends `https://js.sentry-cdn.com` to `script-src` and
+  `https://*.ingest.sentry.io` (+ `.us.`) to `connect-src` *only when
+  `SENTRY_DSN` is set*. Policy stays tight when Sentry is off.
+- **Config:** `SENTRY_DSN` is a Worker secret. Set with:
+  `wrangler secret put SENTRY_DSN`. Local dev: copy
+  `.dev.vars.example` and uncomment the `SENTRY_DSN` line. The DSN is
+  *public* by Sentry's design — embedding it in client JS is intended.
+- **CLI:** `sentry-cli` is for source-map upload + release tagging.
+  We don't currently upload source maps (Worker is bundled; cold-path
+  acceptable). Add later via the deploy workflow if stack-trace
+  symbolication becomes painful.
+
 ## Files
 
 ```

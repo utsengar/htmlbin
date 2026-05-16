@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import * as Sentry from "@sentry/cloudflare";
 import type { Bindings, Variables } from "./types";
 import { authRoutes } from "./auth";
 import { githubOAuthRoutes } from "./github-oauth";
@@ -74,6 +75,13 @@ app.use("*", async (c, next) => {
     // to allow the viewer to iframe it).
     if (!c.res.headers.has("content-security-policy")) {
       c.res.headers.set("X-Frame-Options", "SAMEORIGIN");
+      const sentryOn = !!c.env.SENTRY_DSN;
+      const scriptSrc = sentryOn
+        ? "script-src 'self' 'unsafe-inline' https://js.sentry-cdn.com"
+        : "script-src 'self' 'unsafe-inline'";
+      const connectSrc = sentryOn
+        ? "connect-src 'self' https://*.ingest.sentry.io https://*.ingest.us.sentry.io"
+        : "connect-src 'self'";
       c.res.headers.set(
         "Content-Security-Policy",
         [
@@ -82,7 +90,8 @@ app.use("*", async (c, next) => {
           // No external font origins now that we self-host Geist/Geist Mono.
           "style-src 'self' 'unsafe-inline'",
           "font-src 'self'",
-          "script-src 'self' 'unsafe-inline'",
+          scriptSrc,
+          connectSrc,
           "frame-src 'self'",
           "frame-ancestors 'none'",
           "base-uri 'none'",
@@ -194,6 +203,29 @@ app.get("/style.css", (c) => {
       "Cache-Control": "public, max-age=3600, s-maxage=604800",
     },
   });
+});
+
+// ----- Sentry browser loader --------------------------------------------
+//
+// Emits a self-bootstrapping script: injects Sentry's CDN loader, then
+// init's with our DSN. When SENTRY_DSN is unset (dev or pre-setup) we
+// return a no-op body so the <script> tag in chrome stays harmless.
+// DSN is public by design — Sentry expects it in client code.
+app.on(["GET", "HEAD"], "/sentry.js", (c) => {
+  const dsn = c.env.SENTRY_DSN;
+  const headers = {
+    "Content-Type": "application/javascript; charset=utf-8",
+    "Cache-Control": "public, max-age=3600",
+  };
+  if (!dsn) return new Response("/* sentry disabled — no DSN */", { headers });
+  // DSN shape: https://<publicKey>@oXXXXX.ingest.sentry.io/<project>
+  const m = /\/\/([^@]+)@/.exec(dsn);
+  if (!m) return new Response("/* sentry: malformed DSN */", { headers });
+  const publicKey = m[1];
+  const dsnJson = JSON.stringify(dsn);
+  const keyJson = JSON.stringify(publicKey);
+  const body = `(function(){var s=document.createElement('script');s.src='https://js.sentry-cdn.com/'+${keyJson}+'.min.js';s.crossOrigin='anonymous';s.onload=function(){if(window.Sentry)window.Sentry.init({dsn:${dsnJson},tracesSampleRate:0.1});};document.head.appendChild(s);})();`;
+  return new Response(body, { headers });
 });
 
 // ----- Self-hosted Geist + Geist Mono fonts ------------------------------
@@ -704,4 +736,17 @@ function notFoundHtml(publicUrl: string): string {
 </body></html>`;
 }
 
-export default app;
+// Wrapped in Sentry. DSN is read from env at request time; when
+// SENTRY_DSN is unset (dev or pre-setup) the SDK no-ops cleanly.
+const handler: ExportedHandler<Bindings> = {
+  fetch: (request, env, ctx) => app.fetch(request, env, ctx),
+};
+
+export default Sentry.withSentry(
+  (env: Bindings) => ({
+    dsn: env.SENTRY_DSN,
+    tracesSampleRate: 0.1,
+    sendDefaultPii: false,
+  }),
+  handler,
+);
