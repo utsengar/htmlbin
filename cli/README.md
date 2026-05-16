@@ -196,9 +196,21 @@ Stable across releases — CI can switch on these.
 
 The CLI prints `error: <message>  [<code>]` to stderr. The bracketed code mirrors the htmlbin.dev API's `error.code` for the cloud backend — agents and CI can switch on it.
 
-## Reference GitHub Actions workflow
+## Reference GitHub Actions workflows
 
-See [`examples/preview-workflow.yml`](./examples/preview-workflow.yml) for a drop-in PR preview workflow using the gh-pages backend, plus [`examples/teardown-workflow.yml`](./examples/teardown-workflow.yml) for cleanup on PR close.
+The CLI is publish-only. Whatever produces the HTML upstream is the user's choice. Two reference workflows ship in `examples/` for the two common cases:
+
+### Static-site repos — `examples/preview-workflow.yml`
+
+For repos whose build naturally produces HTML (Storybook, Vite SPA, Astro, Next.js static export, etc.). The workflow runs `npm run build`, then publishes whatever HTML the build emits. Branching sticky comments handle the three failure modes: preview lives / build OK but no HTML at path / build failed entirely.
+
+### Non-static repos — `examples/agent-preview-workflow.yml`
+
+For repos that don't build to HTML on their own (backend services, libraries, mobile apps, CLIs). A headless coding agent CLI — Claude Code `-p` mode by default, swap-points documented for OpenAI Codex CLI's `codex exec` — runs inside the CI runner with full tool use (file system, bash, multi-turn). The agent reads the PR diff and writes `./preview.html`; `htmlbin publish` ships it.
+
+The agent harness is what makes this work — a raw model call against a diff produces noise; an agent that can read related files, run the build, and iterate produces a real preview. The repo content never leaves the CI environment (only model-API egress); pick whichever agent vendor your team is already paying for.
+
+Both workflows pair with `examples/teardown-workflow.yml` to clean up the preview when the PR closes.
 
 ## License
 
