@@ -519,10 +519,13 @@ URLs work without any DSN.
   appends `https://js.sentry-cdn.com` to `script-src` and
   `https://*.ingest.sentry.io` (+ `.us.`) to `connect-src` *only when
   `SENTRY_DSN` is set*. Policy stays tight when Sentry is off.
-- **Config:** `SENTRY_DSN` is a Worker secret. Set with:
-  `wrangler secret put SENTRY_DSN`. Local dev: copy
-  `.dev.vars.example` and uncomment the `SENTRY_DSN` line. The DSN is
-  *public* by Sentry's design — embedding it in client JS is intended.
+- **Config:** `SENTRY_DSN` is a Worker secret. Because this Worker
+  uses versioned deploys (CI runs `wrangler versions upload` on PRs),
+  use `wrangler versions secret put SENTRY_DSN` — *not* the plain
+  `wrangler secret put`, which errors with "latest version of your
+  Worker isn't currently deployed." Local dev: copy `.dev.vars.example`
+  and uncomment the `SENTRY_DSN` line. The DSN is *public* by Sentry's
+  design — embedding it in client JS is intended.
 - **CLI:** `sentry-cli` is for source-map upload + release tagging.
   We don't currently upload source maps (Worker is bundled; cold-path
   acceptable). Add later via the deploy workflow if stack-trace
