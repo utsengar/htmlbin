@@ -3,8 +3,14 @@
 # Copy this file to .github/workflows/preview.yml in your repo. On every
 # PR push, it builds the project, publishes ./out/index.html to a per-PR
 # directory on the `gh-pages` branch, and posts a sticky comment with the
-# URL. GitHub Pages serves the URL; if the repo is private and Pages is
-# set to "Private" (Settings → Pages → Access control), org SSO gates it.
+# URL. If the build doesn't produce HTML at the expected path, it posts a
+# helpful comment instead of failing silently.
+#
+# **Adjust two things for your repo:**
+#   1. The build command (`npm run build` below) — change to whatever your
+#      project actually runs.
+#   2. The HTML output path (`./out/index.html` below) — must match what
+#      your build emits.
 #
 # Prerequisites:
 #   1. Repo has GitHub Pages enabled with source = gh-pages branch.
@@ -30,6 +36,11 @@ concurrency:
 jobs:
   preview:
     runs-on: ubuntu-latest
+    # Edit these two to match your repo:
+    env:
+      BUILD_COMMAND: npm run build
+      HTML_PATH: ./out/index.html
+
     steps:
       - uses: actions/checkout@v4
 
@@ -38,23 +49,71 @@ jobs:
           node-version: 20
 
       - name: Build
+        id: build
+        # `continue-on-error` lets us distinguish "build failed" from
+        # "build succeeded but produced no HTML" — both deserve helpful
+        # comments rather than a red ✗ with no context.
+        continue-on-error: true
         run: |
           npm ci
-          npm run build   # adjust to your repo's build command
+          ${{ env.BUILD_COMMAND }}
+
+      - name: Check for HTML output
+        id: check
+        run: |
+          if [ -f "$HTML_PATH" ]; then
+            echo "found=true" >> $GITHUB_OUTPUT
+            echo "size=$(wc -c < "$HTML_PATH")" >> $GITHUB_OUTPUT
+          else
+            echo "found=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Publish preview
         id: publish
+        if: steps.check.outputs.found == 'true'
         run: |
-          URL=$(npx @htmlbin/cli publish ./out/index.html --to gh-pages)
+          URL=$(npx @htmlbin/cli publish "$HTML_PATH" --to gh-pages)
           echo "url=$URL" >> $GITHUB_OUTPUT
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: marocchino/sticky-pull-request-comment@v2
+      # Happy path: preview is live.
+      - name: Post preview URL
+        if: steps.check.outputs.found == 'true'
+        uses: marocchino/sticky-pull-request-comment@v2
         with:
           header: htmlbin-preview
           message: |
             🔍 **Preview:** ${{ steps.publish.outputs.url }}
 
-            Updated on every push to this branch. GitHub Pages typically
-            rebuilds within ~60s; if the URL 404s for a moment, refresh.
+            `${{ env.HTML_PATH }}` (${{ steps.check.outputs.size }} bytes) ·
+            updated on every push · GitHub Pages typically rebuilds within ~60s.
+
+      # Sad path: build ran but didn't produce the HTML we expected.
+      - name: Post "no HTML to preview" notice
+        if: steps.check.outputs.found != 'true' && steps.build.outcome == 'success'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: htmlbin-preview
+          message: |
+            ⚠️ **No preview** — build ran successfully but didn't produce HTML at `${{ env.HTML_PATH }}`.
+
+            This workflow expects your build to emit a single HTML file at that path.
+            Adjust the workflow's `HTML_PATH` env var, or change your build to write
+            its output there.
+
+      # Sad path: build itself failed.
+      - name: Post "build failed" notice
+        if: steps.build.outcome == 'failure'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: htmlbin-preview
+          message: |
+            ❌ **No preview** — build step failed before HTML could be produced.
+
+            See the [build logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details.
+
+      # Fail the job if the build failed, so the PR's check status reflects reality.
+      - name: Surface build failure
+        if: steps.build.outcome == 'failure'
+        run: exit 1

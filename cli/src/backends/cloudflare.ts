@@ -1,8 +1,7 @@
 // Cloudflare Pages + Access backend.
 
-import { readFile, stat } from "node:fs/promises";
-import { resolve } from "node:path";
 import { CliError } from "../errors.js";
+import { loadHtml } from "../load.js";
 import type {
   Backend,
   DropSummary,
@@ -68,17 +67,7 @@ export function createCloudflareBackend(opts: CloudflareBackendOpts = {}): Backe
     async publish(po: PublishOpts): Promise<PublishResult> {
       const client = api();
       const proj = requireProject();
-      const filePath = resolve(process.cwd(), po.file);
-      const st = await stat(filePath).catch(() => {
-        throw new CliError("file_not_found", `No such file: ${po.file}`);
-      });
-      if (st.size > MAX_HTML_BYTES) {
-        throw new CliError(
-          "file_too_large",
-          `File is ${st.size} bytes; cap is ${MAX_HTML_BYTES} for the cloudflare backend.`
-        );
-      }
-      const html = await readFile(filePath, "utf8");
+      const { html } = await loadHtml(po.file, { maxBytes: MAX_HTML_BYTES });
       const alias = aliasFor(po);
 
       // Ensure the project exists (cheap idempotent check).

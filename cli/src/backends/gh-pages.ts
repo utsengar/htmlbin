@@ -3,9 +3,8 @@
 // configured Pages branch (default `gh-pages`). One PR → one `pr-N/`
 // subdirectory.
 
-import { readFile, stat } from "node:fs/promises";
-import { resolve } from "node:path";
 import { CliError } from "../errors.js";
+import { loadHtml } from "../load.js";
 import type {
   Backend,
   DropSummary,
@@ -64,17 +63,8 @@ export function createGhPagesBackend(opts: GhPagesBackendOpts = {}): Backend {
 
     async publish(po: PublishOpts): Promise<PublishResult> {
       const { gh, ref } = await ctx();
-      const filePath = resolve(opts.cwd ?? process.cwd(), po.file);
-      const st = await stat(filePath).catch(() => {
-        throw new CliError("file_not_found", `No such file: ${po.file}`);
-      });
-      if (st.size > MAX_HTML_BYTES) {
-        throw new CliError(
-          "file_too_large",
-          `File is ${st.size} bytes; cap is ${MAX_HTML_BYTES} for the gh-pages backend.`
-        );
-      }
-      const html = await readFile(filePath, "utf8");
+      const cwdOpt = opts.cwd === undefined ? {} : { cwd: opts.cwd };
+      const { html } = await loadHtml(po.file, { maxBytes: MAX_HTML_BYTES, ...cwdOpt });
       const slug = slugFor(po);
       const path = `${slug}/index.html`;
       const message = `Publish ${slug}/index.html via @htmlbin/cli`;

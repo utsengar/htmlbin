@@ -1,10 +1,9 @@
 // Cloud backend — talks to htmlbin.dev API.
 
-import { readFile, stat } from "node:fs/promises";
-import { basename, extname, resolve } from "node:path";
+import { basename, extname } from "node:path";
 import { CloudApi, type CloudDrop } from "../cloud/api.js";
 import { deviceCodeLogin, requireToken } from "../cloud/auth.js";
-import { CliError } from "../errors.js";
+import { loadHtml } from "../load.js";
 import type {
   Backend,
   DropSummary,
@@ -35,18 +34,9 @@ export function createCloudBackend(opts: CloudBackendOpts = {}): Backend {
     name: "cloud",
 
     async publish(po: PublishOpts): Promise<PublishResult> {
-      const filePath = resolve(opts.cwd ?? process.cwd(), po.file);
-      const st = await stat(filePath).catch(() => {
-        throw new CliError("file_not_found", `No such file: ${po.file}`);
-      });
-      if (st.size > MAX_HTML_BYTES) {
-        throw new CliError(
-          "file_too_large",
-          `File is ${st.size} bytes; max is ${MAX_HTML_BYTES}.`,
-          { details: { size: st.size, max_bytes: MAX_HTML_BYTES } }
-        );
-      }
-      const html = await readFile(filePath, "utf8");
+      const cwdOpt = opts.cwd === undefined ? {} : { cwd: opts.cwd };
+      const loaded = await loadHtml(po.file, { maxBytes: MAX_HTML_BYTES, ...cwdOpt });
+      const { filePath, html } = loaded;
       const title = po.title?.trim() || defaultTitle(filePath);
       const body: { html: string; title: string; description?: string } = {
         html,
