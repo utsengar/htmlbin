@@ -20,12 +20,36 @@ import {
   resolveBackend,
   type ConfigFile,
 } from "./config.js";
-import type { Backend, BackendName, PublishOpts } from "./backend.js";
+import type { Backend, BackendName, DropSummary, PublishOpts } from "./backend.js";
 
 const VERSION = "0.1.0";
 
+// Agent-runner env vars that, when present, default --output to json so
+// the runner gets parseable data without having to know about the flag.
+// Inspired by DataDog/pup's auto-detection list.
+const AGENT_ENV_VARS = [
+  "CLAUDE_CODE",
+  "CURSOR_AGENT",
+  "CODEX",
+  "CODEX_AGENT",
+  "AIDER",
+  "CLINE",
+  "AMP_CODE",
+  "DEVIN",
+] as const;
+
+function isAgentContext(env: NodeJS.ProcessEnv = process.env): boolean {
+  return AGENT_ENV_VARS.some((k) => env[k]);
+}
+
+type OutputMode = "text" | "json";
+// Mutable module-level — set by the commander preAction hook before each
+// command runs. Used by die() since errors can throw from anywhere.
+let OUTPUT_MODE: OutputMode = isAgentContext() ? "json" : "text";
+
 interface GlobalOpts {
   to?: string;
+  output?: OutputMode;
 }
 
 interface PublishCmdOpts extends GlobalOpts {
@@ -83,12 +107,37 @@ async function resolveActiveBackend(globalOpts: GlobalOpts): Promise<{ backend: 
 
 function die(err: unknown): never {
   if (err instanceof CliError) {
-    process.stderr.write(`error: ${err.message}  [${err.code}]\n`);
-    if (err.hint) process.stderr.write(`hint:  ${err.hint}\n`);
+    if (OUTPUT_MODE === "json") {
+      const body: { error: Record<string, unknown> } = {
+        error: { code: err.code, message: err.message },
+      };
+      if (err.hint) body.error.hint = err.hint;
+      if (err.details) body.error.details = err.details;
+      process.stderr.write(JSON.stringify(body) + "\n");
+    } else {
+      process.stderr.write(`error: ${err.message}  [${err.code}]\n`);
+      if (err.hint) process.stderr.write(`hint:  ${err.hint}\n`);
+    }
     process.exit(exitCodeFor(err.code));
   }
-  process.stderr.write(`error: ${(err as Error)?.message ?? String(err)}\n`);
+  const message = (err as Error)?.message ?? String(err);
+  if (OUTPUT_MODE === "json") {
+    process.stderr.write(JSON.stringify({ error: { code: "unknown", message } }) + "\n");
+  } else {
+    process.stderr.write(`error: ${message}\n`);
+  }
   process.exit(1);
+}
+
+// Emit a result. JSON mode prints the structured payload on stdout;
+// text mode invokes the human renderer (which may have side effects like
+// writing notes to stderr — those only fire in text mode).
+function emit(payload: unknown, renderText: () => string): void {
+  if (OUTPUT_MODE === "json") {
+    process.stdout.write(JSON.stringify(payload) + "\n");
+  } else {
+    process.stdout.write(renderText());
+  }
 }
 
 async function run(): Promise<void> {
@@ -103,7 +152,19 @@ async function run(): Promise<void> {
         "gh-pages",
         "cloudflare",
       ])
+    )
+    .addOption(
+      new Option("--output <format>", "output format (auto-detects coding-agent env vars and defaults to json then)")
+        .choices(["text", "json"])
     );
+
+  // Sync OUTPUT_MODE before each command runs so die() and emit() see the
+  // resolved value. Precedence: explicit --output > agent env detection > "text".
+  program.hook("preAction", () => {
+    const explicit = program.opts<GlobalOpts>().output;
+    if (explicit) OUTPUT_MODE = explicit;
+    else OUTPUT_MODE = isAgentContext() ? "json" : "text";
+  });
 
   // --- publish ---
   program
@@ -127,8 +188,17 @@ async function run(): Promise<void> {
         if (cmdOpts.pr) opts.pr = Number(cmdOpts.pr);
         if (cmdOpts.slug) opts.slug = cmdOpts.slug;
         const r = await be.publish(opts);
-        process.stdout.write(r.url + "\n");
-        if (r.note) process.stderr.write(`note:  ${r.note}\n`);
+        const payload: Record<string, unknown> = {
+          url: r.url,
+          slug: r.slug,
+          backend,
+        };
+        if (r.note) payload.note = r.note;
+        emit(payload, () => {
+          let out = r.url + "\n";
+          if (r.note) process.stderr.write(`note:  ${r.note}\n`);
+          return out;
+        });
       } catch (e) {
         die(e);
       }
@@ -146,13 +216,14 @@ async function run(): Promise<void> {
         const { backend, config } = await resolveActiveBackend(program.opts<GlobalOpts>());
         const be = await makeBackend(backend, config, cmdOpts);
         const rows = await be.list();
-        if (rows.length === 0) {
-          process.stderr.write("(no drops)\n");
-          return;
-        }
-        for (const r of rows) {
-          process.stdout.write(`${r.slug}\t${r.updated_at}\t${r.url}\n`);
-        }
+        emit(rows, () => {
+          if (rows.length === 0) return "(no drops)\n";
+          if (process.stdout.isTTY) return formatListForHumans(rows);
+          // Pipe-friendly: tab-separated, no headers, full ISO timestamp.
+          return rows
+            .map((r) => `${r.slug}\t${r.updated_at}\t${r.title ?? ""}\t${r.url}`)
+            .join("\n") + "\n";
+        });
       } catch (e) {
         die(e);
       }
@@ -171,7 +242,7 @@ async function run(): Promise<void> {
         const { backend, config } = await resolveActiveBackend(program.opts<GlobalOpts>());
         const be = await makeBackend(backend, config, cmdOpts);
         await be.delete(slug);
-        process.stdout.write(`deleted ${slug}\n`);
+        emit({ deleted: true, slug, backend }, () => `deleted ${slug}\n`);
       } catch (e) {
         die(e);
       }
@@ -190,7 +261,7 @@ async function run(): Promise<void> {
         const { backend, config } = await resolveActiveBackend(program.opts<GlobalOpts>());
         const be = await makeBackend(backend, config, cmdOpts);
         const url = await be.url(slug);
-        process.stdout.write(url + "\n");
+        emit({ url, slug, backend }, () => url + "\n");
       } catch (e) {
         die(e);
       }
@@ -227,13 +298,66 @@ async function run(): Promise<void> {
         const be = await makeBackend(backend, config, cmdOpts);
         if (!be.setup) throw new CliError("invalid_arg", `Backend "${backend}" has no setup step.`);
         const r = await be.setup();
-        for (const line of r.instructions) process.stdout.write(line + "\n");
+        emit({ instructions: r.instructions, backend }, () =>
+          r.instructions.map((line) => line + "\n").join("")
+        );
       } catch (e) {
         die(e);
       }
     });
 
   await program.parseAsync(process.argv);
+}
+
+// ---------------------------------------------------------------
+// list-output formatter for TTY (aligned columns, smart timestamps)
+// ---------------------------------------------------------------
+
+function formatListForHumans(rows: DropSummary[]): string {
+  const data = rows.map((r) => ({
+    slug: r.slug,
+    updated: humanTime(r.updated_at),
+    title: truncate(r.title?.trim() || "—", 50),
+    url: r.url,
+  }));
+
+  const headers = { slug: "SLUG", updated: "UPDATED", title: "TITLE", url: "URL" } as const;
+  const cols: Array<keyof typeof headers> = ["slug", "updated", "title", "url"];
+
+  const widths: Record<string, number> = {};
+  for (const c of cols) {
+    widths[c] = Math.max(headers[c].length, ...data.map((d) => d[c].length));
+  }
+
+  const SEP = "  ";
+  const DIM = "\x1b[2m";
+  const RESET = "\x1b[0m";
+
+  const headerLine = DIM + cols.map((c) => headers[c].padEnd(widths[c] ?? 0)).join(SEP) + RESET;
+  const rowLines = data.map((d) =>
+    cols.map((c) => d[c].padEnd(widths[c] ?? 0)).join(SEP)
+  );
+  return [headerLine, ...rowLines].join("\n") + "\n";
+}
+
+function humanTime(iso: string): string {
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return iso;
+  const ms = Math.max(0, Date.now() - t);
+  const min = 60_000;
+  const hr = 60 * min;
+  const day = 24 * hr;
+  if (ms < min) return "just now";
+  if (ms < hr) return `${Math.floor(ms / min)}m ago`;
+  if (ms < day) return `${Math.floor(ms / hr)}h ago`;
+  if (ms < 30 * day) return `${Math.floor(ms / day)}d ago`;
+  // older: YYYY-MM-DD
+  return iso.slice(0, 10);
+}
+
+function truncate(s: string, max: number): string {
+  if (s.length <= max) return s;
+  return s.slice(0, max - 1) + "…";
 }
 
 run().catch(die);

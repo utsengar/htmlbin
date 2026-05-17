@@ -76,11 +76,13 @@ export function createCloudBackend(opts: CloudBackendOpts = {}): Backend {
 }
 
 function toSummary(d: CloudDrop): DropSummary {
-  return {
+  const out: DropSummary = {
     slug: d.slug,
     url: d.url,
     updated_at: new Date(d.updated_at).toISOString(),
   };
+  if (d.title) out.title = d.title;
+  return out;
 }
 
 function defaultTitle(filePath: string): string {

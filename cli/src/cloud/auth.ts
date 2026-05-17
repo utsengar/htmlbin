@@ -1,9 +1,11 @@
 // Cloud (htmlbin.dev) auth: token resolution + device-code login.
 //
-// Token storage precedence (matches the /api/onboard descriptor):
-//   1. ./.htmlbin/token    — project-local
-//   2. $HTMLBIN_TOKEN      — env var
-//   3. ~/.config/htmlbin/token — machine-global fallback
+// Token storage precedence (matches the /api/onboard descriptor — the
+// agent protocol contract. Do not diverge without also updating
+// src/onboard.ts on the Worker side):
+//   1. ./.htmlbin/token         — project-local (cwd-relative)
+//   2. $HTMLBIN_TOKEN           — env var
+//   3. ~/.config/htmlbin/token  — machine-global fallback
 
 import { readFile, writeFile, mkdir, chmod } from "node:fs/promises";
 import { homedir } from "node:os";

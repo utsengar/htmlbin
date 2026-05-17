@@ -21,6 +21,8 @@ export interface DropSummary {
   slug: string;
   url: string;
   updated_at: string;
+  /** Title — populated by backends that carry it (cloud); undefined elsewhere. */
+  title?: string;
 }
 
 export interface PublishResult {

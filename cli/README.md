@@ -51,7 +51,38 @@ htmlbin login                      Cloud: device-code sign-in via GitHub
 htmlbin setup                      One-time prep for the selected backend
 ```
 
-Global flag: `--to cloud | gh-pages | cloudflare`.
+Global flags:
+
+```
+--to cloud | gh-pages | cloudflare    backend selector
+--output text | json                  output format (default: text)
+```
+
+## Output modes (agent-friendly)
+
+`--output json` makes every command emit a structured payload on stdout. Errors emit `{"error": {"code", "message", "hint?", "details?"}}` on stderr — same `error.code` shape as the htmlbin.dev API.
+
+```bash
+$ htmlbin --output json publish ./out.html
+{"url":"https://htmlbin.dev/p/aB3xK7g","slug":"aB3xK7g","backend":"cloud"}
+
+$ htmlbin --output json list
+[{"slug":"aB3xK7g","url":"...","updated_at":"...","title":"..."}, ...]
+
+$ htmlbin --output json publish /tmp/missing.html
+{"error":{"code":"file_not_found","message":"No such file: /tmp/missing.html","hint":"...","details":{...}}}
+# exit code 4
+```
+
+### Auto-detection
+
+If any of these env vars is set, `--output json` becomes the default — no flag needed:
+
+```
+CLAUDE_CODE · CURSOR_AGENT · CODEX · CODEX_AGENT · AIDER · CLINE · AMP_CODE · DEVIN
+```
+
+Most coding-agent runners set one of these. The agent gets JSON without having to know about the flag; humans running interactively get the text formatting. Explicit `--output text` always overrides the detection.
 
 ## Cloud backend (default)
 
