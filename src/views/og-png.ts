@@ -215,6 +215,9 @@ export async function renderDropOgPng(
   const SOFT = "#737373";
   const SOFTER = "#A3A3A3";
 
+  // Layout: title block sits at the top-left with generous whitespace
+  // below it; metadata row anchors the bottom. The card stops shouting
+  // when the headline is given air instead of stretched to fill.
   const tree = div(
     {
       display: "flex",
@@ -223,58 +226,62 @@ export async function renderDropOgPng(
       width: "1200px",
       height: "630px",
       background: "#FFFFFF",
-      padding: "64px 72px",
+      padding: "80px",
       fontFamily: "Geist",
       color: INK,
     },
     [
-      // top: wordmark + path breadcrumb
+      // TOP — breadcrumb + title, grouped tight
       div(
-        {
-          display: "flex",
-          alignItems: "center",
-          fontFamily: "Geist Mono",
-          fontSize: 36,
-          fontWeight: 500,
-        },
+        { display: "flex", flexDirection: "column" },
         [
-          span({ color: RED }, "<"),
-          span({ color: INK }, "htmlbin"),
-          span({ color: RED }, ">"),
-          span({ margin: "0 18px", color: RULE }, "/"),
-          span({ color: RED }, "GET"),
-          span({ margin: "0 12px", color: RULE }, "/"),
-          span({ color: INK }, `/p/${p.slug}`),
+          // small breadcrumb
+          div(
+            {
+              display: "flex",
+              alignItems: "center",
+              fontFamily: "Geist Mono",
+              fontSize: 24,
+              fontWeight: 500,
+              marginBottom: "40px",
+            },
+            [
+              span({ color: RED }, "<"),
+              span({ color: INK }, "htmlbin"),
+              span({ color: RED }, ">"),
+              span({ margin: "0 14px", color: RULE }, "/"),
+              span({ color: SOFT }, `/p/${p.slug}`),
+            ]
+          ),
+          // title — top-left, sized for two lines of breathing room
+          div(
+            {
+              display: "flex",
+              fontSize: 56,
+              fontWeight: 500,
+              lineHeight: 1.1,
+              letterSpacing: "-0.02em",
+              color: INK,
+            },
+            titleShort
+          ),
         ]
       ),
 
-      // middle: title
-      div(
-        {
-          display: "flex",
-          fontSize: 74,
-          fontWeight: 500,
-          lineHeight: 1.05,
-          letterSpacing: "-0.02em",
-          color: INK,
-        },
-        titleShort
-      ),
-
-      // bottom: meta row
+      // BOTTOM — meta on the left, host on the right
       div(
         {
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           fontFamily: "Geist Mono",
-          fontSize: 22,
+          fontSize: 20,
           fontWeight: 400,
           color: SOFT,
         },
         [
           div(
-            { display: "flex", alignItems: "center", gap: "28px" },
+            { display: "flex", alignItems: "center", gap: "20px" },
             [
               span({}, `v${p.latestVersion}`),
               span({ color: RULE }, "·"),
@@ -289,8 +296,8 @@ export async function renderDropOgPng(
                         background: INK,
                         color: "#FFFFFF",
                         borderRadius: 999,
-                        padding: "4px 14px",
-                        fontSize: 16,
+                        padding: "3px 12px",
+                        fontSize: 14,
                         fontWeight: 500,
                         letterSpacing: "0.04em",
                       },
@@ -336,6 +343,9 @@ export async function renderLandingOgPng(
   const SOFTER = "#A3A3A3";
   const host = stripScheme(p.publicUrl);
 
+  // Layout mirrors the per-drop card: wordmark + title + subtitle grouped
+  // top-left with a tight rhythm, then generous whitespace, then a thin
+  // host watermark at the bottom-right.
   const tree = div(
     {
       display: "flex",
@@ -349,56 +359,71 @@ export async function renderLandingOgPng(
       color: INK,
     },
     [
-      // wordmark
+      // TOP — wordmark + headline + subtitle stacked tight
       div(
-        {
-          display: "flex",
-          alignItems: "center",
-          fontFamily: "Geist Mono",
-          fontSize: 32,
-          fontWeight: 500,
-        },
+        { display: "flex", flexDirection: "column" },
         [
-          span({ color: RED }, "<"),
-          span({ color: INK }, "htmlbin"),
-          span({ color: RED }, ">"),
+          // wordmark
+          div(
+            {
+              display: "flex",
+              alignItems: "center",
+              fontFamily: "Geist Mono",
+              fontSize: 26,
+              fontWeight: 500,
+              marginBottom: "40px",
+            },
+            [
+              span({ color: RED }, "<"),
+              span({ color: INK }, "htmlbin"),
+              span({ color: RED }, ">"),
+            ]
+          ),
+
+          // headline — top-left, two tight lines, single red accent
+          div(
+            {
+              display: "flex",
+              flexDirection: "column",
+              fontSize: 64,
+              fontWeight: 500,
+              lineHeight: 1.05,
+              letterSpacing: "-0.02em",
+              color: INK,
+              marginBottom: "24px",
+            },
+            [
+              div({ display: "flex" }, "A home for the HTML"),
+              div({ display: "flex" }, [
+                span({ color: RED }, "your agent"),
+                span({ marginLeft: "18px" }, "writes."),
+              ]),
+            ]
+          ),
+
+          // subtitle — clearly subordinate to the headline
+          div(
+            {
+              display: "flex",
+              fontSize: 24,
+              fontWeight: 400,
+              color: SOFT,
+            },
+            "Agent-native, end to end."
+          ),
         ]
       ),
 
-      // headline
+      // BOTTOM — host watermark on the right
       div(
         {
           display: "flex",
-          flexDirection: "column",
-          fontSize: 96,
-          fontWeight: 500,
-          lineHeight: 1.0,
-          letterSpacing: "-0.025em",
-          color: INK,
-        },
-        [
-          div({ display: "flex" }, "A home for the HTML"),
-          div({ display: "flex" }, [
-            span({ color: RED }, "your agent"),
-            span({ marginLeft: "24px" }, "writes."),
-          ]),
-        ]
-      ),
-
-      // bottom meta
-      div(
-        {
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
+          justifyContent: "flex-end",
           fontFamily: "Geist Mono",
-          fontSize: 22,
-          color: SOFT,
+          fontSize: 20,
+          color: SOFTER,
         },
-        [
-          div({ display: "flex" }, "Agent-native, end to end."),
-          div({ display: "flex", color: SOFTER }, host),
-        ]
+        host
       ),
     ]
   );

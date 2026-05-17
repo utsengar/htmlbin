@@ -3,12 +3,15 @@
 //   - dropOgSvg()  — per-drop card served at /p/:slug/og.svg
 //
 // 1200×630 is the canonical OG card dimension. SVG keeps each card under
-// 2 KB and lets Cloudflare's edge cache it cheaply; modern social
-// platforms render SVG OG images directly (Twitter/X, Discord, Slack,
-// LinkedIn). Older crawlers will show the title/description but no
-// preview image — acceptable trade for staying simple. Some preview
-// tools warn about SVG; if that becomes a real problem, render to PNG
-// at the edge with satori or Workers Image Resizing.
+// 2 KB and lets Cloudflare's edge cache it cheaply; Discord renders SVG
+// OG images directly, and the SVG is also the fall-back path when the
+// satori → resvg PNG pipeline errors at request time.
+//
+// Composition follows the same shape as the PNG renderer: title block
+// top-left with a small wordmark above and generous whitespace below,
+// then a thin meta row anchored at the bottom. The previous centered-
+// shouting headline made the cards feel like marketing posters; this
+// shape reads more like an engineering doc.
 //
 // We use system-ui font fallbacks because crawlers don't execute the
 // page's @font-face load. The result looks slightly different per
@@ -19,35 +22,41 @@ const MONO = "ui-monospace, 'SF Mono', Menlo, Consolas, monospace";
 
 export const OG_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
   <rect width="1200" height="630" fill="#FFFFFF"/>
-  <!-- subtle hairline frame; very faint -->
-  <rect x="40" y="40" width="1120" height="550" fill="none" stroke="#E5E5E5" stroke-width="1"/>
-  <!-- wordmark -->
-  <text x="100" y="170"
+
+  <!-- wordmark, top-left -->
+  <text x="80" y="138"
         font-family="${MONO}"
-        font-size="44" font-weight="500" fill="#0A0A0A">
+        font-size="26" font-weight="500" fill="#0A0A0A">
     <tspan fill="#D93025">&lt;</tspan>htmlbin<tspan fill="#D93025">&gt;</tspan>
   </text>
-  <!-- hero line (one statement, two rows) -->
-  <text x="100" y="345"
+
+  <!-- headline (two lines, top-left, comfortable size) -->
+  <text x="80" y="232"
         font-family="${SANS}"
-        font-size="84" font-weight="700" fill="#0A0A0A"
-        letter-spacing="-2.5">API for <tspan fill="#D93025">agents</tspan></text>
-  <text x="100" y="445"
+        font-size="60" font-weight="600" fill="#0A0A0A"
+        letter-spacing="-1.4">A home for the HTML</text>
+  <text x="80" y="300"
         font-family="${SANS}"
-        font-size="84" font-weight="700" fill="#0A0A0A"
-        letter-spacing="-2.5">to share HTML.</text>
-  <!-- corner watermark -->
-  <text x="100" y="555"
-        font-family="${MONO}"
-        font-size="22" fill="#737373">
-    htmlbin.dev <tspan fill="#A3A3A3">— agent-native HTML hosting</tspan>
+        font-size="60" font-weight="600" fill="#0A0A0A"
+        letter-spacing="-1.4"><tspan fill="#D93025">your agent</tspan> writes.</text>
+
+  <!-- subtitle, lighter, sits just under the headline -->
+  <text x="80" y="346"
+        font-family="${SANS}"
+        font-size="22" font-weight="400" fill="#737373">
+    Agent-native, end to end.
   </text>
+
+  <!-- bottom host watermark, right-aligned -->
+  <text x="1120" y="572"
+        font-family="${MONO}"
+        font-size="20" fill="#A3A3A3"
+        text-anchor="end">htmlbin.dev</text>
 </svg>`;
 
-// Per-drop OG card. GitHub-style centered composition: drop title is the
-// hero, URL sits underneath as a mono subtitle, version + date in a
-// stats row. For locked drops (or drops with no title) the slug stands
-// in as the hero so we don't leak human-readable titles.
+// Per-drop OG card. Title block top-left, meta row at the bottom.
+// Locked drops fall through to a mono `/p/<slug>` hero so we don't leak
+// human-readable titles in social previews.
 export function dropOgSvg(opts: {
   slug: string;
   title: string;
@@ -68,65 +77,52 @@ export function dropOgSvg(opts: {
   const safeTitle =
     !isLocked && title && title.trim().length > 0 ? title.trim() : null;
 
-  // Hero text: the human-readable title when we have one, otherwise the
-  // slug as `/p/abc1234` in mono — locked drops always fall through here.
-  const heroText = safeTitle ? truncate(safeTitle, 32) : `/p/${slug}`;
+  // SVG <text> doesn't auto-wrap, so titles have to fit on one line at
+  // the chosen font-size. At 52px sans, ~40 chars is the safe budget for
+  // a 1040px-wide content area. (The PNG version flex-wraps and tolerates
+  // longer titles.)
+  const heroText = safeTitle ? truncate(safeTitle, 40) : `/p/${slug}`;
   const heroMono = !safeTitle;
   const heroFont = heroMono ? MONO : SANS;
-  const heroSize = heroMono ? 96 : 72;
-  const heroWeight = heroMono ? 500 : 700;
-
-  // Subtitle: the canonical URL when there's a title above, otherwise
-  // empty (locked drops don't get a subtitle to avoid clutter).
-  const subtitle = safeTitle
-    ? `${host}/p/${slug}`
-    : isLocked
-      ? "locked drop"
-      : "";
+  const heroSize = heroMono ? 56 : 52;
+  const heroWeight = heroMono ? 500 : 600;
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
   <rect width="1200" height="630" fill="#FFFFFF"/>
-  <rect x="40" y="40" width="1120" height="550" fill="none" stroke="#E5E5E5" stroke-width="1"/>
 
-  <!-- wordmark, top-left -->
-  <text x="100" y="140"
+  <!-- breadcrumb: wordmark / slug -->
+  <text x="80" y="138"
         font-family="${MONO}"
-        font-size="36" font-weight="500" fill="#0A0A0A">
-    <tspan fill="#D93025">&lt;</tspan>htmlbin<tspan fill="#D93025">&gt;</tspan>
+        font-size="24" font-weight="500" fill="#0A0A0A">
+    <tspan fill="#D93025">&lt;</tspan>htmlbin<tspan fill="#D93025">&gt;</tspan><tspan fill="#E5E5E5"> / </tspan><tspan fill="#737373">/p/${escapeForSvg(slug)}</tspan>
   </text>
 
-  <!-- hero (title or fallback slug) -->
-  <text x="100" y="325"
+  <!-- hero (title, or locked-fallback slug) -->
+  <text x="80" y="240"
         font-family="${heroFont}"
         font-size="${heroSize}" font-weight="${heroWeight}" fill="#0A0A0A"
-        letter-spacing="${heroMono ? -2 : -1.5}">${
+        letter-spacing="${heroMono ? -1.2 : -1.2}">${
     heroMono
       ? `/p/<tspan fill="#D93025">${escapeForSvg(slug)}</tspan>`
       : escapeForSvg(heroText)
   }</text>
 
-  ${
-    subtitle
-      ? `<!-- subtitle (canonical URL) -->
-  <text x="100" y="385"
+  <!-- meta row, bottom-left -->
+  <text x="80" y="572"
         font-family="${MONO}"
-        font-size="28" fill="#737373">${escapeForSvg(subtitle)}</text>`
+        font-size="20" fill="#737373">
+    v${latestVersion}<tspan fill="#E5E5E5">  ·  </tspan>${escapeForSvg(date)}${
+    isLocked
+      ? `<tspan fill="#E5E5E5">  ·  </tspan><tspan fill="#0A0A0A">LOCKED</tspan>`
       : ""
   }
-
-  <!-- stats row -->
-  <text x="100" y="475"
-        font-family="${MONO}"
-        font-size="26" fill="#525252">
-    v${latestVersion}<tspan fill="#A3A3A3">  ·  updated ${escapeForSvg(date)}</tspan>
   </text>
 
-  <!-- corner watermark, bottom-left -->
-  <text x="100" y="575"
+  <!-- host watermark, bottom-right -->
+  <text x="1120" y="572"
         font-family="${MONO}"
-        font-size="22" fill="#737373">
-    ${escapeForSvg(host)} <tspan fill="#A3A3A3">— API for agents to share HTML</tspan>
-  </text>
+        font-size="20" fill="#A3A3A3"
+        text-anchor="end">${escapeForSvg(host)}</text>
 </svg>`;
 }
 
