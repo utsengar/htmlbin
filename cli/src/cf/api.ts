@@ -5,6 +5,7 @@
 
 import { request } from "undici";
 import { CliError } from "../errors.js";
+import { userAgent } from "../useragent.js";
 
 const BASE = "https://api.cloudflare.com/client/v4";
 
@@ -127,7 +128,7 @@ export class CloudflareApi {
         headers: {
           authorization: `Bearer ${this.token}`,
           "content-type": `multipart/form-data; boundary=${boundary}`,
-          "user-agent": "@htmlbin/cli",
+          "user-agent": userAgent(),
         },
         body,
       });
@@ -216,7 +217,7 @@ export class CloudflareApi {
         headers: {
           ...(extraHeaders.Authorization ? {} : { authorization: `Bearer ${this.token}` }),
           ...(body !== undefined ? { "content-type": "application/json" } : {}),
-          "user-agent": "@htmlbin/cli",
+          "user-agent": userAgent(),
           ...extraHeaders,
         },
         body: body === undefined ? undefined : JSON.stringify(body),

@@ -16,3 +16,4 @@ export type {
 export { CliError, exitCodeFor } from "./errors.js";
 export type { CliErrorCode, WorkerErrorCode } from "./errors.js";
 export { resolveBackend, loadConfigFile } from "./config.js";
+export { userAgent, setAgent } from "./useragent.js";

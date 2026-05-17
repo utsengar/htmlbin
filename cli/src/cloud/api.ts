@@ -4,8 +4,7 @@
 
 import { request } from "undici";
 import { CliError, type CliErrorCode } from "../errors.js";
-
-const USER_AGENT = "@htmlbin/cli";
+import { userAgent } from "../useragent.js";
 
 export interface CloudDrop {
   slug: string;
@@ -78,7 +77,7 @@ export class CloudApi {
       res = await request(url, {
         method,
         headers: {
-          "user-agent": USER_AGENT,
+          "user-agent": userAgent(),
           authorization: `Bearer ${this.token}`,
           ...(body !== undefined ? { "content-type": "application/json" } : {}),
         },

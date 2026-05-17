@@ -12,6 +12,7 @@ import { homedir } from "node:os";
 import { resolve, join, dirname } from "node:path";
 import { CliError } from "../errors.js";
 import { request } from "undici";
+import { userAgent } from "../useragent.js";
 
 const TOKEN_REGEX = /^hb_[A-Za-z0-9_-]{16,}$/;
 
@@ -151,7 +152,7 @@ async function jsonRequest<T>(
   const res = await request(url, {
     method: method as "POST" | "GET",
     headers: {
-      "user-agent": "@htmlbin/cli (login)",
+      "user-agent": userAgent(),
       ...(body !== undefined ? { "content-type": "application/json" } : {}),
       ...headers,
     },

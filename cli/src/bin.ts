@@ -21,31 +21,58 @@ import {
   type ConfigFile,
 } from "./config.js";
 import type { Backend, BackendName, DropSummary, PublishOpts } from "./backend.js";
+import { setAgent } from "./useragent.js";
 
 const VERSION = "0.1.0";
 
 // Agent-runner env vars that, when present, default --output to json so
 // the runner gets parseable data without having to know about the flag.
-// Inspired by DataDog/pup's auto-detection list.
-const AGENT_ENV_VARS = [
-  "CLAUDE_CODE",
-  "CURSOR_AGENT",
-  "CODEX",
-  "CODEX_AGENT",
-  "AIDER",
-  "CLINE",
-  "AMP_CODE",
-  "DEVIN",
-] as const;
+// Mirrors DataDog/pup's detection list as of 2026-05, plus a couple of
+// runners we want to cover ourselves. Tuple of [env var, friendly name]
+// — the friendly name is included in the User-Agent.
+const AGENT_ENV_VARS: ReadonlyArray<readonly [string, string]> = [
+  ["CLAUDECODE", "claude-code"],
+  ["CLAUDE_CODE", "claude-code"],
+  ["CURSOR_AGENT", "cursor"],
+  ["CODEX", "codex"],
+  ["CODEX_AGENT", "codex"],
+  ["OPENAI_CODEX", "codex"],
+  ["OPENCODE", "opencode"],
+  ["AIDER", "aider"],
+  ["CLINE", "cline"],
+  ["WINDSURF_AGENT", "windsurf"],
+  ["GITHUB_COPILOT", "github-copilot"],
+  ["AMAZON_Q", "amazon-q"],
+  ["AWS_Q_DEVELOPER", "amazon-q"],
+  ["GEMINI_CODE_ASSIST", "gemini-code-assist"],
+  ["SRC_CODY", "sourcegraph-cody"],
+  ["PI_CODING_AGENT", "pi"],
+  ["AMP_CODE", "amp"],
+  ["DEVIN", "devin"],
+  ["AGENT", "generic-agent"], // generic fallback for runners we haven't named
+];
+
+export function detectAgent(env: NodeJS.ProcessEnv = process.env): string | null {
+  if (env.FORCE_AGENT_MODE) return "forced";
+  for (const [key, name] of AGENT_ENV_VARS) {
+    if (env[key]) return name;
+  }
+  return null;
+}
 
 function isAgentContext(env: NodeJS.ProcessEnv = process.env): boolean {
-  return AGENT_ENV_VARS.some((k) => env[k]);
+  return detectAgent(env) !== null;
 }
 
 type OutputMode = "text" | "json";
 // Mutable module-level — set by the commander preAction hook before each
 // command runs. Used by die() since errors can throw from anywhere.
 let OUTPUT_MODE: OutputMode = isAgentContext() ? "json" : "text";
+
+// Configure the User-Agent module with the detected agent name at startup
+// so every HTTP call includes it. If the detection result changes (e.g.,
+// FORCE_AGENT_MODE flips on between calls), the preAction hook re-syncs.
+setAgent(detectAgent());
 
 interface GlobalOpts {
   to?: string;
@@ -158,12 +185,14 @@ async function run(): Promise<void> {
         .choices(["text", "json"])
     );
 
-  // Sync OUTPUT_MODE before each command runs so die() and emit() see the
-  // resolved value. Precedence: explicit --output > agent env detection > "text".
+  // Sync OUTPUT_MODE + User-Agent before each command runs so die() and
+  // emit() see the resolved value, and outbound HTTP carries the detected
+  // agent. Precedence: explicit --output > agent env detection > "text".
   program.hook("preAction", () => {
     const explicit = program.opts<GlobalOpts>().output;
     if (explicit) OUTPUT_MODE = explicit;
     else OUTPUT_MODE = isAgentContext() ? "json" : "text";
+    setAgent(detectAgent());
   });
 
   // --- publish ---
@@ -211,11 +240,19 @@ async function run(): Promise<void> {
     .option("--project <name>", "Pages project (cloudflare)")
     .option("--repo <owner/name>", "repo (gh-pages)")
     .option("--branch <name>", "branch (gh-pages)")
-    .action(async (cmdOpts: PublishCmdOpts) => {
+    .option("-n, --limit <n>", "max rows to return (default: all)")
+    .action(async (cmdOpts: PublishCmdOpts & { limit?: string }) => {
       try {
         const { backend, config } = await resolveActiveBackend(program.opts<GlobalOpts>());
         const be = await makeBackend(backend, config, cmdOpts);
-        const rows = await be.list();
+        let rows = await be.list();
+        if (cmdOpts.limit) {
+          const n = Number.parseInt(cmdOpts.limit, 10);
+          if (!Number.isFinite(n) || n < 1) {
+            throw new CliError("invalid_arg", `--limit must be a positive integer (got: ${cmdOpts.limit})`);
+          }
+          rows = rows.slice(0, n);
+        }
         emit(rows, () => {
           if (rows.length === 0) return "(no drops)\n";
           if (process.stdout.isTTY) return formatListForHumans(rows);
