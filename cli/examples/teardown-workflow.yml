@@ -1,0 +1,20 @@
+# Cleanup workflow — removes the preview directory when a PR closes.
+# Pair this with examples/preview-workflow.yml.
+
+name: PR preview cleanup
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Remove preview
+        run: |
+          npx @htmlbin/cli delete ${{ github.event.pull_request.number }} --to gh-pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,146 @@
+# PR preview using a coding agent CLI to generate the HTML.
+#
+# This is the workflow for repos that DON'T already build to HTML (backend
+# services, libraries, mobile apps, CLIs). A headless coding agent runs in
+# the CI runner, reads the PR diff + surrounding code, and writes a
+# self-contained HTML preview to ./preview.html. @htmlbin/cli then publishes
+# it via the gh-pages backend, gated by org SAML SSO (Pages → Private).
+#
+# **Pick your agent CLI.** This file uses Claude Code's `-p` (print/headless)
+# mode as the example. Drop-in alternatives:
+#
+#   - OpenAI Codex CLI:   `npx @openai/codex exec "<prompt>"`
+#                          requires $OPENAI_API_KEY
+#
+#   - any other agent CLI with a non-interactive mode that respects file
+#     system tools (Read / Write / Edit / Bash) in the working directory.
+#
+# **Prerequisites** (one-time):
+#   - Repo is Private or Internal
+#   - Settings → Pages: source = gh-pages branch, access = Private
+#     (requires GH Enterprise Cloud or Teams + private Pages enabled)
+#   - .github/workflows/preview.yml committed (this file)
+#   - $ANTHROPIC_API_KEY (or equivalent for your agent) added as a repo secret
+
+name: PR preview (agent-generated)
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write       # to push the published HTML to gh-pages
+  pull-requests: write  # to post the sticky comment
+
+concurrency:
+  group: pr-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # fetch the full history so the agent can read the diff
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # --- Step 1: install the coding agent CLI ------------------------------
+      # Pick one. The agent runs inside this runner with full tool use —
+      # file system, bash, multi-turn loop. Repo content stays in CI; only
+      # model-API egress leaves.
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+        # Or for Codex CLI:
+        # run: npm install -g @openai/codex
+
+      # --- Step 2: agent generates ./preview.html ---------------------------
+      # The agent has the full repo checked out plus the PR's base/head SHAs
+      # in its working directory. The prompt below is a starting point; tune
+      # it for your repo's actual change types.
+      - name: Generate preview
+        run: |
+          claude -p "$(cat <<'EOF'
+          You are generating a preview HTML for a code review.
+
+          The current working directory is a checkout of a repo with an open
+          pull request. The PR's base branch is "${{ github.event.pull_request.base.ref }}";
+          its head is the current HEAD.
+
+          1. Inspect the diff:  git diff origin/${{ github.event.pull_request.base.ref }}...HEAD
+          2. Read enough of the surrounding code to understand what changed.
+          3. Produce a single self-contained HTML file at ./preview.html that
+             visually represents the change in a way a reviewer can scan in
+             under 30 seconds.
+
+          Constraints on the HTML:
+          - Single file, no external assets except via CDN (Tailwind, etc.)
+          - Inline CSS in <style> tags
+          - No build step; what you write is what gets served
+          - The page is rendered inside an iframe on a viewer site, so it
+            should look right standalone
+          - Pick whatever framing makes the change easiest to understand:
+            side-by-side diff annotations, behavior demo, schema visual,
+            decision tree, etc. Don't dump the raw diff.
+
+          Title the page with the PR title and number.
+          EOF
+          )"
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # For Codex CLI instead:
+          # OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+      # --- Step 3: check the agent actually produced output -----------------
+      - name: Check preview was generated
+        id: check
+        run: |
+          if [ -f "./preview.html" ]; then
+            echo "found=true" >> $GITHUB_OUTPUT
+            echo "size=$(wc -c < ./preview.html)" >> $GITHUB_OUTPUT
+          else
+            echo "found=false" >> $GITHUB_OUTPUT
+          fi
+
+      # --- Step 4: publish via @htmlbin/cli ---------------------------------
+      - name: Publish preview
+        id: publish
+        if: steps.check.outputs.found == 'true'
+        run: |
+          URL=$(npx @htmlbin/cli publish ./preview.html --to gh-pages)
+          echo "url=$URL" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # --- Step 5: comment ---------------------------------------------------
+      - name: Post preview URL
+        if: steps.check.outputs.found == 'true'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: htmlbin-preview
+          message: |
+            🤖 **Agent-generated preview:** ${{ steps.publish.outputs.url }}
+
+            Generated by Claude Code from the diff against `${{ github.event.pull_request.base.ref }}`.
+            ${{ steps.check.outputs.size }} bytes · regenerates on every push.
+
+            *Iterate on `.github/workflows/preview.yml` if the preview shape isn't useful for your change type.*
+
+      - name: Post no-preview notice
+        if: steps.check.outputs.found != 'true'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: htmlbin-preview
+          message: |
+            ⚠️ **No preview** — the agent didn't produce `./preview.html`.
+
+            See the [run logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            and adjust the prompt in `.github/workflows/preview.yml` for this
+            repo's change types.
+
+      - name: Fail the job if no preview was produced
+        if: steps.check.outputs.found != 'true'
+        run: exit 1
