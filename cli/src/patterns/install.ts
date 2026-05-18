@@ -39,11 +39,28 @@ export interface InstallResult {
 }
 
 export async function installPattern(t: InstallTarget): Promise<InstallResult> {
-  const raw = t.rawOverride ?? (await fetchSource(t.source));
-  const expected =
+  // When the destination name is known up-front (catalog source, or
+  // caller-supplied expectedName), short-circuit on existing files
+  // before doing any network work. Without this, `patterns add <name>`
+  // against an existing destination still spends a round-trip on the
+  // catalog only to bail out at write-time.
+  const presumedName =
     t.expectedName ??
     (t.source.kind === "catalog" ? t.source.name : undefined);
-  const parsed = parseAndValidatePattern(raw, expected);
+  if (presumedName && !t.force) {
+    const presumedPath = join(t.dir, `${presumedName}.md`);
+    if (await exists(presumedPath)) {
+      return {
+        status: "skipped",
+        name: presumedName,
+        path: presumedPath,
+        preexisting: true,
+      };
+    }
+  }
+
+  const raw = t.rawOverride ?? (await fetchSource(t.source));
+  const parsed = parseAndValidatePattern(raw, presumedName);
   return writePattern(t.dir, parsed, t.force);
 }
 
