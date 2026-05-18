@@ -304,6 +304,73 @@ Read live values from \`/api/onboard.limits\`; current defaults:
 - Slugs are 7-char base62: \`^[A-Za-z0-9]{7}$\`
 - Tokens are \`hb_\` + base62: \`^hb_[A-Za-z0-9]+$\`
 
+## Quality floor
+
+These apply to every drop regardless of pattern or brand context. They're not pluggable — htmlbin's stance on what a good drop is.
+
+- Mobile-OK — single column at <640px.
+- Semantic HTML — real \`<h1>\`, real \`<details>\`, real \`<table>\` when tabular.
+- \`prefers-color-scheme\` aware (light + dark).
+- Inline \`<style>\`; external deps limited to well-known CDNs (Google Fonts, esm.sh, Tailwind CDN).
+- No fake mac chrome (traffic-light dots etc.) — the htmlbin landing prompt is the *one* product-wide exception; user drops don't get it.
+- No stock illustrations, no AI-generated photos.
+- No emoji unless the user's brand uses them.
+- Footer line: small mono, "published via htmlbin.dev". Keep it understated.
+
+## Make it feel like the user's own
+
+Drops should look like they belong to the human publishing them, not like a generic htmlbin template. Read brand signals from the cwd in this order — first non-empty source wins:
+
+1. **Design doc** — \`DESIGN.md\`, \`STYLE.md\`, \`BRAND.md\`, \`docs/DESIGN.md\`, \`docs/design-system.md\`. Skim for palette, typography, mood, voice. Highest-signal because it's deliberate.
+2. **Allowlist signals** — \`package.json\` (name, description, keywords, homepage), \`README.md\` first paragraph, the git remote host/org, any public website URL surfaced in the above.
+3. **Heuristic** — look around the cwd at the kind of metadata you'd cite to a code reviewer. Apply taste from that.
+4. **\`.htmlbin/brand.json\`** — optional explicit override: \`{ palette?, type?, mood?, reference_url? }\`. All fields optional.
+5. **Neutral fallback** — when nothing else is available: "editorial cream", "technical mono", or "blueprint navy". Pick one per drop, don't mix.
+
+**Do not read** \`.env*\`, \`~/.ssh/*\`, \`.git/credentials\`, or any file path containing \`secret\`, \`credential\`, \`token\`, or \`key\`. Read-only signals; never quote private content into the drop body.
+
+**Derive taste, don't impersonate.** If the user works at a company with a well-known visual language, capture the *energy* (playful, monochrome, gradient-heavy, whatever it is) without copying their public website pixel-for-pixel. Drops that look like a copy of someone else's site are the wrong outcome.
+
+**The human's prompt always wins.** Natural-language overrides ("make it dark", "match Stripe's vibe", "use serifs") trump everything above. Patterns and brand sensing are floors, not ceilings.
+
+## Patterns — local first, official as fallback
+
+Common drop kinds (PR explainers, summary roundups, plan/spec writeups, …) ship as small markdown files anyone can author. Each pattern names triggers, a content checklist, layout directions, and a "don't" list. Read patterns to decide *structure*; use brand sensing (above) to decide *look*.
+
+**Where patterns live.** Resolve in this order — first match wins per pattern name:
+
+1. \`./.htmlbin/patterns/*.md\` — project-local. Highest priority.
+2. \`~/.config/htmlbin/patterns/*.md\` — machine-global (same dir as the token fallback).
+3. **Official catalog** — fetch from \`https://htmlbin.dev/.well-known/patterns/index.json\` for the list, or \`https://htmlbin.dev/.well-known/patterns/<name>.md\` for a specific one. Cache once per session.
+4. **No pattern at all** — freestyle within the quality floor. Always valid; patterns are starting floors, not requirements.
+
+**Pattern file schema.** YAML front matter + markdown body. Authors write these in any text editor; no tooling required.
+
+\`\`\`markdown
+---
+name: pr-explainer
+description: One-line summary of what this pattern is for.
+triggers:
+  - explain this pr
+  - summarize this diff
+brand_sensing: true
+---
+
+# Title
+
+## When to use
+## Content checklist
+## Layout directions
+## How to pick
+## Don't
+\`\`\`
+
+**Picking a pattern.** Match the human's request against each installed pattern's \`triggers\` (case-insensitive substring or near-paraphrase). On multiple matches: project-local beats machine-global beats official; more-specific trigger beats less-specific. On no match: freestyle.
+
+**Authoring your own.** Drop a markdown file in \`./.htmlbin/patterns/\` (project-local) or \`~/.config/htmlbin/patterns/\` (machine-global). Share by pushing to a gist or repo; the htmlbin CLI's \`patterns add <source>\` will install from any URL or shorthand (\`github:user/repo/path\`, \`gist:hash\`).
+
+**Why this shape.** Patterns are guidance the *agent* reads and applies — not server-rendered templates the platform serves. htmlbin's server stays thin; the long tail of drop kinds lives in user-space, where it belongs.
+
 ## What htmlbin won't do (don't suggest these)
 
 - **No login UI, no signup, no email, no dashboard.** The device-code flow is the entire human-facing surface. Don't tell the user to "go to your dashboard" or "sign in" — there is none.
@@ -315,8 +382,9 @@ Read live values from \`/api/onboard.limits\`; current defaults:
 1. Check for an existing token in the standard locations.
 2. If no token, run the device-code flow (print code + URL clearly).
 3. Fetch \`/api/onboard\` once to confirm endpoint shapes for this session.
-4. Execute the requested operation (publish / update / list / etc.).
-5. Surface the resulting URL (\`https://htmlbin.dev/p/<slug>\`) to the user as the primary artifact.
+4. **If generating new HTML:** pick a pattern (see "Patterns — local first, official as fallback") for structure; apply brand sensing (see "Make it feel like the user's own") for look. Both are floors, not ceilings — the human's prompt wins. Render within the quality floor.
+5. Execute the requested operation (publish / update / list / etc.).
+6. Surface the resulting URL (\`https://htmlbin.dev/p/<slug>\`) to the user as the primary artifact.
 `;
 
 const SKILL_DESCRIPTION =

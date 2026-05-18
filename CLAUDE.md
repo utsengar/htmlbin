@@ -328,6 +328,9 @@ them in the same change so they don't drift:
   `.well-known/agent-skills/htmlbin/SKILL.md`. Skill content lives in
   `src/skill.ts` (deployed copy) and `skills/htmlbin/SKILL.md`
   (human-browsable mirror) — they must stay in sync.
+- `GET /.well-known/patterns/index.json` — pattern catalog manifest.
+  Per-pattern markdown at `GET /.well-known/patterns/<name>.md`. See
+  "Patterns" section below.
 - `GET /.well-known/api-catalog` — RFC 9727 `linkset+json`
 - `GET /llms.txt` — agent-friendly site index
 - `GET /robots.txt` — explicit allow-list of GPTBot, ClaudeBot,
@@ -336,7 +339,42 @@ them in the same change so they don't drift:
 - `Link:` HTTP header on `/` advertising all of the above
 
 `src/discoverability.ts` is the source of truth for everything except
-the skill (`src/skill.ts`).
+the skill (`src/skill.ts`) and the patterns catalog (`src/patterns.ts`).
+
+## Patterns — pluggable, file-based
+
+Common drop kinds (PR explainers, summary roundups, plan/spec writeups,
+…) are *not* hardcoded in the Worker. They're markdown files. The skill
+teaches agents the convention; the Worker serves the official starter
+pack as a fallback.
+
+**Resolution order (the convention the skill teaches):**
+
+1. `./.htmlbin/patterns/*.md` — project-local (wins).
+2. `~/.config/htmlbin/patterns/*.md` — machine-global (same dir as the
+   token fallback).
+3. Fetch from `https://htmlbin.dev/.well-known/patterns/<name>.md` if
+   nothing is installed locally. List via `/.well-known/patterns/index.json`.
+4. No match → agent freestyles within the quality floor.
+
+**Source of truth and mirror:** the canonical markdown files live in
+`patterns/` at the repo root for human PR review (`patterns/<name>.md`).
+The same content is inlined into `src/patterns.ts` as TypeScript string
+constants because of the wrangler `.md`-import gotcha (see "Bundling
+non-JS assets" below). **When you edit a pattern, edit both files** —
+same arrangement as `src/skill.ts` ↔ `skills/htmlbin/SKILL.md`.
+
+**Adding a new official pattern:** drop a new `patterns/<name>.md`,
+mirror its content into `src/patterns.ts`'s `PATTERNS` array (with a
+`PatternMeta` entry: name, description, triggers), and ship via PR.
+No DB migration, no schema change, no new endpoint — the existing
+`/.well-known/patterns/:filename` route picks it up automatically.
+
+**The CLI's `patterns` subcommand** (separate repo, follow-up after the
+CLI's `cli-pluggable-backends` PR lands) will offer `list / init / add`
+for managing local installs. The skill's instructions stand on their
+own without the CLI — agents that don't have it can `curl` the catalog
+directly.
 
 ## OG card rendering (PNG)
 
@@ -389,7 +427,7 @@ Use one of the two patterns we've already settled on:
 
 | Asset type | Pattern | Where |
 |---|---|---|
-| Markdown / text | Inline as TypeScript template literal | `src/skill.ts` |
+| Markdown / text | Inline as TypeScript template literal | `src/skill.ts`, `src/patterns.ts` |
 | Binary (woff2 etc.) | Base64-inline via a generator script | `src/fonts-data.ts` + `scripts/build-fonts.mjs` |
 
 To add new fonts: drop the `.woff2` into `assets/fonts/`, add it to
@@ -541,6 +579,7 @@ src/
   drops.ts          ─ /api/drops CRUD with versioning + context
   onboard.ts        ─ /api/onboard JSON descriptor + markdown walkthrough
   skill.ts          ─ /.well-known/agent-skills/* (Agent Skills RFC v0.2.0)
+  patterns.ts       ─ /.well-known/patterns/* (inline mirror of patterns/*.md)
   crypto.ts         ─ Web Crypto wrappers
   slug.ts           ─ 7-char base62 id generator
   db.ts             ─ D1 helpers + rate limiter
@@ -558,6 +597,12 @@ src/
 
 skills/
   htmlbin/SKILL.md  ─ human-browsable mirror of src/skill.ts (must stay in sync)
+
+patterns/           ─ human-browsable canonical pattern markdown — source of truth
+  pr-explainer.md       ─ "explain this PR / summarize this diff"
+  summary-roundup.md    ─ discussion summaries, weekly status, incident timelines
+  plan-spec-explainer.md─ plan.md / spec.md publishing
+  # Mirrored byte-for-byte into src/patterns.ts (wrangler .md-import gotcha).
 
 .github/workflows/
   deploy.yml        ─ production deploy on main, versioned preview on PR

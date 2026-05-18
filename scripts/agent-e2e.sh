@@ -70,6 +70,67 @@ assert_json "$TMP/openapi.json" '.paths | has("/api/drops")' 'true' "openapi dec
 assert_json "$TMP/openapi.json" '.components.securitySchemes.bearerAuth.scheme' 'bearer' "openapi declares bearer auth"
 
 # ---------------------------------------------------------------------------
+section "1b. pattern catalog — agent-side starter pack"
+# ---------------------------------------------------------------------------
+# Patterns are markdown files on the user's filesystem; the deployed Worker
+# serves the official starter pack as a fallback. See src/patterns.ts.
+
+curl -s "$BASE/.well-known/patterns/index.json" -o "$TMP/patterns.json"
+jq -e . < "$TMP/patterns.json" > /dev/null \
+  && ok "patterns/index.json is valid JSON" \
+  || fail "patterns/index.json valid" "parse error"
+assert_json "$TMP/patterns.json" '.patterns | length' '3' "manifest lists three starter patterns"
+
+CT_PJ=$(curl -s -o /dev/null -w "%{content_type}" "$BASE/.well-known/patterns/index.json")
+assert_contains "$CT_PJ" "application/json" "patterns/index.json served as application/json"
+
+for name in pr-explainer summary-roundup plan-spec-explainer; do
+  assert_json "$TMP/patterns.json" \
+    "[.patterns[] | select(.name==\"$name\")] | length" '1' \
+    "manifest includes $name"
+  assert_json "$TMP/patterns.json" \
+    ".patterns[] | select(.name==\"$name\") | (.url | endswith(\"/.well-known/patterns/$name.md\"))" 'true' \
+    "$name URL is well-formed"
+  assert_json "$TMP/patterns.json" \
+    ".patterns[] | select(.name==\"$name\") | (.triggers | length > 0)" 'true' \
+    "$name has triggers"
+
+  curl -s "$BASE/.well-known/patterns/$name.md" -o "$TMP/pattern-$name.md"
+  CT_PM=$(curl -s -o /dev/null -w "%{content_type}" "$BASE/.well-known/patterns/$name.md")
+  assert_contains "$CT_PM" "text/markdown" "$name.md served as text/markdown"
+  head -1 "$TMP/pattern-$name.md" | grep -q '^---$' \
+    && ok "$name.md has YAML front matter" \
+    || fail "$name.md frontmatter" "missing leading ---"
+  grep -q "^name: $name$" "$TMP/pattern-$name.md" \
+    && ok "$name.md declares name: $name" \
+    || fail "$name.md name" "missing"
+done
+
+# Unknown pattern → canonical 404 error shape, not an HTML 404
+NF_PC=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/.well-known/patterns/does-not-exist.md")
+assert_eq "$NF_PC" "404" "unknown pattern → 404"
+NF_PB=$(curl -s "$BASE/.well-known/patterns/does-not-exist.md")
+assert_contains "$NF_PB" '"code":"not_found"' "unknown pattern uses canonical error shape"
+
+# SKILL.md must teach the convention — agents without local patterns rely on it
+curl -s "$BASE/.well-known/agent-skills/htmlbin/SKILL.md" -o "$TMP/skill.md"
+grep -q "^## Patterns" "$TMP/skill.md" \
+  && ok "SKILL.md documents the patterns convention" \
+  || fail "skill patterns section" "missing"
+grep -q "\\./\\.htmlbin/patterns/" "$TMP/skill.md" \
+  && ok "SKILL.md documents the project-local patterns path" \
+  || fail "skill local path" "missing"
+grep -q "~/.config/htmlbin/patterns/" "$TMP/skill.md" \
+  && ok "SKILL.md documents the machine-global patterns path" \
+  || fail "skill global path" "missing"
+grep -q "^## Quality floor" "$TMP/skill.md" \
+  && ok "SKILL.md documents the quality floor" \
+  || fail "skill quality floor" "missing"
+grep -q "^## Make it feel like" "$TMP/skill.md" \
+  && ok "SKILL.md documents brand sensing" \
+  || fail "skill brand sensing" "missing"
+
+# ---------------------------------------------------------------------------
 section "2. agent onboarding"
 # ---------------------------------------------------------------------------
 # Default: JSON descriptor (data, not prose). Markdown is opt-in via
