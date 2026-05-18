@@ -139,6 +139,11 @@ app.on(["GET", "HEAD"], "/", async (c) => {
     return landingAsMarkdown(c);
   }
   c.header("Link", linkHeader(c.env.PUBLIC_URL));
+  // Landing is effectively static between deploys (EXAMPLES array is
+  // baked into the bundle). 1min browser, 5min edge — the edge stops
+  // hammering the Worker for repeat traffic; browser cache is short
+  // enough that copy edits surface fast.
+  c.header("Cache-Control", "public, max-age=60, s-maxage=300");
   return c.html(landingPage(c.env));
 });
 
@@ -369,16 +374,23 @@ function pngResponse(body: ArrayBuffer, fromCache = false): Response {
 }
 
 // ----- Agent-ready discoverability ---------------------------------------
+//
+// All of these are pure functions of PUBLIC_URL — bytes are byte-identical
+// between requests until the next deploy. Long edge cache is free money:
+// agents hit these a lot (every onboarding read).
 app.on(["GET", "HEAD"], "/robots.txt", (c) => {
   return new Response(robotsTxt(c.env.PUBLIC_URL), {
-    headers: { "Content-Type": "text/plain; charset=utf-8" },
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "public, max-age=3600, s-maxage=86400",
+    },
   });
 });
 app.on(["GET", "HEAD"], "/llms.txt", (c) => {
   return new Response(llmsTxt(c.env.PUBLIC_URL), {
     headers: {
       "Content-Type": "text/plain; charset=utf-8",
-      "Cache-Control": "public, max-age=300",
+      "Cache-Control": "public, max-age=300, s-maxage=3600",
     },
   });
 });
@@ -386,14 +398,16 @@ app.on(["GET", "HEAD"], "/sitemap.xml", (c) => {
   return new Response(sitemapXml(c.env.PUBLIC_URL), {
     headers: {
       "Content-Type": "application/xml; charset=utf-8",
-      "Cache-Control": "public, max-age=3600",
+      "Cache-Control": "public, max-age=3600, s-maxage=86400",
     },
   });
 });
 app.on(["GET", "HEAD"], "/.well-known/agent-card.json", (c) => {
+  c.header("Cache-Control", "public, max-age=300, s-maxage=3600");
   return c.json(agentCard(c.env.PUBLIC_URL));
 });
 app.on(["GET", "HEAD"], "/openapi.json", (c) => {
+  c.header("Cache-Control", "public, max-age=300, s-maxage=3600");
   return c.json(openApiSpec(c.env.PUBLIC_URL));
 });
 
@@ -486,16 +500,22 @@ app.on(["GET", "HEAD"], "/api/onboard", (c) => {
   const wantsMarkdown =
     accept.toLowerCase().includes("text/markdown") ||
     c.req.query("format") === "md";
+  // Pure function of PUBLIC_URL on both branches — safe to edge-cache.
+  // Vary: Accept tells caches to keep separate entries per Accept header
+  // so the JSON and markdown branches don't collide.
+  const CACHE = "public, max-age=300, s-maxage=3600";
   if (wantsMarkdown) {
     const text = buildOnboardText(c.env.PUBLIC_URL);
     return new Response(text, {
       headers: {
         "Content-Type": "text/markdown; charset=utf-8",
+        "Cache-Control": CACHE,
         Vary: "Accept",
       },
     });
   }
   c.header("Vary", "Accept");
+  c.header("Cache-Control", CACHE);
   return c.json(buildOnboardJson(c.env.PUBLIC_URL));
 });
 
@@ -551,6 +571,18 @@ app.on(["GET", "HEAD"], "/p/:slug", async (c) => {
   const versions = await listVersions(c.env.DB, slug);
 
   c.executionCtx.waitUntil(bumpViewCount(c.env.DB, slug));
+
+  // Cache the viewer page at the edge for 15 minutes. Tradeoff: view-
+  // count bumps only fire on cache misses, so the counter becomes a
+  // sampled-ish lower bound rather than every-pageview. We accept that
+  // approximation — view counts are vanity-ish; the Worker savings on
+  // every repeat hit are real. Locked drops stay uncached because their
+  // response depends on the unlock cookie state.
+  if (drop.password_hash) {
+    c.header("Cache-Control", "private, no-store");
+  } else {
+    c.header("Cache-Control", "public, max-age=60, s-maxage=900");
+  }
 
   return c.html(
     viewerPage(c.env, drop, {
