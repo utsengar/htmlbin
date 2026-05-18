@@ -12,6 +12,7 @@ import { FAVICON_SVG } from "./views/favicon";
 import { OG_SVG, dropOgSvg } from "./views/og-image";
 import { renderDropOgPng, renderLandingOgPng } from "./views/og-png";
 import { agentSkillsIndex, getSkillContent } from "./skill";
+import { buildPatternIndex, getPatternMd } from "./patterns";
 import {
   agentCard,
   linkHeader,
@@ -430,6 +431,34 @@ app.on(["GET", "HEAD"], "/.well-known/agent-skills/index.json", async (c) => {
 });
 app.on(["GET", "HEAD"], "/.well-known/agent-skills/htmlbin/SKILL.md", () => {
   return new Response(getSkillContent(), {
+    headers: {
+      "Content-Type": "text/markdown; charset=utf-8",
+      "Cache-Control": "public, max-age=300, s-maxage=3600",
+    },
+  });
+});
+
+// Pattern catalog. The deployed skill teaches agents the file-based pattern
+// convention (./.htmlbin/patterns/*.md and ~/.config/htmlbin/patterns/*.md);
+// when nothing is installed locally, the agent fetches the official starter
+// pack from here. Patterns are agent-side guidance, not server-rendered
+// templates — the Worker just serves the markdown.
+app.on(["GET", "HEAD"], "/.well-known/patterns/index.json", (c) => {
+  return new Response(
+    JSON.stringify(buildPatternIndex(c.env.PUBLIC_URL), null, 2),
+    {
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "public, max-age=300, s-maxage=3600",
+      },
+    }
+  );
+});
+app.on(["GET", "HEAD"], "/.well-known/patterns/:filename", (c) => {
+  const filename = c.req.param("filename");
+  const md = getPatternMd(filename);
+  if (!md) return apiError(c, "not_found", "Pattern not found.", 404);
+  return new Response(md, {
     headers: {
       "Content-Type": "text/markdown; charset=utf-8",
       "Cache-Control": "public, max-age=300, s-maxage=3600",
