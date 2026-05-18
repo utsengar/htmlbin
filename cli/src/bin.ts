@@ -22,6 +22,15 @@ import {
 } from "./config.js";
 import type { Backend, BackendName, DropSummary, PublishOpts } from "./backend.js";
 import { setAgent } from "./useragent.js";
+import {
+  globalPatternsDir,
+  projectPatternsDir,
+  DEFAULT_CATALOG_BASE,
+} from "./patterns/paths.js";
+import { listPatterns } from "./patterns/list.js";
+import { initPatterns } from "./patterns/init.js";
+import { ensureNoSilentSkip, installPattern } from "./patterns/install.js";
+import { resolveSource } from "./patterns/sources.js";
 
 const VERSION = "0.1.0";
 
@@ -343,7 +352,141 @@ async function run(): Promise<void> {
       }
     });
 
+  // --- patterns (sub-subcommands: list, init, add) ---
+  registerPatternsCommands(program);
+
   await program.parseAsync(process.argv);
+}
+
+// ---------------------------------------------------------------
+// `htmlbin patterns` — install + manage local patterns the skill at
+// /.well-known/agent-skills/htmlbin/SKILL.md teaches agents to look for.
+// Three subcommands: list, init, add. Project-local beats global beats
+// the catalog at https://htmlbin.dev/.well-known/patterns/.
+// ---------------------------------------------------------------
+
+function registerPatternsCommands(program: Command): void {
+  const patterns = program
+    .command("patterns")
+    .description("Install + manage local patterns (project + machine-global)");
+
+  // -- patterns list --
+  patterns
+    .command("list")
+    .description("List installed patterns and which file wins per name")
+    .action(async () => {
+      try {
+        const r = await listPatterns();
+        emit(r, () => {
+          if (r.effective.length === 0) {
+            return [
+              "(no patterns installed)",
+              `Run 'htmlbin patterns init' to fetch the official 3 into ${globalPatternsDir()}.`,
+              "",
+            ].join("\n");
+          }
+          return formatPatternsForHumans(r);
+        });
+      } catch (e) {
+        die(e);
+      }
+    });
+
+  // -- patterns init --
+  patterns
+    .command("init")
+    .description("Install the official catalog patterns (falls back to bundled when offline)")
+    .option("--force", "overwrite existing files")
+    .option("--project", "install into ./.htmlbin/patterns instead of the global dir")
+    .option(
+      "--catalog <url>",
+      `override the catalog base (default: ${DEFAULT_CATALOG_BASE})`
+    )
+    .action(async (cmdOpts: { force?: boolean; project?: boolean; catalog?: string }) => {
+      try {
+        const targetDir = cmdOpts.project ? projectPatternsDir() : globalPatternsDir();
+        const initArgs: {
+          targetDir: string;
+          force?: boolean;
+          catalogBase?: string;
+        } = { targetDir };
+        if (cmdOpts.force) initArgs.force = cmdOpts.force;
+        if (cmdOpts.catalog) initArgs.catalogBase = cmdOpts.catalog;
+        const r = await initPatterns(initArgs);
+        emit(r, () => {
+          const lines: string[] = [];
+          if (r.offline) lines.push("(offline — using bundled fallback)");
+          lines.push(`target: ${r.target_dir}`);
+          for (const e of r.installed) {
+            const tag = e.status === "wrote" ? "  +" : "  =";
+            lines.push(`${tag} ${e.name}${e.status === "skipped" ? " (already installed)" : ""}`);
+          }
+          if (r.installed.length === 0) lines.push("(no patterns)");
+          lines.push("");
+          return lines.join("\n");
+        });
+      } catch (e) {
+        die(e);
+      }
+    });
+
+  // -- patterns add --
+  patterns
+    .command("add")
+    .description(
+      "Install one pattern. Source: bare name, https URL, github:owner/repo/path, gist:hash, or a local file path."
+    )
+    .argument("<source>", "where to fetch the pattern from")
+    .option("--force", "overwrite an existing destination")
+    .option("--project", "install into ./.htmlbin/patterns instead of the global dir")
+    .option(
+      "--catalog <url>",
+      `override the catalog base (default: ${DEFAULT_CATALOG_BASE})`
+    )
+    .action(
+      async (
+        source: string,
+        cmdOpts: { force?: boolean; project?: boolean; catalog?: string }
+      ) => {
+        try {
+          const dir = cmdOpts.project ? projectPatternsDir() : globalPatternsDir();
+          const resolveOpts: { catalogBase?: string } = {};
+          if (cmdOpts.catalog) resolveOpts.catalogBase = cmdOpts.catalog;
+          const rs = resolveSource(source, resolveOpts);
+          const r = await installPattern({
+            dir,
+            source: rs,
+            force: !!cmdOpts.force,
+          });
+          ensureNoSilentSkip(r, "add");
+          emit(r, () => `${r.status === "wrote" ? "wrote" : "skipped"} ${r.path}\n`);
+        } catch (e) {
+          die(e);
+        }
+      }
+    );
+}
+
+function formatPatternsForHumans(r: Awaited<ReturnType<typeof listPatterns>>): string {
+  const rows = r.effective;
+  const headers = { name: "NAME", source: "SOURCE", path: "PATH" } as const;
+  const cols: Array<keyof typeof headers> = ["name", "source", "path"];
+  const widths: Record<string, number> = {};
+  for (const c of cols) {
+    widths[c] = Math.max(
+      headers[c].length,
+      ...rows.map((row) => String(row[c]).length)
+    );
+  }
+  const SEP = "  ";
+  const DIM = "\x1b[2m";
+  const RESET = "\x1b[0m";
+  const headerLine =
+    DIM + cols.map((c) => headers[c].padEnd(widths[c] ?? 0)).join(SEP) + RESET;
+  const rowLines = rows.map((row) =>
+    cols.map((c) => String(row[c]).padEnd(widths[c] ?? 0)).join(SEP)
+  );
+  return [headerLine, ...rowLines].join("\n") + "\n";
 }
 
 // ---------------------------------------------------------------

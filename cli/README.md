@@ -49,6 +49,10 @@ htmlbin delete <slug>              Remove a drop
 htmlbin url <slug>                 Print the URL for a slug (no publish)
 htmlbin login                      Cloud: device-code sign-in via GitHub
 htmlbin setup                      One-time prep for the selected backend
+
+htmlbin patterns list              List installed local patterns
+htmlbin patterns init              Install the official catalog patterns
+htmlbin patterns add <source>      Install one pattern from a source
 ```
 
 Global flags:
@@ -83,6 +87,78 @@ CLAUDE_CODE · CURSOR_AGENT · CODEX · CODEX_AGENT · AIDER · CLINE · AMP_COD
 ```
 
 Most coding-agent runners set one of these. The agent gets JSON without having to know about the flag; humans running interactively get the text formatting. Explicit `--output text` always overrides the detection.
+
+## Patterns — local drop authoring guidance
+
+The skill at `https://htmlbin.dev/.well-known/agent-skills/htmlbin/SKILL.md` teaches agents to look for **patterns** — small markdown files that pre-shape what a drop should look like for a recurring use case (a PR explainer, a weekly roundup, a plan/spec writeup). The CLI makes installing and managing them ergonomic.
+
+Resolution order (matches what the skill teaches):
+
+1. `./.htmlbin/patterns/*.md` — project-local; wins.
+2. `$XDG_CONFIG_HOME/htmlbin/patterns/*.md` (or `~/.config/htmlbin/patterns/*.md`) — machine-global.
+3. The catalog at `https://htmlbin.dev/.well-known/patterns/<name>.md`.
+4. Freestyle within the quality floor the skill describes.
+
+### `htmlbin patterns init`
+
+```bash
+htmlbin patterns init                  # global dir (~/.config/htmlbin/patterns)
+htmlbin patterns init --project        # ./.htmlbin/patterns instead
+htmlbin patterns init --force          # overwrite existing
+```
+
+Fetches the live catalog index from `https://htmlbin.dev/.well-known/patterns/index.json` and installs every entry. If the network is unreachable, falls back to the 3 starter patterns bundled into the CLI at build time and prints `(offline — using bundled fallback)`. Idempotent: re-runs skip existing files unless `--force`.
+
+### `htmlbin patterns add <source>`
+
+Installs one pattern. The source argument is flexible:
+
+| Form | Resolves to |
+|---|---|
+| `pr-explainer` (bare kebab-case name) | catalog → `https://htmlbin.dev/.well-known/patterns/pr-explainer.md` |
+| `https://example.com/foo.md` | fetched verbatim |
+| `github:owner/repo/path/to/file.md` | `https://raw.githubusercontent.com/owner/repo/HEAD/path/to/file.md` |
+| `gist:<hash>` or `gist:<hash>/<file>` | `https://gist.githubusercontent.com/raw/...` |
+| `./relative.md` or `/abs/path.md` | local file copied in |
+
+```bash
+htmlbin patterns add summary-roundup
+htmlbin patterns add github:utsengar/htmlbin/patterns/pr-explainer.md
+htmlbin patterns add gist:abc123def
+htmlbin patterns add ./my-team-pattern.md --project
+```
+
+Conflict (`<name>.md` already exists at the destination) → `invalid_arg` exit 7; re-run with `--force` to overwrite. The `--catalog <url>` flag overrides the catalog base for forks or self-hosted setups.
+
+### `htmlbin patterns list`
+
+```bash
+htmlbin patterns list                  # aligned table in a terminal
+htmlbin patterns list --output json    # { project, global, effective }
+```
+
+Walks both dirs, shows which file wins per name. Project entries beat global entries with the same name; the `effective` array in JSON output reports the winning source per pattern.
+
+### Pattern file schema
+
+Validated at install time. Reject early, no auto-fix.
+
+```markdown
+---
+name: pr-explainer           # required, kebab-case, must match filename
+description: optional one-liner
+triggers:                    # required, non-empty list of strings
+  - explain this pr
+  - summarize this diff
+brand_sensing: true          # optional, default true
+---
+
+# Title
+
+## At least one ## heading is required
+```
+
+The skill is the source of truth for agent behavior. If the CLI ever diverges, the CLI gets fixed first — the skill is what agents pin to.
 
 ## Cloud backend (default)
 
