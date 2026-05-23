@@ -256,6 +256,110 @@ RAW2=$(curl -s "$BASE/p/$SLUG/raw")
 assert_contains "$RAW2" "updated by agent" "raw HTML reflects update"
 
 # ---------------------------------------------------------------------------
+section "4b. metadata — owner-side tag bag + lookup-then-mutate"
+# ---------------------------------------------------------------------------
+# Default-empty serialization on the drop we created above (no metadata sent).
+assert_json "$TMP/meta.json" '.metadata' '{}' "drop without metadata serializes as {}"
+
+# Use a per-run repo tag so parallel CI doesn't collide on the same account.
+REPO_TAG="e2e/$RANDOM-$RANDOM"
+
+# Scenario 1: POST with metadata round-trips on response and on GET
+jq -n --rawfile h "$TMP/drop.html" --arg repo "$REPO_TAG" '{
+  title:"e2e: with metadata",
+  html:$h,
+  metadata:{repo:$repo, pr:"42", agent:"e2e"}
+}' | curl -s -X POST "$BASE/api/drops" \
+       -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+       -d @- -o "$TMP/m-created.json"
+SLUG_M=$(jq -r .slug < "$TMP/m-created.json")
+[ -n "$SLUG_M" ] && [ "$SLUG_M" != "null" ] \
+  && ok "POST with metadata returns slug" || fail "metadata create slug" "$SLUG_M"
+assert_json "$TMP/m-created.json" '.metadata.repo' "$REPO_TAG" "POST round-trips metadata.repo"
+assert_json "$TMP/m-created.json" '.metadata.pr'   '42'         "POST round-trips metadata.pr"
+
+curl -s "$BASE/api/drops/$SLUG_M" -H "Authorization: Bearer $TOKEN" -o "$TMP/m-read.json"
+assert_json "$TMP/m-read.json" '.metadata.agent' 'e2e' "GET reads back metadata.agent"
+
+# Scenario 2: PATCH replaces the whole metadata map (old keys removed)
+jq -n '{metadata:{repo:"replaced", pr:"99"}}' \
+| curl -s -X PATCH "$BASE/api/drops/$SLUG_M" \
+    -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+    -d @- -o "$TMP/m-patched.json"
+assert_json "$TMP/m-patched.json" '.metadata.repo' 'replaced' "PATCH overwrites metadata.repo"
+assert_json "$TMP/m-patched.json" '.metadata | has("agent")' 'false' "PATCH removed un-resent metadata.agent (replace-whole)"
+
+# PATCH without `metadata` field leaves it untouched
+jq -n '{title:"e2e: title-only patch"}' \
+| curl -s -X PATCH "$BASE/api/drops/$SLUG_M" \
+    -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+    -d @- -o "$TMP/m-title.json"
+assert_json "$TMP/m-title.json" '.metadata.repo' 'replaced' "PATCH without metadata field leaves metadata untouched"
+
+# Restore the original tag so the filter test below has a known target
+jq -n --arg repo "$REPO_TAG" '{metadata:{repo:$repo, pr:"42"}}' \
+| curl -s -X PATCH "$BASE/api/drops/$SLUG_M" \
+    -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+    -d @- > /dev/null
+
+# Scenario 3: PUT mints a new version AND updates metadata as a side effect
+jq -n '{html:"<h1>v2 with retag</h1>", metadata:{repo:"retagged", pr:"42"}}' \
+| curl -s -X PUT "$BASE/api/drops/$SLUG_M" \
+    -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+    -d @- -o "$TMP/m-put.json"
+assert_json "$TMP/m-put.json" '.latest_version' '2' "PUT mints v2"
+assert_json "$TMP/m-put.json" '.metadata.repo' 'retagged' "PUT updates metadata as side effect"
+
+# Restore the original tag again before filtering
+jq -n --arg repo "$REPO_TAG" '{metadata:{repo:$repo, pr:"42"}}' \
+| curl -s -X PATCH "$BASE/api/drops/$SLUG_M" \
+    -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+    -d @- > /dev/null
+
+# Scenario 4: GET filter — AND across keys, miss on partial match
+REPO_ENC=$(printf '%s' "$REPO_TAG" | jq -sRr @uri)
+curl -s "$BASE/api/drops?metadata.repo=$REPO_ENC&metadata.pr=42" \
+  -H "Authorization: Bearer $TOKEN" -o "$TMP/m-filter.json"
+assert_json "$TMP/m-filter.json" '.data | length' '1' "filter on {repo, pr} matches exactly the one drop"
+assert_json "$TMP/m-filter.json" '.data[0].slug' "$SLUG_M" "filter returns the right slug"
+
+curl -s "$BASE/api/drops?metadata.repo=$REPO_ENC&metadata.pr=999" \
+  -H "Authorization: Bearer $TOKEN" -o "$TMP/m-miss.json"
+assert_json "$TMP/m-miss.json" '.data | length' '0' "filter with one wrong pair returns no matches (AND)"
+
+# Scenario 5: size violations rejected with invalid_arg
+TOO_MANY=$(jq -nc '{title:"x", html:"<p>x</p>", metadata: ([range(11)] | map({(tostring): "v"}) | add)}')
+ERR_KEYS=$(curl -s -X POST "$BASE/api/drops" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d "$TOO_MANY")
+assert_contains "$ERR_KEYS" "invalid_arg" "metadata with >10 keys → invalid_arg"
+assert_contains "$ERR_KEYS" "max_keys"    "error details name max_keys"
+
+LONG_VAL=$(python3 -c 'print("v"*300)' 2>/dev/null || printf 'v%.0s' {1..300})
+ERR_VAL=$(jq -n --arg v "$LONG_VAL" '{title:"x", html:"<p>x</p>", metadata:{repo:$v}}' \
+  | curl -s -X POST "$BASE/api/drops" \
+      -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d @-)
+assert_contains "$ERR_VAL" "invalid_arg" "metadata value > 256 chars → invalid_arg"
+
+# Scenario 6: bad key shapes rejected with invalid_arg
+ERR_BADKEY=$(curl -s -X POST "$BASE/api/drops" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"title":"x","html":"<p>x</p>","metadata":{".leading-dot":"v"}}')
+assert_contains "$ERR_BADKEY" "invalid_arg" "metadata key starting with '.' → invalid_arg"
+
+ERR_BADTYPE=$(curl -s -X POST "$BASE/api/drops" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"title":"x","html":"<p>x</p>","metadata":{"pr":42}}')
+assert_contains "$ERR_BADTYPE" "invalid_arg" "non-string metadata value → invalid_arg"
+
+ERR_FILT=$(curl -s "$BASE/api/drops?metadata..leading=v" \
+  -H "Authorization: Bearer $TOKEN")
+assert_contains "$ERR_FILT" "invalid_arg" "bad filter key on GET → invalid_arg"
+
+# Tidy up the metadata test drop so the account count stays clean
+curl -s -X DELETE "$BASE/api/drops/$SLUG_M" -H "Authorization: Bearer $TOKEN" > /dev/null
+
+# ---------------------------------------------------------------------------
 section "5. passcode lifecycle"
 # ---------------------------------------------------------------------------
 curl -s -X POST "$BASE/api/drops/$SLUG/passcode" \

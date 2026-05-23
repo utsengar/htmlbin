@@ -45,6 +45,11 @@ CREATE TABLE IF NOT EXISTS drops (
   password_salt   TEXT,
   latest_version  INTEGER NOT NULL DEFAULT 1,
   view_count      INTEGER NOT NULL DEFAULT 0,
+  -- Owner-facing tag bag (JSON object, string→string). Used to attach
+  -- external identifiers (repo, pr, ci_run, …) so agents can look up an
+  -- existing drop by tag instead of memorizing slugs. Filtered via
+  -- json_extract on GET /api/drops?metadata.k=v. Not exposed on /p/.
+  metadata        TEXT NOT NULL DEFAULT '{}',
   created_at      INTEGER NOT NULL,
   updated_at      INTEGER NOT NULL,
   FOREIGN KEY(user_id) REFERENCES users(id)

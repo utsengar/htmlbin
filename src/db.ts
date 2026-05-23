@@ -118,6 +118,7 @@ export async function listDropsByUser(
     offset?: number;
     sortBy?: DropSort;
     sortOrder?: SortOrder;
+    metadataFilter?: Record<string, string>;
   } = {}
 ): Promise<{ rows: Drop[]; total: number }> {
   const limit = Math.min(Math.max(opts.limit ?? 50, 1), 200);
@@ -131,13 +132,30 @@ export async function listDropsByUser(
     : sortBy === "view_count" ? "view_count"
     : "created_at";
 
+  // Metadata filter — AND across all pairs. The path string and value are
+  // both bound parameters (no string interpolation), so even an unvalidated
+  // tag key can't escape into SQL.
+  const filter = opts.metadataFilter ?? {};
+  const filterKeys = Object.keys(filter);
+  const filterClauses = filterKeys
+    .map(() => "json_extract(metadata, ?) = ?")
+    .join(" AND ");
+  const filterWhere = filterClauses ? ` AND ${filterClauses}` : "";
+  const filterBinds: unknown[] = [];
+  for (const k of filterKeys) {
+    filterBinds.push(`$.${k}`);
+    filterBinds.push(filter[k]);
+  }
+
   const batchResults = await db.batch<unknown>([
     db.prepare(
-      `SELECT * FROM drops WHERE user_id = ?
+      `SELECT * FROM drops WHERE user_id = ?${filterWhere}
          ORDER BY ${orderCol} ${sortOrder.toUpperCase()}
          LIMIT ? OFFSET ?`
-    ).bind(userId, limit, offset),
-    db.prepare(`SELECT COUNT(*) as n FROM drops WHERE user_id = ?`).bind(userId),
+    ).bind(userId, ...filterBinds, limit, offset),
+    db.prepare(
+      `SELECT COUNT(*) as n FROM drops WHERE user_id = ?${filterWhere}`
+    ).bind(userId, ...filterBinds),
   ]);
 
   const rows = (batchResults[0]?.results as Drop[] | undefined) ?? [];

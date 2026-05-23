@@ -57,6 +57,8 @@ export type Drop = {
   password_salt: string | null;
   latest_version: number;
   view_count: number;
+  // JSON-encoded Record<string,string>. Parse via parseMetadata() in drops.ts.
+  metadata: string;
   created_at: number;
   updated_at: number;
 };

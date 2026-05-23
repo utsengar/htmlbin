@@ -102,6 +102,7 @@ export function buildOnboardJson(publicUrl: string): object {
         locked: false,
         latest_version: 3,
         view_count: 17,
+        metadata: { repo: "u/r", pr: "42" },
         created_at: 0,
         updated_at: 0,
       },
@@ -119,6 +120,7 @@ export function buildOnboardJson(publicUrl: string): object {
         html: "string (required, full self-contained HTML document, ≤2 MB)",
         passcode: "string (optional, ≥4 chars; soft gate, not encryption — shown on /p/<slug> before the body)",
         context: "string (optional, ≤64 KB; reasoning trace — opt-in per the human)",
+        metadata: "object (optional, ≤10 keys; flat string→string. Owner-side tag bag for lookup via GET /api/drops?metadata.k=v. Not exposed on /p/.)",
       },
       returns: "Drop (see drop_shape)",
       status: 201,
@@ -134,6 +136,7 @@ export function buildOnboardJson(publicUrl: string): object {
           title: "string (optional, ≤200 chars)",
           description: "string (optional, ≤500 chars)",
           context: "string (optional, ≤64 KB)",
+          metadata: "object (optional; replaces whole metadata map — omit to leave untouched, {} to clear)",
         },
         returns: "Drop (with bumped latest_version)",
         note:
@@ -145,6 +148,7 @@ export function buildOnboardJson(publicUrl: string): object {
         body: {
           title: "string (optional, ≤200 chars)",
           description: "string (optional, ≤500 chars)",
+          metadata: "object (optional; replaces whole metadata map — omit to leave untouched, {} to clear)",
         },
         returns: "Drop (latest_version unchanged)",
         note: "Including `html` here returns 400 metadata_only_on_patch — use PUT.",
@@ -158,6 +162,7 @@ export function buildOnboardJson(publicUrl: string): object {
         pageSize: "integer (default 50, max 200)",
         sortBy: "'created_at' | 'updated_at' | 'view_count' (default 'created_at')",
         sortOrder: "'asc' | 'desc' (default 'desc')",
+        "metadata.<key>": "string (optional, repeatable; AND-filters drops where metadata.<key> = value. Conventional keys: repo, pr, sha, agent, ci_run.)",
       },
       returns: {
         data: "Drop[]",
@@ -169,6 +174,22 @@ export function buildOnboardJson(publicUrl: string): object {
           sort_by: "string",
           sort_order: "string",
         },
+      },
+      lookup_then_mutate: {
+        description:
+          "Recipe for finding a drop you previously tagged and updating it without storing slugs client-side: GET filter, then PUT if a drop matches, otherwise POST. Works for any tag combination, not just CI / PR previews — the metadata field is free-form.",
+        steps: [
+          `GET ${publicUrl}/api/drops?metadata.<k1>=<v1>&metadata.<k2>=<v2>`,
+          "if data[0]: PUT /api/drops/<data[0].slug> with the new html",
+          "else:       POST /api/drops with html + metadata",
+        ],
+        example_tag_setups: [
+          { repo: "u/r", pr: "42" },
+          { session_id: "<chat-id>", kind: "deck" },
+          { client: "acme", project: "rebrand", status: "draft" },
+        ],
+        race_note:
+          "If two writers can run in parallel for the same tag combination, serialize them at the call site. For CI / PR previews specifically, set `concurrency: group:` on the GitHub Actions workflow. Other shapes (per-session, per-client) usually don't race.",
       },
     },
     other_endpoints: {
@@ -438,10 +459,80 @@ or thinking trace that produced the HTML. **It is opt-in and may be
 sensitive — only include it if the human has agreed.** When present, the
 viewer exposes it under a discreet "context" toggle.
 
-## Listing your drops (paginated)
+## Metadata (owner-side tag bag)
+
+Every drop has a \`metadata\` field: a flat object of \`string → string\`
+that you can attach on POST and replace on PUT/PATCH. It's **free-form**
+— tag drops with whatever lets you find them later. Filterable on the
+list endpoint via \`metadata.<key>=<value>\` (AND across pairs). Owner-only —
+the public viewer at \`/p/<slug>\` never sees it.
+
+A few example tag setups to spark ideas (the server has no opinion
+about your keys):
+
+- \`{repo: "foo/bar", pr: "42"}\` — stable preview URL across CI pushes
+  for one PR.
+- \`{session_id: "<chat-id>", kind: "deck"}\` — the artifact this
+  conversation produced, so the next turn can iterate the same drop.
+- \`{client: "acme", project: "rebrand", status: "draft"}\` — an agent
+  maintaining a portfolio of in-progress work for an end-user.
+- \`{kind: "spec", topic: "auth-rewrite"}\` — buckets you can list later.
+
+The canonical recipe is **lookup → mutate**: GET with metadata filters,
+then PUT to the slug if a drop matches, otherwise POST a fresh one.
+There is intentionally no server-side upsert; serialize at the call
+site if your shape can race in parallel.
+
+\`\`\`bash
+# Publish with tags
+jq -n --rawfile html /tmp/artifact.html '{
+  title: "Q3 plan",
+  html: $html,
+  metadata: { client: "acme", project: "rebrand", status: "draft" }
+}' | curl -s -X POST ${publicUrl}/api/drops \\
+       -H "Authorization: Bearer $HTMLBIN_TOKEN" \\
+       -H "Content-Type: application/json" -d @-
+
+# Lookup → mutate (find your earlier drop and update it)
+EXISTING=$(curl -s -H "Authorization: Bearer $HTMLBIN_TOKEN" \\
+  "${publicUrl}/api/drops?metadata.client=acme&metadata.project=rebrand" \\
+  | jq -r '.data[0].slug // empty')
+
+if [ -n "$EXISTING" ]; then
+  jq -n --rawfile html /tmp/artifact.html '{html: $html}' \\
+  | curl -s -X PUT "${publicUrl}/api/drops/$EXISTING" \\
+      -H "Authorization: Bearer $HTMLBIN_TOKEN" \\
+      -H "Content-Type: application/json" -d @-
+else
+  jq -n --rawfile html /tmp/artifact.html '{
+    title: "Q3 plan",
+    html: $html,
+    metadata: { client: "acme", project: "rebrand", status: "draft" }
+  }' | curl -s -X POST ${publicUrl}/api/drops \\
+         -H "Authorization: Bearer $HTMLBIN_TOKEN" \\
+         -H "Content-Type: application/json" -d @-
+fi
+\`\`\`
+
+For the CI / PR-preview shape specifically, parallel runs for the same
+PR can race the GET. In GitHub Actions, set
+\`concurrency: group: pr-\${{ github.event.pull_request.number }}\`
+on the workflow.
+
+Limits: ≤10 keys, ≤64 chars per key (alphanumerics, \`_\`, \`.\`, \`-\`;
+no leading or trailing punctuation), ≤256 chars per value. Values must
+be strings — stringify numbers and booleans agent-side. PATCH/PUT
+metadata replaces the whole map; omit to leave untouched, send \`{}\` to
+clear.
+
+## Listing your drops (paginated, filterable)
 
 \`\`\`bash
 curl -s "${publicUrl}/api/drops?page=1&pageSize=50&sortBy=updated_at&sortOrder=desc" \\
+  -H "Authorization: Bearer $HTMLBIN_TOKEN"
+
+# Filter by metadata — AND across pairs
+curl -s "${publicUrl}/api/drops?metadata.repo=u%2Fr&metadata.pr=42" \\
   -H "Authorization: Bearer $HTMLBIN_TOKEN"
 \`\`\`
 

@@ -20,6 +20,15 @@ const MAX_DROPS_PER_USER = 500;
 const MAX_VERSIONS_PER_DROP = 200;
 const MAX_DAILY_WRITES = 500;
 
+// Drop-level tag bag. Same key/value shape we filter on via
+// GET /api/drops?metadata.k=v, so the key regex is also the filter-key
+// regex. Snake-case-ish, dots and dashes allowed mid-key, no leading or
+// trailing punctuation. See the "Drop metadata" section in CLAUDE.md.
+const MAX_METADATA_KEYS = 10;
+const MAX_METADATA_KEY_LEN = 64;
+const MAX_METADATA_VALUE_LEN = 256;
+const METADATA_KEY_RE = /^[a-z0-9_]([a-z0-9_.-]{0,62}[a-z0-9_])?$/i;
+
 const DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 200;
 
@@ -121,11 +130,38 @@ apiRoutes.on(["GET", "HEAD"], "/drops", async (c) => {
     : "created_at";
   const sortOrder = q.sortOrder === "asc" ? "asc" : "desc";
 
+  // metadata.<key>=<value> filters — AND across pairs. Same key regex as
+  // body-side validation so the filter API can't accept tags the body API
+  // wouldn't have written in the first place.
+  const metadataFilter: Record<string, string> = {};
+  for (const [key, value] of Object.entries(q)) {
+    if (!key.startsWith("metadata.")) continue;
+    const tag = key.slice("metadata.".length);
+    if (tag.length === 0 || tag.length > MAX_METADATA_KEY_LEN || !METADATA_KEY_RE.test(tag))
+      return apiError(
+        c,
+        "invalid_arg",
+        `Invalid metadata filter key: '${tag.slice(0, 32)}'.`,
+        400,
+        { pattern: METADATA_KEY_RE.source, max_key_len: MAX_METADATA_KEY_LEN }
+      );
+    if (value.length > MAX_METADATA_VALUE_LEN)
+      return apiError(
+        c,
+        "invalid_arg",
+        `metadata.${tag} filter value exceeds ${MAX_METADATA_VALUE_LEN} chars.`,
+        400,
+        { key: tag, max_value_len: MAX_METADATA_VALUE_LEN }
+      );
+    metadataFilter[tag] = value;
+  }
+
   const { rows, total } = await listDropsByUser(c.env.DB, user.id, {
     limit: pageSize,
     offset: (page - 1) * pageSize,
     sortBy,
     sortOrder,
+    metadataFilter,
   });
 
   return c.json({
@@ -182,6 +218,7 @@ apiRoutes.post("/drops", async (c) => {
         html?: string;
         passcode?: string;
         context?: string;
+        metadata?: unknown;
       }
     | null;
   if (!body) return apiError(c, "invalid_json", "Request body must be JSON.", 400);
@@ -201,6 +238,14 @@ apiRoutes.post("/drops", async (c) => {
   const valid = validateCreateBody(body);
   if (valid.error)
     return apiError(c, valid.error.code, valid.error.message, 400, valid.error.details);
+
+  // Optional metadata bag — store {} if omitted, validated JSON otherwise.
+  let metadataRaw = "{}";
+  if (body.metadata !== undefined) {
+    const m = validateMetadata(body.metadata);
+    if (!m.ok) return apiError(c, "invalid_arg", m.message, 400, m.details);
+    metadataRaw = m.raw;
+  }
 
   const { title, description, html, passcode, context } = valid.value;
 
@@ -246,9 +291,12 @@ apiRoutes.post("/drops", async (c) => {
     c.env.DB.prepare(
       `INSERT INTO drops
          (slug, user_id, title, description, password_hash, password_salt,
-          latest_version, view_count, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, 1, 0, ?, ?)`
-    ).bind(slug, user.id, title, description, passcodeHash, passcodeSalt, now, now),
+          latest_version, view_count, metadata, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, 1, 0, ?, ?, ?)`
+    ).bind(
+      slug, user.id, title, description, passcodeHash, passcodeSalt,
+      metadataRaw, now, now
+    ),
     c.env.DB.prepare(
       `INSERT INTO versions (slug, version, size_bytes, context, created_at)
        VALUES (?, 1, ?, ?, ?)`
@@ -296,7 +344,13 @@ apiRoutes.put("/drops/:slug", async (c) => {
     );
 
   const body = (await c.req.json().catch(() => null)) as
-    | { title?: string; description?: string; html?: string; context?: string }
+    | {
+        title?: string;
+        description?: string;
+        html?: string;
+        context?: string;
+        metadata?: unknown;
+      }
     | null;
   if (!body) return apiError(c, "invalid_json", "Request body must be JSON.", 400);
 
@@ -320,6 +374,15 @@ apiRoutes.put("/drops/:slug", async (c) => {
       "PUT mints a new version and requires `html`. For metadata-only edits, use PATCH.",
       400
     );
+
+  // Optional metadata replace alongside the new version. null when absent,
+  // JSON string when caller is updating (including {} to clear).
+  let metadataRaw: string | null = null;
+  if (body.metadata !== undefined) {
+    const m = validateMetadata(body.metadata);
+    if (!m.ok) return apiError(c, "invalid_arg", m.message, 400, m.details);
+    metadataRaw = m.raw;
+  }
 
   const sizeBytes = byteLength(body.html);
   if (sizeBytes > MAX_HTML_BYTES)
@@ -365,10 +428,14 @@ apiRoutes.put("/drops/:slug", async (c) => {
       `UPDATE drops
           SET title = COALESCE(?, title),
               description = COALESCE(?, description),
+              metadata = COALESCE(?, metadata),
               latest_version = ?,
               updated_at = ?
         WHERE slug = ? AND user_id = ?`
-    ).bind(title ?? null, description ?? null, nextVersion, now, slug, user.id),
+    ).bind(
+      title ?? null, description ?? null, metadataRaw,
+      nextVersion, now, slug, user.id
+    ),
   ]);
 
   const updated = await getDrop(c.env.DB, slug);
@@ -390,7 +457,12 @@ apiRoutes.patch("/drops/:slug", async (c) => {
     return apiError(c, "forbidden", "This drop belongs to another user.", 403);
 
   const body = (await c.req.json().catch(() => null)) as
-    | { title?: string; description?: string; html?: string }
+    | {
+        title?: string;
+        description?: string;
+        html?: string;
+        metadata?: unknown;
+      }
     | null;
   if (!body) return apiError(c, "invalid_json", "Request body must be JSON.", 400);
 
@@ -410,7 +482,7 @@ apiRoutes.patch("/drops/:slug", async (c) => {
     return apiError(
       c,
       "metadata_only_on_patch",
-      "PATCH only updates title and description. To upload new HTML, use PUT.",
+      "PATCH does not accept `html`. To upload new HTML, use PUT.",
       400
     );
 
@@ -431,14 +503,26 @@ apiRoutes.patch("/drops/:slug", async (c) => {
       { max: MAX_DESCRIPTION }
     );
 
+  // Replace-whole semantics: absent → untouched, {} → cleared, {k:v} → overwrite.
+  let metadataRaw: string | null = null;
+  if (body.metadata !== undefined) {
+    const m = validateMetadata(body.metadata);
+    if (!m.ok) return apiError(c, "invalid_arg", m.message, 400, m.details);
+    metadataRaw = m.raw;
+  }
+
   await c.env.DB.prepare(
     `UPDATE drops
         SET title = COALESCE(?, title),
             description = COALESCE(?, description),
+            metadata = COALESCE(?, metadata),
             updated_at = ?
       WHERE slug = ? AND user_id = ?`
   )
-    .bind(title ?? null, description ?? null, Date.now(), slug, user.id)
+    .bind(
+      title ?? null, description ?? null, metadataRaw,
+      Date.now(), slug, user.id
+    )
     .run();
 
   const updated = await getDrop(c.env.DB, slug);
@@ -669,9 +753,92 @@ function serializeDrop(d: Drop, publicUrl: string) {
     locked: !!d.password_hash,
     latest_version: d.latest_version,
     view_count: d.view_count,
+    // Always present, default {}. Stripe-style: never omit, never undefined.
+    metadata: parseMetadata(d.metadata),
     created_at: d.created_at,
     updated_at: d.updated_at,
   };
+}
+
+// Parse the JSON TEXT column into the public Record<string,string> shape.
+// Defensive: malformed rows (corruption, manual edit, schema-pre-default)
+// degrade to {} rather than 500ing the response.
+export function parseMetadata(
+  raw: string | null | undefined
+): Record<string, string> {
+  if (!raw) return {};
+  try {
+    const v = JSON.parse(raw);
+    if (!v || typeof v !== "object" || Array.isArray(v)) return {};
+    const out: Record<string, string> = {};
+    for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
+      if (typeof val === "string") out[k] = val;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+// Body-side validator. Returns either a clean object + DB-ready JSON, or
+// a structured error suitable for apiError(..., "invalid_arg", ...).
+//
+// Semantics:
+//   value === undefined → caller decides (POST: empty default; PUT/PATCH: leave untouched)
+//   value === null      → rejected (callers should omit to leave untouched)
+//   value === {}        → cleared
+//   value === { k: v }  → replace whole map
+type MetadataResult =
+  | { ok: true; clean: Record<string, string>; raw: string }
+  | { ok: false; message: string; details?: Record<string, unknown> };
+
+function validateMetadata(value: unknown): MetadataResult {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return { ok: false, message: "`metadata` must be a plain object." };
+  }
+  const obj = value as Record<string, unknown>;
+  const keys = Object.keys(obj);
+  if (keys.length > MAX_METADATA_KEYS) {
+    return {
+      ok: false,
+      message: `metadata has too many keys (max ${MAX_METADATA_KEYS}).`,
+      details: { max_keys: MAX_METADATA_KEYS, given: keys.length },
+    };
+  }
+  const clean: Record<string, string> = {};
+  for (const k of keys) {
+    if (k.length > MAX_METADATA_KEY_LEN) {
+      return {
+        ok: false,
+        message: `metadata key '${k.slice(0, 32)}…' exceeds ${MAX_METADATA_KEY_LEN} chars.`,
+        details: { max_key_len: MAX_METADATA_KEY_LEN, key: k.slice(0, 32) },
+      };
+    }
+    if (!METADATA_KEY_RE.test(k)) {
+      return {
+        ok: false,
+        message: `metadata key '${k}' is not a valid identifier (alphanumerics, _, ., -; no leading or trailing punctuation).`,
+        details: { key: k, pattern: METADATA_KEY_RE.source },
+      };
+    }
+    const v = obj[k];
+    if (typeof v !== "string") {
+      return {
+        ok: false,
+        message: `metadata.${k} must be a string (got ${typeof v}).`,
+        details: { key: k, got: typeof v },
+      };
+    }
+    if (v.length > MAX_METADATA_VALUE_LEN) {
+      return {
+        ok: false,
+        message: `metadata.${k} exceeds ${MAX_METADATA_VALUE_LEN} chars.`,
+        details: { key: k, max_value_len: MAX_METADATA_VALUE_LEN },
+      };
+    }
+    clean[k] = v;
+  }
+  return { ok: true, clean, raw: JSON.stringify(clean) };
 }
 
 function byteLength(s: string): number {
