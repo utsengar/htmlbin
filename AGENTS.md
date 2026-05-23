@@ -68,6 +68,13 @@ For meaningful code changes, run `npm run typecheck`. Run the e2e suite
 when API/auth/drop behavior, discoverability, routing, rendering, or
 security behavior changes.
 
+For ad-hoc data inspection against production D1, `npm run dashboard`
+boots a local-only web UI at `http://127.0.0.1:5173` with overview +
+per-user + per-drop drill-down. Read-only, same intent as
+`scripts/stats.mjs`. It is *not* a product surface — it never reaches
+the deployed Worker. Hard rule #4 (no dashboard on htmlbin.dev) still
+applies; do not promote this into a hosted admin route.
+
 ## Deployment
 
 The only production path is `.github/workflows/deploy.yml`:
@@ -180,6 +187,8 @@ migrations/            D1 migrations
 wrangler.toml          Cloudflare config
 scripts/setup.mjs      provisioning
 scripts/agent-e2e.sh   full functional test
+scripts/stats.mjs      text-based stats snapshot (npm run stats)
+scripts/dashboard/     local operator web UI (npm run dashboard)
 ```
 
 ## Knowledge Capture
