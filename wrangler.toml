@@ -43,6 +43,10 @@ id = "915440d1cdfb4876bb3b8c721a694873"
 binding = "DB"
 database_name = "htmlbin-db"
 database_id = "63632af3-b786-422b-87bd-bf6e13399ec9"
+# Pointing wrangler at this directory lets `wrangler d1 migrations apply`
+# auto-discover migration files and track which have run via a
+# `d1_migrations` table. Replaces the hardcoded-per-file npm scripts.
+migrations_dir = "./migrations"
 
 # Workers AI — used for HTML → Markdown conversion via env.AI.toMarkdown()
 # https://blog.cloudflare.com/markdown-for-agents/

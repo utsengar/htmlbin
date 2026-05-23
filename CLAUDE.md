@@ -636,7 +636,22 @@ yourself wanting that, stop and ask the user first.
 - **D1** in local mode is in `.wrangler/state/`. Run
   `npm run db:apply:local` after schema changes. For column-only
   changes against an existing DB, write a new file in `migrations/`
-  and run `npm run db:migrate:local` / `:remote`.
+  and run `npm run db:migrate:local` / `:remote`. The migration scripts
+  call `wrangler d1 migrations apply` under the hood, which tracks
+  applied migrations in a `d1_migrations` table — drop a new
+  `migrations/<n>-<name>.sql` and it gets picked up automatically; no
+  npm-script edit needed. `npm run db:migrate:list:local` / `:remote`
+  shows what's pending.
+- **Wrangler invocation in npm scripts.** All `db:*` scripts call
+  `node node_modules/wrangler/bin/wrangler.js …` directly rather than
+  bare `wrangler`. Why: the `.bin/wrangler` shim is installed as a
+  regular file (not a symlink), so its `__dirname`-relative path math
+  resolves `node_modules/wrangler-dist/cli.js` (wrong) instead of
+  `node_modules/wrangler/wrangler-dist/cli.js`. Same gotcha the
+  dashboard server hit — see `scripts/dashboard/server.mjs`. The
+  `dev`/`deploy`/`tail` scripts kept the bare form because they happen
+  to work; if they ever break the same way, copy the direct-invoke
+  pattern.
 - **Token prefix is `hb_`.** If you change it, update both
   `src/auth.ts` (regex) AND `src/crypto.ts:newApiToken` AND
   `src/index.ts` (existing-token validation regex).
