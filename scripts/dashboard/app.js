@@ -132,6 +132,13 @@ function link(href, text) {
   return el("a", { href, class: "link" }, text);
 }
 
+function liveDropLink(slug) {
+  return el("a", {
+    href: `https://htmlbin.dev/p/${slug}`,
+    target: "_blank", rel: "noopener", class: "link",
+  }, `/p/${slug}`);
+}
+
 function userLinkFromRow(x) {
   const id = x.user_id ?? x.id;
   return x.github_login
@@ -214,8 +221,8 @@ async function viewOverview() {
     el("section", { class: "section" },
       el("h2", {}, "top drops by views"),
       table([
-        { head: "slug", get: (d) => link(`#/d/${d.slug}`, `/p/${d.slug}`) },
-        { head: "title", get: (d) => d.title || "—" },
+        { head: "slug", get: (d) => liveDropLink(d.slug) },
+        { head: "title", get: (d) => link(`#/d/${d.slug}`, d.title || "(no title)") },
         { head: "owner", get: (d) => userLinkFromRow(d) },
         { head: "views", get: (d) => num(d.view_count), align: "right" },
       ], data.top_drops),
@@ -264,7 +271,7 @@ function renderRisk(r, s, conv) {
   }
   for (const x of r.edit_spam) rows.push({
     severity: "soft", label: "edit-spam",
-    body: [link(`#/d/${x.slug}`, `/p/${x.slug}`), " at ", el("strong", {}, `v${x.latest_version}`), " of 200"],
+    body: [liveDropLink(x.slug), " at ", el("strong", {}, `v${x.latest_version}`), " of 200"],
   });
   for (const x of r.lock) rows.push({
     severity: "soft", label: "lock-heavy",
@@ -341,8 +348,8 @@ async function viewUser(userId) {
     el("section", { class: "section" },
       el("h2", {}, `drops (${data.drops.length})`),
       table([
-        { head: "slug", get: (d) => link(`#/d/${d.slug}`, `/p/${d.slug}`) },
-        { head: "title", get: (d) => d.title || "—" },
+        { head: "slug", get: (d) => liveDropLink(d.slug) },
+        { head: "title", get: (d) => link(`#/d/${d.slug}`, d.title || "(no title)") },
         { head: "created", get: (d) => fmtDate(d.created_at) },
         { head: "updated", get: (d) => since(d.updated_at) },
         { head: "v", get: (d) => num(d.latest_version), align: "right" },
