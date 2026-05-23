@@ -432,11 +432,24 @@ code, .mono {
 .tab:hover { color: rgba(250,250,250,0.85); }
 .tab.active { color: var(--code-fg); background: rgba(255,255,255,0.14); }
 .tab:focus-visible { outline: 1px solid var(--code-em); outline-offset: 2px; }
-.tab-panel { display: none; }
-.tab-panel.active { display: block; }
 
+/* Both tab-panels share the same grid cell so the slab sizes to the
+   TALLER of the two and the container height stays constant across
+   tab switches. Inactive panel is hidden via visibility (still occupies
+   the cell) instead of display:none (would collapse the cell and make
+   the page jump on every toggle). */
 .prompt-body {
   padding: 18px 22px 22px;
+  display: grid;
+}
+.tab-panel {
+  grid-area: 1 / 1;
+  visibility: hidden;
+  pointer-events: none;
+}
+.tab-panel.active {
+  visibility: visible;
+  pointer-events: auto;
 }
 .prompt-body pre {
   font-family: var(--mono);
