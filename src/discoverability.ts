@@ -195,6 +195,14 @@ export function agentCard(publicUrl: string): object {
       token_format: "Bearer hb_<base62>",
       token_lifetime: "non-expiring (revocable)",
     },
+    cli: {
+      package: "@htmlbin/cli",
+      install: "npm i -g @htmlbin/cli",
+      runtime: "Node 20+",
+      summary:
+        "First-party CLI wrapping every capability below. Auto-emits JSON when invoked from a coding-agent runner. Stable exit codes; the bracketed `error.code` on stderr mirrors this API's error.code shape.",
+      cloud_only_flags: ["--metadata", "--upsert"],
+    },
     capabilities: [
       {
         id: "publish_html",
@@ -203,6 +211,15 @@ export function agentCard(publicUrl: string): object {
         method: "POST",
         path: "/api/drops",
         accepts: ["title", "description?", "html", "passcode?", "context?", "metadata?"],
+        cli: {
+          command: "htmlbin publish <file>",
+          flags: [
+            "--title <text>",
+            "--description <text>",
+            "--metadata <k=v> (cloud only; repeatable, up to 10)",
+            "--upsert (cloud only; lookup-by-metadata first → PUT if matched, POST otherwise; requires --metadata)",
+          ],
+        },
       },
       {
         id: "update_html",
@@ -211,6 +228,17 @@ export function agentCard(publicUrl: string): object {
         method: "PUT",
         path: "/api/drops/:slug",
         accepts: ["html", "title?", "description?", "context?", "metadata?"],
+        cli: {
+          command: "htmlbin update <slug> --file <path>",
+          note: "Presence of --file is what selects PUT in the unified `htmlbin update <slug>` subcommand (omit it for PATCH).",
+          flags: [
+            "--file <path> (required for PUT — supplies the new HTML body)",
+            "--title <text>",
+            "--description <text>",
+            "--metadata <k=v> (replaces the whole metadata map; repeatable)",
+            "--clear-metadata (sends metadata: {}; mutually exclusive with --metadata)",
+          ],
+        },
       },
       {
         id: "update_metadata",
@@ -219,6 +247,16 @@ export function agentCard(publicUrl: string): object {
         method: "PATCH",
         path: "/api/drops/:slug",
         accepts: ["title?", "description?", "metadata?"],
+        cli: {
+          command: "htmlbin update <slug>",
+          note: "Without --file, the unified `htmlbin update <slug>` subcommand dispatches PATCH (metadata-only).",
+          flags: [
+            "--title <text>",
+            "--description <text>",
+            "--metadata <k=v> (replaces the whole metadata map; repeatable)",
+            "--clear-metadata (sends metadata: {}; mutually exclusive with --metadata)",
+          ],
+        },
       },
       {
         id: "list_versions",
@@ -250,6 +288,13 @@ export function agentCard(publicUrl: string): object {
           "Paginated list. Query params: page (default 1), pageSize (default 50, max 200), sortBy (created_at|updated_at|view_count), sortOrder (asc|desc). Also supports repeated `metadata.<key>=<value>` params for AND-filtering — the canonical lookup-then-mutate primitive for finding a drop you previously tagged (any tag combination — PR previews, session artifacts, client portfolios, document kinds, etc).",
         method: "GET",
         path: "/api/drops",
+        cli: {
+          command: "htmlbin list",
+          flags: [
+            "--metadata <k=v> (cloud only; repeatable, AND across pairs)",
+            "--limit <n> / -n <n>",
+          ],
+        },
       },
       {
         id: "lock_with_passcode",

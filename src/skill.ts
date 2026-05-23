@@ -86,6 +86,41 @@ If no token is found in any of these locations, run the auth flow.
 Token format: \`hb_\` followed by base62 characters. Validation regex:
 \`^hb_[A-Za-z0-9]+$\`.
 
+## Using the CLI (recommended for CI / repeat use)
+
+A first-party CLI ships at \`@htmlbin/cli\` (Node 20+). It wraps the
+endpoints below, packages the token-resolution order this skill
+teaches, and emits structured JSON in agent contexts. **Prefer it to
+hand-rolled curl when one is reachable** — it's the smallest
+diff against this skill's quality bar.
+
+\`\`\`bash
+# One-time
+npm i -g @htmlbin/cli           # or: npx -y @htmlbin/cli@latest ...
+htmlbin login                   # device-code flow, writes ./.htmlbin/token
+
+# Day-to-day
+htmlbin publish ./out.html --title "PR #42 preview"
+htmlbin publish ./out.html --upsert --metadata repo=u/r --metadata pr=42
+htmlbin update aB3xK7g --file ./newer.html          # PUT — new version
+htmlbin update aB3xK7g --title "PR #42 (merged)"    # PATCH — no new version
+htmlbin update aB3xK7g --metadata status=merged     # PATCH — replace metadata
+htmlbin update aB3xK7g --clear-metadata             # PATCH — metadata = {}
+htmlbin list --metadata kind=spec --metadata status=draft
+htmlbin delete aB3xK7g
+\`\`\`
+
+JSON output is auto-enabled when the CLI detects a coding-agent runner
+(\`CLAUDE_CODE\`, \`CURSOR_AGENT\`, \`CODEX\`, \`AIDER\`, …). Exit codes are
+stable: \`0\` success, \`2\` auth, \`3\` forbidden, \`4\` not-found, \`5\`
+rate-limit, \`6\` size, \`7\` bad input, \`8\` network/server. The
+bracketed \`error.code\` on stderr mirrors the API's \`error.code\` shape
+exactly — agents and CI can switch on it.
+
+The HTTP examples below stay valid for environments without Node
+(other languages, embedded runtimes, debugging). When both are an
+option, the CLI is usually fewer moving parts.
+
 ## Auth: device-code flow (one-time, human-in-the-loop)
 
 The human moment is a **Sign in with GitHub** click — htmlbin binds one
@@ -172,10 +207,15 @@ Returns the full Drop (HTTP 201):
   "locked": false,
   "latest_version": 1,
   "view_count": 0,
+  "metadata": {},
   "created_at": 0,
   "updated_at": 0
 }
 \`\`\`
+
+CLI equivalent: \`htmlbin publish ./out.html --title "My page"\` (add
+\`--metadata k=v\` to tag, or \`--upsert\` to reuse a slug — see "Tag
+your drops to find them later" below).
 
 ### Update HTML — mint a new version (PUT)
 
@@ -189,6 +229,10 @@ curl -s -X PUT "https://htmlbin.dev/api/drops/<slug>" \\
 **PUT requires \`html\`.** The slug never changes; \`latest_version\`
 increments. Old versions remain at \`/p/<slug>?v=N\`. Returns the full Drop.
 
+CLI equivalent: \`htmlbin update <slug> --file ./newer.html\`. Passing
+\`--file\` is what selects PUT — without it, the CLI uses PATCH (see
+below).
+
 ### Update title/description/metadata only (PATCH)
 
 \`\`\`bash
@@ -201,6 +245,20 @@ curl -s -X PATCH "https://htmlbin.dev/api/drops/<slug>" \\
 PATCH never mints a new version. Including \`html\` in the body returns
 \`400 metadata_only_on_patch\` — use PUT instead. \`metadata\` (see below)
 can be updated here too.
+
+CLI equivalents:
+
+\`\`\`bash
+htmlbin update <slug> --title "Better title"
+htmlbin update <slug> --description "..." --metadata status=merged
+htmlbin update <slug> --clear-metadata        # sends metadata: {}
+\`\`\`
+
+The \`htmlbin update\` subcommand dispatches on \`--file\`: with it, the
+request is a PUT (new version); without it, a PATCH (metadata only).
+\`--upsert\` and \`--metadata\` are cloud-only — the CLI rejects them with
+\`invalid_arg\` on \`--to gh-pages\` / \`--to cloudflare\` because those
+backends don't store metadata server-side.
 
 ### List drops (paginated, filterable)
 
@@ -229,6 +287,9 @@ Response:
 Query params: \`page\` (default 1), \`pageSize\` (default 50, max 200),
 \`sortBy\` (\`created_at\` | \`updated_at\` | \`view_count\`, default \`created_at\`),
 \`sortOrder\` (\`asc\` | \`desc\`, default \`desc\`).
+
+CLI: \`htmlbin list --metadata repo=u/r --metadata pr=42\` (repeatable;
+AND across pairs). \`--limit <n>\` caps the row count.
 
 ### Set or change a passcode
 
@@ -301,8 +362,23 @@ example tag setups (the server has no opinion about your keys):
 No reserved keys. Convention only — the server validates shape, not
 names.
 
+**Canonical one-liner — the CLI's \`--upsert\` flag.** Looks up by
+\`--metadata\`, PUTs the matching slug if found, POSTs a fresh drop if
+not. This is the cloud-side equivalent of "give me a stable URL across
+pushes" — keep the same tag combination, get back the same slug
+forever:
+
 \`\`\`bash
-# Lookup → mutate (canonical recipe; works for any tag combination)
+# Stable PR-preview URL: same slug every push for this PR
+htmlbin publish ./out.html --upsert \\
+  --metadata repo=u/r --metadata pr=42 \\
+  --title "PR #42 preview"
+\`\`\`
+
+Equivalent done by hand against the HTTP API:
+
+\`\`\`bash
+# Lookup → mutate (works for any tag combination)
 EXISTING=$(curl -s -H "Authorization: Bearer $(cat .htmlbin/token)" \\
   "https://htmlbin.dev/api/drops?metadata.client=acme&metadata.project=rebrand" \\
   | jq -r '.data[0].slug // empty')
@@ -323,9 +399,10 @@ else
 fi
 \`\`\`
 
-There is intentionally **no** server-side upsert endpoint. If your
-shape can write in parallel for the same tag combination, serialize at
-the call site. For CI / PR previews specifically, set
+There is intentionally **no** server-side upsert endpoint — the lookup
+and the mutate are still two HTTP calls; the CLI just packages them.
+If your shape can write in parallel for the same tag combination,
+serialize at the call site. For CI / PR previews specifically, set
 \`concurrency: group: pr-\${{ github.event.pull_request.number }}\` on
 the GitHub Actions workflow. Other shapes (per-session, per-client)
 usually don't race.
