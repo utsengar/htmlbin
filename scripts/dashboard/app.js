@@ -132,11 +132,11 @@ function link(href, text) {
   return el("a", { href, class: "link" }, text);
 }
 
-function liveDropLink(slug) {
+function liveDropLink(slug, label) {
   return el("a", {
     href: `https://htmlbin.dev/p/${slug}`,
     target: "_blank", rel: "noopener", class: "link",
-  }, `/p/${slug}`);
+  }, label ?? `/p/${slug}`);
 }
 
 function userLinkFromRow(x) {
@@ -222,7 +222,7 @@ async function viewOverview() {
       el("h2", {}, "top drops by views"),
       table([
         { head: "slug", get: (d) => liveDropLink(d.slug) },
-        { head: "title", get: (d) => link(`#/d/${d.slug}`, d.title || "(no title)") },
+        { head: "title", get: (d) => d.title ? liveDropLink(d.slug, d.title) : "(no title)" },
         { head: "owner", get: (d) => userLinkFromRow(d) },
         { head: "views", get: (d) => num(d.view_count), align: "right" },
       ], data.top_drops),
@@ -293,10 +293,47 @@ function renderRisk(r, s, conv) {
 }
 
 // ── user detail ────────────────────────────────────────────────────
+async function fetchGithub(login) {
+  if (!login) return null;
+  try {
+    const r = await fetch(`https://api.github.com/users/${encodeURIComponent(login)}`);
+    if (!r.ok) return null;
+    return await r.json();
+  } catch {
+    return null;
+  }
+}
+
 async function viewUser(userId) {
   const data = await api(`/api/user/${encodeURIComponent(userId)}`);
   const u = data.user;
-  const handle = u.github_login ? `@${u.github_login}` : `user_${String(u.id).slice(0, 8)}`;
+  const gh = await fetchGithub(u.github_login);
+
+  const ghUrl = u.github_login ? `https://github.com/${u.github_login}` : null;
+  const displayName = gh?.name || (u.github_login ? `@${u.github_login}` : `user_${String(u.id).slice(0, 8)}`);
+  const handle = u.github_login ? `@${u.github_login}` : null;
+  const avatarUrl = gh?.avatar_url
+    ? `${gh.avatar_url}&s=192`.replace("&s=192&s=192", "&s=192")
+    : (u.github_login ? `https://github.com/${u.github_login}.png?size=192` : null);
+
+  const facts = [];
+  if (gh?.location) facts.push(`📍 ${gh.location}`);
+  if (gh?.company)  facts.push(`🏢 ${gh.company}`);
+  if (gh?.followers != null) facts.push(`${num(gh.followers)} followers`);
+  if (gh?.public_repos != null) facts.push(`${num(gh.public_repos)} repos`);
+
+  const extLinks = [];
+  if (gh?.blog) {
+    const href = /^https?:\/\//.test(gh.blog) ? gh.blog : `https://${gh.blog}`;
+    extLinks.push(el("a", { href, target: "_blank", rel: "noopener", class: "link" }, gh.blog.replace(/^https?:\/\//, "")));
+  }
+  if (gh?.twitter_username) {
+    extLinks.push(el("a", { href: `https://twitter.com/${gh.twitter_username}`, target: "_blank", rel: "noopener", class: "link" }, `@${gh.twitter_username} on x`));
+  }
+
+  const avatarImg = avatarUrl
+    ? el("img", { class: "avatar avatar-lg", src: avatarUrl, alt: "" })
+    : el("div", { class: "avatar avatar-lg avatar-placeholder" });
 
   const totals = {
     drops: data.drops.length,
@@ -310,17 +347,37 @@ async function viewUser(userId) {
   return el("div", { class: "page" },
     el("nav", { class: "crumbs" }, link("#/", "← overview")),
 
-    el("section", { class: "section user-head" },
-      u.github_login
-        ? el("img", { class: "avatar", src: `https://github.com/${u.github_login}.png?size=80`, alt: "" })
-        : el("div", { class: "avatar avatar-placeholder" }),
-      el("div", {},
-        el("h2", { class: "user-title" }, handle),
-        el("div", { class: "meta" },
-          `id: ${u.id} · joined ${fmtDate(u.created_at)} (${since(u.created_at)})`,
-          u.github_login
-            ? el("span", {}, " · ", el("a", { href: `https://github.com/${u.github_login}`, target: "_blank", rel: "noopener", class: "link" }, "github →"))
+    el("section", { class: "user-head" },
+      ghUrl
+        ? el("a", { href: ghUrl, target: "_blank", rel: "noopener", class: "avatar-link" }, avatarImg)
+        : avatarImg,
+      el("div", { class: "user-head-body" },
+        el("div", { class: "user-head-top" },
+          el("div", { class: "user-head-id" },
+            el("h2", { class: "user-title" }, displayName),
+            handle
+              ? el("div", { class: "user-handle" },
+                  ghUrl
+                    ? el("a", { href: ghUrl, target: "_blank", rel: "noopener", class: "link" }, handle)
+                    : handle,
+                )
+              : null,
+          ),
+          ghUrl
+            ? el("a", { href: ghUrl, target: "_blank", rel: "noopener", class: "btn-gh" },
+                el("span", { class: "gh-mark" }, "GH"),
+                "View on GitHub ↗",
+              )
             : null,
+        ),
+        gh?.bio ? el("p", { class: "user-bio" }, gh.bio) : null,
+        facts.length > 0 ? el("div", { class: "user-facts" }, facts.join(" · ")) : null,
+        extLinks.length > 0
+          ? el("div", { class: "user-ext-links" }, ...extLinks.flatMap((l, i) => i === 0 ? [l] : [" · ", l]))
+          : null,
+        el("div", { class: "user-meta-line" },
+          `htmlbin id: ${u.id} · joined ${fmtDate(u.created_at)} (${since(u.created_at)})`,
+          gh?.created_at ? ` · on github since ${fmtDate(new Date(gh.created_at).getTime())}` : null,
         ),
       ),
     ),
@@ -349,7 +406,7 @@ async function viewUser(userId) {
       el("h2", {}, `drops (${data.drops.length})`),
       table([
         { head: "slug", get: (d) => liveDropLink(d.slug) },
-        { head: "title", get: (d) => link(`#/d/${d.slug}`, d.title || "(no title)") },
+        { head: "title", get: (d) => d.title ? liveDropLink(d.slug, d.title) : "(no title)" },
         { head: "created", get: (d) => fmtDate(d.created_at) },
         { head: "updated", get: (d) => since(d.updated_at) },
         { head: "v", get: (d) => num(d.latest_version), align: "right" },
