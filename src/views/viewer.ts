@@ -229,8 +229,8 @@ ${
   </div>
   <div class="vmenu" id="vmenu" role="listbox"></div>
 </header>
-<div class="ugc-note" title="htmlbin hosts user-authored HTML. Content is published by an agent, not by htmlbin.">
-  hosted by <a href="/">htmlbin</a> · published by ${
+<div class="ugc-note" title="htmlbin hosts user-authored HTML. Content is authored by an agent, not by htmlbin.">
+  hosted by <a href="/">htmlbin</a> · content authored by ${
     state.authorLogin
       ? `<a href="https://github.com/${escapeHtml(state.authorLogin)}" target="_blank" rel="noopener noreferrer">@${escapeHtml(state.authorLogin)}</a>'s agent`
       : `an agent`
