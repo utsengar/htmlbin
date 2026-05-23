@@ -32,6 +32,15 @@ export function buildOnboardJson(publicUrl: string): object {
       llms_txt: `${publicUrl}/llms.txt`,
       onboard_markdown: `${publicUrl}/api/onboard (Accept: text/markdown)`,
     },
+    cli: {
+      package: "@htmlbin/cli",
+      install: "npm i -g @htmlbin/cli (or: npx -y @htmlbin/cli@latest <subcommand>)",
+      runtime: "Node 20+",
+      summary:
+        "First-party CLI. Wraps every endpoint below, packages the token-resolution order, and auto-emits JSON when invoked from a coding-agent runner (CLAUDE_CODE / CURSOR_AGENT / CODEX / AIDER / ...). Stable exit codes (0=ok, 2=auth, 3=forbidden, 4=not_found, 5=rate_limit, 6=size, 7=bad_input, 8=network). The bracketed `error.code` on stderr mirrors this API's error.code shape.",
+      cloud_only_flags:
+        "--metadata and --upsert are cloud-only. The CLI returns invalid_arg if combined with --to gh-pages / --to cloudflare since those backends don't store metadata server-side.",
+    },
     error_shape: {
       description:
         "Every 4xx/5xx response uses this canonical shape. Switch on `code`, not on `message`.",
@@ -124,6 +133,17 @@ export function buildOnboardJson(publicUrl: string): object {
       },
       returns: "Drop (see drop_shape)",
       status: 201,
+      cli: {
+        command: "htmlbin publish <file>",
+        flags: {
+          "--title <text>": "Sets `title` (defaults to filename).",
+          "--description <text>": "Sets `description`.",
+          "--metadata <k=v>":
+            "Repeatable; up to 10. Sets `metadata`. Cloud only.",
+          "--upsert":
+            "Lookup-by-metadata first; PUT if a drop matches, POST if not. Requires at least one --metadata pair. Cloud only. Returns `matched: true|false` alongside `slug`/`url` in JSON mode.",
+        },
+      },
     },
     iterate: {
       description:
@@ -153,6 +173,22 @@ export function buildOnboardJson(publicUrl: string): object {
         returns: "Drop (latest_version unchanged)",
         note: "Including `html` here returns 400 metadata_only_on_patch — use PUT.",
       },
+      cli: {
+        command: "htmlbin update <slug>",
+        flags: {
+          "--file <path>":
+            "New HTML body. Presence of this flag is what selects PUT (new version) vs PATCH (without it: metadata only).",
+          "--title <text>": "New title.",
+          "--description <text>": "New description.",
+          "--metadata <k=v>":
+            "Repeatable. Replaces the whole metadata map. Mutually exclusive with --clear-metadata.",
+          "--clear-metadata":
+            "Explicit clear; sends metadata: {}. Mutually exclusive with --metadata.",
+        },
+        dispatch:
+          "With --file: PUT /api/drops/<slug> (new version). Without --file: PATCH /api/drops/<slug> (metadata-only, latest_version unchanged).",
+        cloud_only: true,
+      },
     },
     list_my_drops: {
       method: "GET",
@@ -175,6 +211,15 @@ export function buildOnboardJson(publicUrl: string): object {
           sort_order: "string",
         },
       },
+      cli: {
+        command: "htmlbin list",
+        flags: {
+          "--metadata <k=v>":
+            "Repeatable. AND-filters by metadata. Cloud only.",
+          "--limit <n>": "Cap the row count.",
+          "-n <n>": "Alias for --limit.",
+        },
+      },
       lookup_then_mutate: {
         description:
           "Recipe for finding a drop you previously tagged and updating it without storing slugs client-side: GET filter, then PUT if a drop matches, otherwise POST. Works for any tag combination, not just CI / PR previews — the metadata field is free-form.",
@@ -183,6 +228,12 @@ export function buildOnboardJson(publicUrl: string): object {
           "if data[0]: PUT /api/drops/<data[0].slug> with the new html",
           "else:       POST /api/drops with html + metadata",
         ],
+        cli_one_liner: {
+          command:
+            "htmlbin publish <file> --upsert --metadata <k1>=<v1> --metadata <k2>=<v2>",
+          note:
+            "The CLI's --upsert flag packages the entire lookup-then-mutate dance into one command. There is still no server-side upsert endpoint — the CLI just runs the two HTTP calls for you and surfaces `matched: true|false` in JSON mode. Recommended path for stable cloud URLs across CI pushes (use `repo` + `pr` as the tag combination).",
+        },
         example_tag_setups: [
           { repo: "u/r", pr: "42" },
           { session_id: "<chat-id>", kind: "deck" },
@@ -316,6 +367,26 @@ htmlbin is built for agents: the workflow below is the canonical, fastest path.
 4. POST /api/drops (Bearer api_token) → upload HTML, receive a public URL
 
 The api_token is shown exactly once. Store it for reuse on this machine.
+
+## Using the CLI
+
+\`@htmlbin/cli\` (Node 20+) wraps every endpoint here. It auto-detects
+coding-agent runners (\`CLAUDE_CODE\`, \`CURSOR_AGENT\`, \`CODEX\`, \`AIDER\`,
+…) and switches to JSON output without a flag. Exit codes are stable
+(0=ok, 2=auth, 3=forbidden, 4=not_found, 5=rate_limit, 6=size, 7=bad_input,
+8=network); the bracketed \`error.code\` on stderr mirrors this API's
+\`error.code\`. Prefer it to hand-rolled curl when reachable.
+
+\`\`\`bash
+npx -y @htmlbin/cli@latest publish ./out.html --title "PR #42 preview"
+npx -y @htmlbin/cli@latest publish ./out.html --upsert --metadata repo=u/r --metadata pr=42
+npx -y @htmlbin/cli@latest update <slug> --file ./newer.html       # PUT (new version)
+npx -y @htmlbin/cli@latest update <slug> --title "Renamed"         # PATCH (metadata only)
+npx -y @htmlbin/cli@latest list --metadata kind=spec --metadata status=draft
+\`\`\`
+
+\`--metadata\` and \`--upsert\` are cloud-only — the CLI returns
+\`invalid_arg\` when combined with \`--to gh-pages\` / \`--to cloudflare\`.
 
 ## Naming + error conventions
 
@@ -452,6 +523,16 @@ Including \`html\` in a PATCH returns \`400 metadata_only_on_patch\`.
 
 Humans switch versions in the viewer with \`?v=N\`. Default = latest.
 
+The CLI collapses both into one subcommand — \`htmlbin update <slug>\`
+dispatches PUT when \`--file\` is present, PATCH otherwise:
+
+\`\`\`bash
+htmlbin update <slug> --file /tmp/htmlbin.html      # PUT — mints v(n+1)
+htmlbin update <slug> --title "Better title"        # PATCH — metadata only
+htmlbin update <slug> --metadata status=merged      # PATCH — replace map
+htmlbin update <slug> --clear-metadata              # PATCH — metadata = {}
+\`\`\`
+
 ## Context (optional, opt-in)
 
 The \`context\` field on POST/PUT lets you record the prompt, reasoning,
@@ -479,9 +560,18 @@ about your keys):
 - \`{kind: "spec", topic: "auth-rewrite"}\` — buckets you can list later.
 
 The canonical recipe is **lookup → mutate**: GET with metadata filters,
-then PUT to the slug if a drop matches, otherwise POST a fresh one.
-There is intentionally no server-side upsert; serialize at the call
-site if your shape can race in parallel.
+then PUT to the slug if a drop matches, otherwise POST a fresh one. The
+CLI's \`--upsert\` flag packages those two HTTP calls into one command:
+
+\`\`\`bash
+# One-shot: stable URL across pushes for one PR
+htmlbin publish ./out.html --upsert \\
+  --metadata repo=u/r --metadata pr=42 \\
+  --title "PR #42 preview"
+\`\`\`
+
+There is intentionally no server-side upsert endpoint — the CLI is
+running the same two HTTP calls below. Either path is fine.
 
 \`\`\`bash
 # Publish with tags
@@ -514,10 +604,11 @@ else
 fi
 \`\`\`
 
-For the CI / PR-preview shape specifically, parallel runs for the same
-PR can race the GET. In GitHub Actions, set
+If your shape can write in parallel for the same tag combination,
+serialize at the call site. In GitHub Actions, set
 \`concurrency: group: pr-\${{ github.event.pull_request.number }}\`
-on the workflow.
+on the workflow. The CLI's \`--upsert\` flag races the same way the
+hand-rolled lookup → mutate does, since it runs the same two HTTP calls.
 
 Limits: ≤10 keys, ≤64 chars per key (alphanumerics, \`_\`, \`.\`, \`-\`;
 no leading or trailing punctuation), ≤256 chars per value. Values must
