@@ -1,26 +1,74 @@
 import type { Bindings } from "../types";
-import { httpMemo, pageFoot, pageHead } from "./chrome";
+import { httpMemo, pageHead } from "./chrome";
 import { STYLE_HREF } from "../styles";
 
-// Curated "what people are building" list, rendered below the prompt
-// block. Edit this array + redeploy to rotate. Captions are mono and
-// hand-curated — they don't read from the drop's stored title.
-const EXAMPLES: Array<{ slug: string; caption: string }> = [
-  { slug: "gDMy7Vb", caption: "how htmlbin works" },
-  { slug: "1Wyf23j", caption: "cross-platform gstack — pr #1111" },
-  { slug: "ztx4J9P", caption: "workers nav — three redesigns" },
-  { slug: "i2taphP", caption: "google logo — animation playground" },
+// Curated "what people are building" list, rendered below the tool
+// section. Edit this array + redeploy to rotate. Captions and `kind`
+// labels are hand-curated — they don't read from the drop's stored
+// title. The `kind` column on the right gives the list a visible range
+// (explainer / pr writeup / design / playful / plan-spec) so it reads
+// as proof-of-breadth, not just "four random links."
+const EXAMPLES: Array<{ slug: string; caption: string; kind: string }> = [
+  {
+    slug: "gDMy7Vb",
+    caption: "how htmlbin works — an animated explainer",
+    kind: "explainer",
+  },
+  {
+    slug: "1Wyf23j",
+    caption: "cross-platform gstack — pr #1111 deep dive",
+    kind: "pr writeup",
+  },
+  {
+    slug: "ztx4J9P",
+    caption: "workers nav — three redesigns side by side",
+    kind: "design",
+  },
+  {
+    slug: "i2taphP",
+    caption: "google logo — animation playground",
+    kind: "playful",
+  },
+  {
+    slug: "HYmZ6DjCM",
+    caption: "plan: queryable drop metadata",
+    kind: "plan / spec",
+  },
 ];
 
-// The single prompt payload. We deliberately don't show alternative
-// "tabs" — an `npx htmlbin` command would advertise a CLI we don't
-// ship, and a `curl …` line gets flagged as unsafe by careful agents.
-// One real, end-to-end path is better than two cosmetic ones — this
-// prompt produces a visible artifact the human can paste, run, and
-// click through.
+// The two prompt-tab payloads. We deliberately serve two — "one thing
+// to copy" is preserved because at any moment exactly one tab is
+// active, and the copy buttons read whichever one is selected. Plain
+// strings here are the clipboard payloads; the visible HTML below
+// hand-wires the same content with <span class="em"> accents for color.
+//
+// Keep these in sync with the prompt-body HTML further down — if you
+// edit one, edit the other.
 const AGENT_PROMPT = `Make a delightful HTML page to explain a concept or a problem — show me what HTML can do that markdown or a flat file can't. Something visual, interactive, alive.
 
 Publish to htmlbin.dev. Credentials and API at htmlbin.dev/api/onboard.`;
+
+// Clipboard form — paste-and-run. The visible CLI panel keeps the `$ `
+// prompt prefix and the `→ URL` result line as visual signposts, but
+// neither belongs in what we copy: `$` is the shell prompt indicator,
+// and `→ https://…` is example output, not a command. The echo line
+// creates a tiny sample file so the publish actually succeeds — without
+// it, `publish out.html` would fail with file-not-found. Comments stay:
+// bash ignores `#` lines, so they're harmless on paste and useful for
+// context.
+const CLI_PROMPT = `# one-time — GitHub device-code, ~30s
+npx @htmlbin/cli login
+
+# create a sample page and publish it
+echo '<h1>hello from htmlbin</h1>' > out.html
+npx @htmlbin/cli publish out.html`;
+
+// Tool-section copy button. Same shape as CLI_PROMPT but the global
+// install path (npm i -g, then bare `htmlbin`). End-to-end paste-and-run.
+const TOOL_SETUP = `npm i -g @htmlbin/cli
+htmlbin login
+echo '<h1>hello from htmlbin</h1>' > out.html
+htmlbin publish out.html`;
 
 export function landingPage(env: Bindings): string {
   const PUBLIC_URL = env.PUBLIC_URL;
@@ -81,7 +129,7 @@ export function landingPage(env: Bindings): string {
 <link rel="preload" as="font" type="font/woff2" href="/fonts/GeistMono-500.woff2" crossorigin="anonymous" />
 <script type="application/ld+json">${jsonLd}</script>
 </head>
-<body>
+<body class="landing">
 
 ${pageHead({ verb: "GET", path: "/" })}
 
@@ -110,28 +158,57 @@ ${pageHead({ verb: "GET", path: "/" })}
   </section>
 
   <section class="body">
-    <p class="prompt-cue">↓ paste into your agent</p>
+    <p class="prompt-cue">↓ paste into your agent — or pop open a terminal</p>
 
     <div class="prompt">
       <div class="prompt-chrome">
         <span class="dots" aria-hidden="true">
           <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
         </span>
-        <button
-          class="prompt-mark js-copy-prompt"
-          type="button"
-          data-copy="${escapeAttr(AGENT_PROMPT)}"
-          aria-label="Copy the prompt to your clipboard"
-        >
-          <svg class="prompt-mark-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="square" aria-hidden="true"><rect x="8" y="8" width="11" height="11"/><path d="M5 14V5h9"/></svg>
-          <svg class="prompt-mark-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M5 12.5l4.2 4.2L19 7"/></svg>
-          <span class="lbl">copy</span>
-        </button>
+        <div class="prompt-chrome-right">
+          <div class="tabs" role="tablist" aria-label="Choose how to publish">
+            <button
+              class="tab active"
+              type="button"
+              role="tab"
+              data-tab="agent"
+              aria-selected="true"
+            >agent</button>
+            <button
+              class="tab"
+              type="button"
+              role="tab"
+              data-tab="cli"
+              aria-selected="false"
+            >cli</button>
+          </div>
+          <button
+            class="prompt-mark js-copy-prompt"
+            type="button"
+            data-copy="${escapeAttr(AGENT_PROMPT)}"
+            aria-label="Copy the prompt to your clipboard"
+          >
+            <svg class="prompt-mark-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="square" aria-hidden="true"><rect x="8" y="8" width="11" height="11"/><path d="M5 14V5h9"/></svg>
+            <svg class="prompt-mark-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M5 12.5l4.2 4.2L19 7"/></svg>
+            <span class="lbl">copy</span>
+          </button>
+        </div>
       </div>
       <div class="prompt-body">
+        <div class="tab-panel active" data-panel="agent" role="tabpanel">
 <pre>Make a delightful HTML page to explain a concept or a problem — show me what HTML can do that markdown or a flat file can't. Something visual, interactive, alive.
 
 Publish to <span class="em">htmlbin.dev</span>. Credentials and API at <span class="em">htmlbin.dev/api/onboard</span>.</pre>
+        </div>
+        <div class="tab-panel" data-panel="cli" role="tabpanel">
+<pre><span class="cmt"># one-time — GitHub device-code, ~30s</span>
+$ npx <span class="em">@htmlbin/cli</span> login
+
+<span class="cmt"># create a sample page and publish it</span>
+$ echo '<span class="em">&lt;h1&gt;hello from htmlbin&lt;/h1&gt;</span>' &gt; out.html
+$ npx <span class="em">@htmlbin/cli</span> publish out.html
+<span class="arr">→</span> <span class="em">https://htmlbin.dev/p/aB3xK7g</span></pre>
+        </div>
       </div>
     </div>
 
@@ -145,31 +222,138 @@ Publish to <span class="em">htmlbin.dev</span>. Credentials and API at <span cla
     </p>
   </section>
 
+  <section class="tool" aria-label="The CLI">
+    <p class="tool-eyebrow">tool /</p>
+    <p class="term-lede">Or pop open a terminal.</p>
+    <p class="term-sub">The CLI is your one-verb shortcut to the API — versioning, tags, patterns, passcodes, all in one binary.</p>
+
+    <div class="term-block">
+      <button
+        class="term-copy js-term-copy"
+        type="button"
+        data-copy="${escapeAttr(TOOL_SETUP)}"
+        aria-label="Copy the install, login, and publish commands"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="square" aria-hidden="true"><rect x="8" y="8" width="11" height="11"/><path d="M5 14V5h9"/></svg>
+        <span class="lbl">copy</span>
+      </button>
+<span class="ln"><span class="cmt"># install</span></span>
+<span class="ln">$ npm i -g <span class="pkg">@htmlbin/cli</span></span>
+<span class="ln"></span>
+<span class="ln"><span class="cmt"># one-time — GitHub device-code, ~30s</span></span>
+<span class="ln">$ htmlbin <span class="key">login</span></span>
+<span class="ln"></span>
+<span class="ln"><span class="cmt"># create a sample page and publish it</span></span>
+<span class="ln">$ echo '<span class="em">&lt;h1&gt;hello from htmlbin&lt;/h1&gt;</span>' &gt; out.html</span>
+<span class="ln">$ htmlbin <span class="key">publish</span> out.html</span>
+<span class="ln"><span class="arr">→</span> <span class="em">https://htmlbin.dev/p/aB3xK7g</span></span>
+    </div>
+
+    <p class="caps-cue">— and there's more under the hood</p>
+
+    <div class="caps">
+
+      <div class="cap">
+        <div class="eb">versions</div>
+        <h3>Iterate. Slug stays put.</h3>
+        <p>Every publish mints a new version of the same drop. Pin any past one with <code>?v=N</code>.</p>
+<div class="mini"><span class="cmt"># republish — same slug, v2 lands</span>
+$ htmlbin <span class="key">publish</span> ./out.html
+<span class="arr">→</span> <span class="em">/p/aB3xK7g</span> (v2)</div>
+      </div>
+
+      <div class="cap">
+        <div class="eb">tags &amp; queries</div>
+        <h3>Find drops by anything.</h3>
+        <p>Attach any string tag at publish; query your library by any combination, anytime.</p>
+<div class="mini"><span class="cmt"># tag and query — any string keys</span>
+$ htmlbin <span class="key">publish</span> ./out.html --tag <span class="em">kind=plan</span>
+$ htmlbin <span class="key">list</span> --filter <span class="em">kind=plan</span></div>
+      </div>
+
+      <div class="cap">
+        <div class="eb">patterns</div>
+        <h3>Pluggable templates.</h3>
+        <p>Pre-shaped drop kinds for recurring use cases. Install the catalog or write your own.</p>
+<div class="mini"><span class="cmt"># grab the official catalog</span>
+$ htmlbin <span class="key">patterns</span> init
+$ htmlbin <span class="key">patterns</span> add <span class="em">pr-explainer</span></div>
+      </div>
+
+      <div class="cap">
+        <div class="eb">passcodes</div>
+        <h3>Share-gate any drop.</h3>
+        <p>Public by default. Drop a passcode in front of the viewer when it shouldn't be open.</p>
+<div class="mini"><span class="cmt"># gate a drop</span>
+$ htmlbin <span class="key">publish</span> ./out.html \\
+   --passcode <span class="em">hunter2</span></div>
+      </div>
+
+    </div>
+
+    <div class="term-foot">
+      <a href="https://github.com/utsengar/htmlbin-cli" target="_blank" rel="noopener noreferrer">@htmlbin/cli on github</a>
+      <span class="sep">·</span>
+      <a href="https://github.com/utsengar/htmlbin-cli#readme" target="_blank" rel="noopener noreferrer">readme</a>
+      <span class="sep">·</span>
+      <span>node 20+</span>
+    </div>
+  </section>
+
   <section class="examples" aria-label="Example drops">
     <p class="cue">↓ a few drops people have made</p>
     <ul>
       ${EXAMPLES.map(
-        (ex) => `<li><a href="/p/${ex.slug}"><span class="slug">/p/${ex.slug}</span><span class="caption">${escapeText(ex.caption)}</span></a></li>`,
+        (ex) =>
+          `<li><a href="/p/${ex.slug}"><span class="slug">/p/${ex.slug}</span><span class="caption">${escapeText(ex.caption)}</span><span class="kind">${escapeText(ex.kind)}</span></a></li>`,
       ).join("\n      ")}
     </ul>
   </section>
 
-  <div class="signoff">
-    <div class="sig">htmlbin</div>
-    <div>
-      <a href="/.well-known/agent-card.json">agent-card</a> &nbsp; · &nbsp;
+  <div class="footer-merged">
+    <span class="sig">htmlbin</span>
+    <span class="links">
+      <a href="/.well-known/agent-card.json">agent-card</a>
+      <span class="sep">·</span>
       <a href="/api/onboard">/api/onboard</a>
-    </div>
+      <span class="sep">·</span>
+      <a href="https://x.com/utsengar" target="_blank" rel="noopener noreferrer">@utsengar</a>
+    </span>
   </div>
 </main>
 
-${pageFoot(HOST)}
-
 <script>
 (function () {
-  var btns = document.querySelectorAll('.js-copy-prompt');
-  if (!btns.length) return;
-  btns.forEach(function (btn) {
+  // ----- prompt tab switcher (agent / cli) -----
+  // Plain strings — what gets written to the clipboard when each tab is
+  // active. Visible HTML is hand-wired in markup above; keep both in sync.
+  var PROMPTS = {
+    agent: ${JSON.stringify(AGENT_PROMPT)},
+    cli:   ${JSON.stringify(CLI_PROMPT)}
+  };
+  var tabs = document.querySelectorAll('.tab');
+  var panels = document.querySelectorAll('.tab-panel');
+  var copyBtns = document.querySelectorAll('.js-copy-prompt');
+  var ctaLbl = document.querySelector('.copy-cta .lbl');
+
+  function setActive(name) {
+    tabs.forEach(function (t) {
+      var on = t.dataset.tab === name;
+      t.classList.toggle('active', on);
+      t.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    panels.forEach(function (p) {
+      p.classList.toggle('active', p.dataset.panel === name);
+    });
+    copyBtns.forEach(function (b) { b.dataset.copy = PROMPTS[name] || ''; });
+    if (ctaLbl) ctaLbl.textContent = name === 'cli' ? 'Copy command' : 'Copy prompt';
+  }
+  tabs.forEach(function (t) {
+    t.addEventListener('click', function () { setActive(t.dataset.tab); });
+  });
+
+  // ----- copy buttons (prompt-mark in chrome + big red copy-cta below) -----
+  copyBtns.forEach(function (btn) {
     var lbl = btn.querySelector('.lbl');
     var original = lbl ? lbl.textContent : '';
     var doneLabel = btn.classList.contains('prompt-mark') ? 'copied' : 'Copied';
@@ -178,6 +362,23 @@ ${pageFoot(HOST)}
         await navigator.clipboard.writeText(btn.dataset.copy || '');
         btn.classList.add('ok');
         if (lbl) lbl.textContent = doneLabel;
+        setTimeout(function () {
+          btn.classList.remove('ok');
+          if (lbl) lbl.textContent = original;
+        }, 1600);
+      } catch (e) {}
+    });
+  });
+
+  // ----- tool-section copy button (install + login + publish setup) -----
+  document.querySelectorAll('.js-term-copy').forEach(function (btn) {
+    var lbl = btn.querySelector('.lbl');
+    var original = lbl ? lbl.textContent : 'copy';
+    btn.addEventListener('click', async function () {
+      try {
+        await navigator.clipboard.writeText(btn.dataset.copy || '');
+        btn.classList.add('ok');
+        if (lbl) lbl.textContent = 'copied';
         setTimeout(function () {
           btn.classList.remove('ok');
           if (lbl) lbl.textContent = original;

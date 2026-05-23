@@ -105,24 +105,76 @@ a:hover { color: var(--red); text-decoration-color: var(--red); }
   margin-left: 2px;
 }
 .crumb .ver::before { content: "·"; padding-right: 6px; color: var(--ink-softer); }
+/* head-meta is itself the pill — light paper surface, hairline rule —
+   holding the install command + separator + /api/onboard. Wrapping both
+   in one container removes the "two different visual weights with a
+   gulf between them" problem the earlier two-pill-vs-bare-link version
+   had. Hidden on mobile via the @media rule below. */
 .head-meta {
-  display: flex; gap: 14px; color: var(--ink-soft);
-  flex-wrap: wrap; flex-shrink: 0;
+  display: inline-flex; align-items: center;
+  gap: 10px;
+  background: var(--bg-2);
+  border: 1px solid var(--rule);
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-family: var(--mono); font-size: 12px;
+  color: var(--ink-soft);
+  flex-shrink: 0;
 }
-.head-meta a { text-decoration: none; }
+.head-meta a { text-decoration: none; color: var(--ink-soft); font-size: 12px; }
 .head-meta a:hover { color: var(--red); }
+.head-meta .sep { color: var(--ink-softer); }
+
+/* The install command inside .head-meta. No more chrome of its own —
+   the container provides the pill surface. Click copies. */
+.cli-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-family: var(--mono); font-size: 12px;
+  color: var(--ink);
+  letter-spacing: 0.01em;
+  user-select: none;
+  cursor: pointer;
+  transition: color 0.12s;
+}
+.cli-pill .dollar { color: var(--ink-softer); }
+.cli-pill .pkg { color: var(--red); }
+.cli-pill .copy-icon {
+  display: inline-flex; padding: 2px;
+  color: var(--ink-softer);
+  transition: color 0.12s;
+}
+.cli-pill .copy-icon svg { width: 10px; height: 10px; flex: 0 0 auto; }
+.cli-pill:hover .copy-icon { color: var(--red); }
+.cli-pill.ok { color: var(--green-dot); }
+.cli-pill.ok .pkg { color: var(--green-dot); }
+.cli-pill.ok .copy-icon { color: var(--green-dot); }
+
 @media (max-width: 720px) {
   .page-head .row { padding: 10px 22px; }
   .crumb .path { max-width: 18ch; }
   .head-meta { display: none; }   /* on mobile, the breadcrumb stands alone */
 }
 
-/* ---------- main column ---------- */
+/* ---------- main column ----------
+   Default 720px is the long-form / essay width — right for /manifesto,
+   /verify, /404, and the viewer-chrome pages. The landing overrides to
+   880px (see body.landing rule below) so the tabbed prompt slab and the
+   2×2 capability grid get real room. */
 main {
   max-width: 720px;
   margin: 0 auto;
   padding: 28px 28px 96px;   /* tight gap to the breadcrumb above */
 }
+
+/* Landing-scoped width override. Wider container for the prompt slab,
+   the tool section, and the capability grid; the header expands to
+   match so it doesn't look like the modeline floats off-axis from the
+   content below. Other pages stay at the narrower default. */
+body.landing .page-head .row,
+body.landing main { max-width: 880px; }
 @media (max-width: 720px) {
   .page-head .row { padding: 18px 22px 0; }
   main { padding: 22px 22px 80px; }
@@ -355,8 +407,49 @@ code, .mono {
 }
 .prompt-mark.ok .prompt-mark-icon { display: none; }
 .prompt-mark.ok .prompt-mark-check { display: inline-block; }
+
+/* Tab switcher inside the prompt-chrome. Two tabs (agent / cli) replace
+   the previous static "claude" pill — different active panels, same slab.
+   Lives to the left of .prompt-mark inside .prompt-chrome-right. */
+.prompt-chrome-right { display: inline-flex; align-items: center; }
+.tabs {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 7px;
+  margin-right: 8px;
+}
+.tab {
+  font: 500 11.5px/1 var(--mono);
+  padding: 5px 11px;
+  border-radius: 5px;
+  color: rgba(250,250,250,0.55);
+  background: transparent; border: none;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  transition: background 0.12s, color 0.12s;
+}
+.tab:hover { color: rgba(250,250,250,0.85); }
+.tab.active { color: var(--code-fg); background: rgba(255,255,255,0.14); }
+.tab:focus-visible { outline: 1px solid var(--code-em); outline-offset: 2px; }
+
+/* Both tab-panels share the same grid cell so the slab sizes to the
+   TALLER of the two and the container height stays constant across
+   tab switches. Inactive panel is hidden via visibility (still occupies
+   the cell) instead of display:none (would collapse the cell and make
+   the page jump on every toggle). */
 .prompt-body {
   padding: 18px 22px 22px;
+  display: grid;
+}
+.tab-panel {
+  grid-area: 1 / 1;
+  visibility: hidden;
+  pointer-events: none;
+}
+.tab-panel.active {
+  visibility: visible;
+  pointer-events: auto;
 }
 .prompt-body pre {
   font-family: var(--mono);
@@ -395,6 +488,141 @@ code, .mono {
   margin: 0 0 18px;
 }
 
+/* ---------- tool / section ----------
+   "Or pop open a terminal." — surfaces the CLI as developer-tool moment
+   without anchoring on CI. Spine code block (install → login → publish)
+   plus a 2×2 capability grid (versions / tags & queries / patterns /
+   passcodes) for breadth. All four tiles equal height; mini-code pinned
+   to the tile floor regardless of prose-line variance. */
+.tool { margin-top: 64px; }
+.tool-eyebrow {
+  font-family: var(--mono); font-size: 11px;
+  color: var(--red); letter-spacing: 0.08em;
+  text-transform: uppercase; font-weight: 500;
+  margin: 0 0 14px;
+}
+.term-lede {
+  font-size: 24px; line-height: 1.3; color: var(--ink);
+  max-width: 42ch; margin: 0 0 6px;
+  font-weight: 600; letter-spacing: -0.018em;
+}
+.term-sub {
+  font-size: 15.5px; line-height: 1.55; color: var(--ink-soft);
+  max-width: 54ch; margin: 0 0 24px;
+}
+.term-block {
+  position: relative;
+  background: var(--code-bg); color: var(--code-fg);
+  border-radius: 8px; padding: 20px 22px;
+  font-family: var(--mono); font-size: 13px; line-height: 1.85;
+  margin: 0 0 32px;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.04), 0 8px 20px -14px rgba(0,0,0,0.22);
+}
+.term-block .ln { display: block; }
+.term-block .cmt { color: var(--code-dim); }
+.term-block .em  { color: var(--code-em); }
+.term-block .arr { color: #34D058; }
+.term-block .key { color: #82B1FF; }
+.term-block .pkg { color: var(--code-em); }
+.term-copy {
+  position: absolute; top: 14px; right: 14px;
+  display: inline-flex; align-items: center; gap: 6px;
+  font: 500 11px/1 var(--mono);
+  padding: 5px 10px 5px 8px;
+  border-radius: 5px; border: none;
+  background: rgba(255,255,255,0.08);
+  color: rgba(250,250,250,0.7);
+  cursor: pointer; letter-spacing: 0.02em;
+  transition: background 0.12s, color 0.12s;
+  -webkit-tap-highlight-color: transparent;
+}
+.term-copy:hover { background: rgba(255,255,255,0.14); color: #fff; }
+.term-copy:focus-visible { outline: 1px solid var(--code-em); outline-offset: 2px; }
+.term-copy svg { width: 10px; height: 10px; }
+.term-copy.ok { background: rgba(40, 200, 64, 0.18); color: #34D058; }
+
+.caps-cue {
+  font: 500 11px/1.2 var(--mono);
+  color: var(--ink-softer);
+  letter-spacing: 0.08em; text-transform: uppercase;
+  margin: 48px 0 14px;
+}
+.caps {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-auto-rows: 1fr;
+  gap: 0;
+  border-top: 1px solid var(--rule);
+  border-left: 1px solid var(--rule);
+  margin: 0 0 28px;
+}
+.cap {
+  display: flex; flex-direction: column;
+  padding: 24px 22px;
+  border-right: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  background: var(--bg);
+  transition: background 0.12s;
+}
+.cap:hover { background: var(--bg-2); }
+.cap .eb {
+  font-family: var(--mono); font-size: 10.5px;
+  color: var(--ink-softer); letter-spacing: 0.1em;
+  text-transform: uppercase; font-weight: 400;
+  margin: 0 0 10px;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.cap .eb::before {
+  content: ""; width: 5px; height: 5px;
+  background: var(--red); border-radius: 50%;
+  display: inline-block;
+}
+.cap h3 {
+  font-family: var(--sans); font-size: 17px; font-weight: 600;
+  letter-spacing: -0.012em; line-height: 1.25;
+  color: var(--ink); margin: 0 0 8px;
+}
+.cap p {
+  font-size: 14px; line-height: 1.55; color: var(--ink-soft);
+  margin: 0 0 16px; flex: 1 1 auto;
+}
+.cap p code {
+  background: var(--bg-2);
+  border: 1px solid var(--rule);
+  padding: 1px 5px; border-radius: 3px;
+  font-size: 12px; color: var(--ink-2);
+  font-family: var(--mono);
+}
+.cap .mini {
+  font-family: var(--mono); font-size: 12px; line-height: 1.7;
+  color: var(--ink-2);
+  background: var(--bg-2);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 8px 12px;
+  margin: auto 0 0;
+  white-space: pre;
+  overflow-x: auto;
+}
+.cap .mini .em  { color: var(--red); }
+.cap .mini .cmt { color: var(--ink-softer); }
+.cap .mini .arr { color: var(--green-dot); }
+.cap .mini .key { color: #3B6EE8; }
+
+.term-foot {
+  display: flex; gap: 18px; padding-top: 12px;
+  font: 500 12.5px/1.4 var(--mono);
+  color: var(--ink-soft); flex-wrap: wrap;
+}
+.term-foot a { color: var(--ink); text-decoration: underline; text-decoration-color: var(--rule); text-underline-offset: 3px; }
+.term-foot a:hover { color: var(--red); text-decoration-color: var(--red); }
+.term-foot .sep { color: var(--ink-softer); }
+
+@media (max-width: 600px) {
+  .caps { grid-template-columns: 1fr; grid-auto-rows: auto; }
+  .cap .mini { white-space: pre-wrap; }
+}
+
 /* ---------- examples index ----------
    A subtle "what people are building" list below the prompt block.
    Reads as a directory listing, not a card grid. Two-column row:
@@ -418,24 +646,32 @@ code, .mono {
 }
 .examples a {
   display: grid;
-  grid-template-columns: 13ch 1fr;
+  grid-template-columns: 13ch 1fr 14ch;
   gap: 18px;
   font-family: var(--mono);
   font-size: 13px;
   color: var(--ink);
   text-decoration: none;
   padding: 4px 0;
+  align-items: baseline;
   transition: color 0.12s;
 }
 .examples a .slug { color: var(--ink-soft); }
+.examples a .kind {
+  color: var(--ink-softer); text-align: right;
+  font-size: 10.5px; letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
 .examples a:hover,
-.examples a:hover .slug { color: var(--red); }
-@media (max-width: 480px) {
+.examples a:hover .slug,
+.examples a:hover .kind { color: var(--red); }
+@media (max-width: 600px) {
   .examples a {
     grid-template-columns: 11ch 1fr;
     gap: 12px;
     font-size: 12.5px;
   }
+  .examples a .kind { display: none; }
 }
 
 /* ---------- forms ---------- */
@@ -495,6 +731,28 @@ button.primary:hover { background: var(--red); border-color: var(--red); }
 .signoff .sig::before { content: "— "; color: var(--red); }
 .signoff a { color: var(--ink-soft); text-decoration: none; }
 .signoff a:hover { color: var(--red); }
+
+/* Merged footer — landing-only.
+   Replaces the stacked .signoff + footer.tail pair (which read as two
+   near-identical mono strips) with one row carrying brand sigil +
+   discovery links + project credit. Other pages still use .signoff +
+   pageFoot() until a later sweep harmonizes them. */
+.footer-merged {
+  margin-top: 64px; padding-top: 22px;
+  border-top: 1px solid var(--rule);
+  font-family: var(--mono); font-size: 13px; color: var(--ink-soft);
+  display: flex; align-items: baseline; justify-content: space-between;
+  flex-wrap: wrap; gap: 14px;
+}
+.footer-merged .sig { color: var(--ink); font-weight: 500; }
+.footer-merged .sig::before { content: "— "; color: var(--red); }
+.footer-merged .links {
+  display: inline-flex; gap: 14px;
+  align-items: baseline; flex-wrap: wrap;
+}
+.footer-merged .links a { color: var(--ink-soft); text-decoration: none; }
+.footer-merged .links a:hover { color: var(--red); }
+.footer-merged .sep { color: var(--ink-softer); }
 
 footer.tail {
   background: transparent;
