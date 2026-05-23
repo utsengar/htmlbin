@@ -300,6 +300,70 @@ The viewer exposes it under a discreet "context" disclosure when present.
 **Opt-in per request — agents must only include it when the human has
 agreed; it can be sensitive.**
 
+## Drop metadata (owner-side tag bag)
+
+Each drop carries a `metadata` field: a flat `Record<string,string>`
+stored as a JSON `TEXT` column on `drops`. **Free-form** — agents tag
+drops with whatever they need to find them by later. Set on `POST`,
+replace on `PUT`/`PATCH`, filter via `GET /api/drops?metadata.<key>=<value>`
+(AND across pairs). **Owner-only — the public viewer never exposes it.**
+
+Examples of what an agent might tag (illustrative, not prescriptive —
+the server has no opinion about your keys):
+
+- `{repo: "foo/bar", pr: "42"}` — stable preview URL across CI pushes
+  for one PR.
+- `{session_id: "<chat-id>", kind: "deck"}` — the slide deck this
+  conversation produced, so the next turn can iterate on the same drop.
+- `{client: "acme", project: "rebrand", status: "draft"}` — an agent
+  maintaining a portfolio of in-progress artifacts for one end-user.
+- `{kind: "spec", topic: "auth-rewrite"}` — buckets so the agent can
+  later list all of one kind.
+
+Drop-level, not version-level. Like `title` on `drops`, only the current
+value is kept; `versions` carries HTML history only. No per-version
+metadata snapshot. If an agent wants per-version tags, it already has
+`context` for that.
+
+Replace-whole semantics on `PUT`/`PATCH`: absent → leave untouched, `{}`
+→ clear, `{k:v}` → overwrite the whole map. Validated in `drops.ts` via
+`validateMetadata()`: ≤10 keys, ≤64 chars per key, ≤256 chars per
+value, key regex `/^[a-z0-9_]([a-z0-9_.-]*[a-z0-9_])?$/i`. Values must
+be strings — no nested objects, arrays, or non-string scalars. All
+violations: `400 invalid_arg`. **No reserved keys** — convention only.
+
+**Lookup-then-mutate** is the canonical recipe whenever an agent needs
+to find or update a drop it tagged earlier:
+
+1. `GET /api/drops?metadata.<k1>=<v1>&metadata.<k2>=<v2>`
+2. If a drop matches: `PUT /api/drops/<slug>` (mints a new version on
+   the same URL).
+3. If nothing matches: `POST /api/drops` with the same `metadata`.
+
+This is "Pattern 2" — server-generated IDs + metadata lookup, the
+model used by GitHub Releases, Notion, Linear, and Terraform Cloud.
+For the CI / PR-preview shape specifically, two parallel runs can race
+the GET; the CLI docs prescribe GitHub Actions
+`concurrency: group: pr-${{ github.event.pull_request.number }}` to
+serialize. Other shapes have their own concurrency stories (sessions
+are usually sequential, portfolio updates rarely race) — handle
+race-safety at the call site, not the API.
+
+**We deliberately did NOT ship a `POST /api/drops/upsert` or
+`?if_exists=replace` query flag.** No HTTP-API precedent except
+Salesforce; Stripe explicitly avoided it. If real race rates ever bite
+users, add it later as a thin convenience over the same primitives.
+
+Filter SQL: `AND json_extract(metadata, '$.<key>') = <value>` bound as
+parameters in `listDropsByUser` (`src/db.ts`). The path and value are
+both bound — no string interpolation against user input. No filter
+index in v1; D1 scale is small and the existing `WHERE user_id = ?`
+selectivity is more than enough.
+
+Public viewer (`/p/:slug`) does not render or leak metadata. If you
+ever expose it, that's a deliberate product change — talk to the user
+first.
+
 ## Markdown for agents
 
 The landing page is also available as Markdown via Workers AI:

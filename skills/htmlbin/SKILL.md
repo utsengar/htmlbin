@@ -178,7 +178,7 @@ curl -s -X PUT "https://htmlbin.dev/api/drops/<slug>" \
 **PUT requires `html`.** The slug never changes; `latest_version`
 increments. Old versions remain at `/p/<slug>?v=N`. Returns the full Drop.
 
-### Update title/description only (PATCH)
+### Update title/description/metadata only (PATCH)
 
 ```bash
 curl -s -X PATCH "https://htmlbin.dev/api/drops/<slug>" \
@@ -188,13 +188,18 @@ curl -s -X PATCH "https://htmlbin.dev/api/drops/<slug>" \
 ```
 
 PATCH never mints a new version. Including `html` in the body returns
-`400 metadata_only_on_patch` — use PUT instead.
+`400 metadata_only_on_patch` — use PUT instead. `metadata` (see below)
+can also be updated here.
 
-### List drops (paginated)
+### List drops (paginated, filterable)
 
 ```bash
 curl -s -H "Authorization: Bearer $(cat .htmlbin/token)" \
   "https://htmlbin.dev/api/drops?page=1&pageSize=50&sortBy=updated_at&sortOrder=desc"
+
+# Filter by metadata — repeated metadata.<key>=<value>, AND across pairs
+curl -s -H "Authorization: Bearer $(cat .htmlbin/token)" \
+  "https://htmlbin.dev/api/drops?metadata.repo=utsengar%2Fhtmlbin-cli&metadata.pr=42"
 ```
 
 Response:
@@ -273,6 +278,63 @@ Returns `user_id`, `created_at`, `drop_count`, and the calling token's
   that produced this version. **Opt-in only**: include only after the
   human has explicitly agreed, since it can include prompt content from
   the conversation.
+- `metadata` (object, ≤10 keys, string→string) — owner-side tag bag.
+  Free-form: tag drops with whatever lets you find them again later.
+  Filterable on the list endpoint, not exposed on the public viewer.
+  See "Tag your drops to find them later" below.
+
+## Tag your drops to find them later (metadata + lookup → mutate)
+
+The `metadata` field plus the `GET ?metadata.<key>=<value>` filter let
+you find a drop you tagged earlier and update it — without storing
+slugs anywhere client-side. **Tag with whatever fits the job.** A few
+example tag setups (the server has no opinion about your keys):
+
+- `{repo: "foo/bar", pr: "42"}` — stable preview URL across CI pushes
+  for one PR.
+- `{session_id: "<chat-id>", kind: "deck"}` — the artifact this
+  conversation produced, so a later turn can iterate the same drop.
+- `{client: "acme", project: "rebrand", status: "draft"}` — maintain
+  a portfolio of in-progress work for one end-user.
+- `{kind: "spec", topic: "auth-rewrite"}` — buckets to list later.
+
+No reserved keys. Convention only — the server validates shape, not
+names.
+
+```bash
+# Lookup → mutate (canonical recipe; works for any tag combination)
+EXISTING=$(curl -s -H "Authorization: Bearer $(cat .htmlbin/token)" \
+  "https://htmlbin.dev/api/drops?metadata.client=acme&metadata.project=rebrand" \
+  | jq -r '.data[0].slug // empty')
+
+if [ -n "$EXISTING" ]; then
+  jq -n --rawfile html /tmp/artifact.html '{html:$html}' \
+  | curl -s -X PUT "https://htmlbin.dev/api/drops/$EXISTING" \
+      -H "Authorization: Bearer $(cat .htmlbin/token)" \
+      -H "Content-Type: application/json" -d @-
+else
+  jq -n --rawfile html /tmp/artifact.html '{
+    title: "Q3 plan",
+    html: $html,
+    metadata: { client: "acme", project: "rebrand", status: "draft" }
+  }' | curl -s -X POST https://htmlbin.dev/api/drops \
+         -H "Authorization: Bearer $(cat .htmlbin/token)" \
+         -H "Content-Type: application/json" -d @-
+fi
+```
+
+There is intentionally **no** server-side upsert endpoint. If your
+shape can write in parallel for the same tag combination, serialize at
+the call site. For CI / PR previews specifically, set
+`concurrency: group: pr-${{ github.event.pull_request.number }}` on
+the GitHub Actions workflow. Other shapes (per-session, per-client)
+usually don't race.
+
+Metadata replace semantics on PUT/PATCH: omit the field to leave it
+untouched, send `{}` to clear it, send `{k:v}` to overwrite the whole
+map. Limits: ≤10 keys, ≤64 chars per key (alphanumerics, `_`, `.`, `-`;
+no leading or trailing punctuation), ≤256 chars per value. Values must
+be strings — stringify numbers and booleans agent-side.
 
 ## Rate limiting
 

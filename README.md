@@ -137,10 +137,11 @@ The landing page also sets a `Link:` HTTP header advertising all of the above.
 
 | Method | Path | Notes |
 |---|---|---|
-| `POST`   | `/api/drops` | `{title, description?, html, passcode?, context?}` — creates v1 |
-| `GET`    | `/api/drops` | List your drops |
+| `POST`   | `/api/drops` | `{title, description?, html, passcode?, context?, metadata?}` — creates v1 |
+| `GET`    | `/api/drops` | List your drops. Filter with repeated `metadata.<key>=<value>` (AND across pairs) |
 | `GET`    | `/api/drops/:slug` | Drop metadata |
-| `PUT`    | `/api/drops/:slug` | Mints a new version (slug + URL preserved) |
+| `PUT`    | `/api/drops/:slug` | Mints a new version (slug + URL preserved). May also update `title`/`description`/`metadata` |
+| `PATCH`  | `/api/drops/:slug` | Update `title` / `description` / `metadata` without minting a version. `metadata` replaces the whole map |
 | `GET`    | `/api/drops/:slug/versions` | List all versions |
 | `GET`    | `/api/drops/:slug/v/:n` | Specific version metadata + context |
 | `DELETE` | `/api/drops/:slug` | Deletes all versions |
@@ -160,6 +161,30 @@ The landing page also sets a `Link:` HTTP header advertising all of the above.
 
 Every `PUT` with new HTML mints a new version on the same slug. The URL
 never changes. Switch versions in the viewer with `?v=N`.
+
+## Metadata (owner-side tag bag)
+
+Every drop carries a `metadata` field — a flat `string → string` map
+(≤10 keys, ≤64 chars per key, ≤256 chars per value). Set on `POST`,
+replace on `PUT`/`PATCH`, filter on `GET /api/drops?metadata.k=v`.
+Free-form, no reserved keys. **Owner-only — the public viewer never
+exposes it.**
+
+The point is: agents tag drops with whatever they need to find them by
+later. A few examples to spark ideas:
+
+- `{repo: "foo/bar", pr: "42"}` — stable preview URL across CI pushes
+  for one PR.
+- `{session_id: "<chat-id>", kind: "deck"}` — the artifact this
+  conversation produced, so the next turn can iterate on the same drop.
+- `{client: "acme", project: "rebrand", status: "draft"}` — an agent
+  maintaining a portfolio of in-progress work for an end-user.
+
+The canonical recipe is **lookup-then-mutate**: `GET` with metadata
+filters, then `PUT` if a drop matches or `POST` if not — no slug
+bookkeeping on the client. There is intentionally **no** server-side
+upsert endpoint; for shapes where parallel writes are possible (e.g. CI)
+serialize at the call site. See CLAUDE.md.
 
 ## Cross-machine auth
 

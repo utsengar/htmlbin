@@ -199,26 +199,26 @@ export function agentCard(publicUrl: string): object {
       {
         id: "publish_html",
         description:
-          "Upload self-contained HTML up to 2 MB; receive a permanent public URL. Creates v1. Returns the full Drop with status 201.",
+          "Upload self-contained HTML up to 2 MB; receive a permanent public URL. Creates v1. Returns the full Drop with status 201. Optional `metadata` (string→string, ≤10 keys) attaches owner-side tags for later lookup.",
         method: "POST",
         path: "/api/drops",
-        accepts: ["title", "description?", "html", "passcode?", "context?"],
+        accepts: ["title", "description?", "html", "passcode?", "context?", "metadata?"],
       },
       {
         id: "update_html",
         description:
-          "PUT mints a NEW version on the same slug — URL is preserved across iterations. `html` is required; title/description optional alongside the new version.",
+          "PUT mints a NEW version on the same slug — URL is preserved across iterations. `html` is required; title/description/metadata optional. Metadata replace semantics: omit → untouched, {} → cleared.",
         method: "PUT",
         path: "/api/drops/:slug",
-        accepts: ["html", "title?", "description?", "context?"],
+        accepts: ["html", "title?", "description?", "context?", "metadata?"],
       },
       {
         id: "update_metadata",
         description:
-          "PATCH updates title and/or description without minting a new version. Returns 400 metadata_only_on_patch if `html` is included.",
+          "PATCH updates title, description, and/or metadata without minting a new version. Returns 400 metadata_only_on_patch if `html` is included. Metadata replace semantics: omit → untouched, {} → cleared.",
         method: "PATCH",
         path: "/api/drops/:slug",
-        accepts: ["title?", "description?"],
+        accepts: ["title?", "description?", "metadata?"],
       },
       {
         id: "list_versions",
@@ -247,7 +247,7 @@ export function agentCard(publicUrl: string): object {
       {
         id: "list_my_drops",
         description:
-          "Paginated list. Query params: page (default 1), pageSize (default 50, max 200), sortBy (created_at|updated_at|view_count), sortOrder (asc|desc).",
+          "Paginated list. Query params: page (default 1), pageSize (default 50, max 200), sortBy (created_at|updated_at|view_count), sortOrder (asc|desc). Also supports repeated `metadata.<key>=<value>` params for AND-filtering — the canonical lookup-then-mutate primitive for finding a drop you previously tagged (any tag combination — PR previews, session artifacts, client portfolios, document kinds, etc).",
         method: "GET",
         path: "/api/drops",
       },
@@ -327,7 +327,7 @@ export function openApiSpec(publicUrl: string): object {
     openapi: "3.1.0",
     info: {
       title: "htmlbin API",
-      version: "1.1.0",
+      version: "1.2.0",
       summary:
         "Agent-first HTML hosting. Drop self-contained HTML, get a public URL.",
       description:
@@ -347,7 +347,7 @@ export function openApiSpec(publicUrl: string): object {
       schemas: {
         Drop: {
           type: "object",
-          required: ["slug", "title", "url", "raw_url", "created_at"],
+          required: ["slug", "title", "url", "raw_url", "metadata", "created_at"],
           properties: {
             slug: { type: "string" },
             title: { type: "string" },
@@ -357,9 +357,17 @@ export function openApiSpec(publicUrl: string): object {
             locked: { type: "boolean" },
             latest_version: { type: "integer" },
             view_count: { type: "integer" },
+            metadata: { $ref: "#/components/schemas/Metadata" },
             created_at: { type: "integer", description: "unix ms" },
             updated_at: { type: "integer", description: "unix ms" },
           },
+        },
+        Metadata: {
+          type: "object",
+          description:
+            "Owner-side tag bag — free-form string→string map for whatever an agent wants to track across its drops. Examples of what owners tag with: {repo, pr} for stable CI preview URLs, {session_id, kind} for per-conversation artifacts, {client, project, status} for portfolio work, {kind, topic} for buckets. Max 10 keys, 64 chars per key, 256 chars per value. Filterable on GET /api/drops via repeated `metadata.<key>=<value>` query params (AND across pairs). Not exposed on the public viewer.",
+          additionalProperties: { type: "string", maxLength: 256 },
+          maxProperties: 10,
         },
         VersionListItem: {
           type: "object",
@@ -583,6 +591,13 @@ export function openApiSpec(publicUrl: string): object {
             { name: "pageSize",  in: "query", schema: { type: "integer", minimum: 1, maximum: 200, default: 50 } },
             { name: "sortBy",    in: "query", schema: { type: "string", enum: ["created_at", "updated_at", "view_count"], default: "created_at" } },
             { name: "sortOrder", in: "query", schema: { type: "string", enum: ["asc", "desc"], default: "desc" } },
+            {
+              name: "metadata.<key>",
+              in: "query",
+              description:
+                "Repeatable. Filter drops by metadata tag — AND across pairs. Key must match /^[a-z0-9_]([a-z0-9_.-]*[a-z0-9_])?$/i, ≤64 chars. Example: ?metadata.repo=u/r&metadata.pr=42",
+              schema: { type: "string", maxLength: 256 },
+            },
           ],
           responses: {
             "200": {
@@ -618,6 +633,7 @@ export function openApiSpec(publicUrl: string): object {
                     html: { type: "string" },
                     passcode: { type: "string", minLength: 4, description: "Soft share gate, not encryption" },
                     context: { type: "string", description: "Optional reasoning trace (≤64KB, opt-in)" },
+                    metadata: { $ref: "#/components/schemas/Metadata" },
                   },
                 },
               },
@@ -647,7 +663,7 @@ export function openApiSpec(publicUrl: string): object {
         },
         put: {
           summary: "Mint a new version (html required)",
-          description: "PUT always mints a new version. `html` is required. `title`/`description` may be updated alongside the new version. Use PATCH for metadata-only updates.",
+          description: "PUT always mints a new version. `html` is required. `title`/`description`/`metadata` may be updated alongside the new version. Use PATCH for non-html-only edits.",
           security: [{ bearerAuth: [] }],
           requestBody: {
             required: true,
@@ -661,6 +677,7 @@ export function openApiSpec(publicUrl: string): object {
                     title: { type: "string", maxLength: 200 },
                     description: { type: "string", maxLength: 500 },
                     context: { type: "string", description: "Optional reasoning trace (≤64KB, opt-in)" },
+                    metadata: { $ref: "#/components/schemas/Metadata" },
                   },
                 },
               },
@@ -673,8 +690,8 @@ export function openApiSpec(publicUrl: string): object {
           },
         },
         patch: {
-          summary: "Update metadata only (no new version)",
-          description: "PATCH updates title and/or description. Including `html` returns 400 metadata_only_on_patch.",
+          summary: "Update title / description / metadata (no new version)",
+          description: "PATCH updates title, description, and/or metadata without minting a new version. Metadata replace semantics: omit to leave untouched, `{}` to clear, `{k:v}` to overwrite the whole map. Including `html` returns 400 metadata_only_on_patch.",
           security: [{ bearerAuth: [] }],
           requestBody: {
             content: {
@@ -684,6 +701,7 @@ export function openApiSpec(publicUrl: string): object {
                   properties: {
                     title: { type: "string", maxLength: 200 },
                     description: { type: "string", maxLength: 500 },
+                    metadata: { $ref: "#/components/schemas/Metadata" },
                   },
                 },
               },
