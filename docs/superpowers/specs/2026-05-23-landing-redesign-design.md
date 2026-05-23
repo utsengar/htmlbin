@@ -49,7 +49,7 @@ A developer landing today on htmlbin.dev has no way to discover any of this with
 The header's right side (`.head-meta`) gains a clickable, dark, copy-to-clipboard pill alongside the existing `/api/onboard` link.
 
 - Form: `$ npm i -g @htmlbin/cli` (decided over `npx @htmlbin/cli` — global install is what habituated devs expect).
-- Visual: dark surface (`--code-bg`), `--code-em` package name, light dollar sign, clipboard icon on the right. Same shadow vocabulary as the prompt slab — reads as a small chunk of the same material.
+- Visual: light surface (`--bg-2`) with a hairline `--rule` border. Ink dollar sign (`--ink-softer`), `--red` package name, ink-softer clipboard icon. On hover the border deepens to red and the background lifts to `#fff`. **Deliberately light** — dark chrome at the top of a light-paper page reads as jarring.
 - Behavior: click copies `npm i -g @htmlbin/cli` to clipboard, brief green confirmation state.
 - Mobile (`.head-meta { display: none }` at `<=720px`): hidden. Matches existing rule. Discoverability lives in the in-page `tool /` section for mobile users.
 
