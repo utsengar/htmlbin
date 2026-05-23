@@ -121,7 +121,7 @@ export function landingPage(env: Bindings): string {
 <link rel="preload" as="font" type="font/woff2" href="/fonts/GeistMono-500.woff2" crossorigin="anonymous" />
 <script type="application/ld+json">${jsonLd}</script>
 </head>
-<body>
+<body class="landing">
 
 ${pageHead({ verb: "GET", path: "/" })}
 

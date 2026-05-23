@@ -38,6 +38,7 @@ export function pageHead(args: { verb: string; path: string }): string {
         <span>npm i -g <span class="pkg">@htmlbin/cli</span></span>
         <span class="copy-icon" aria-hidden="true">${copySvg}</span>
       </button>
+      <span class="sep" aria-hidden="true">·</span>
       <a href="/api/onboard">/api/onboard</a>
     </div>
   </div>

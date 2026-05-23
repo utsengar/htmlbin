@@ -105,43 +105,52 @@ a:hover { color: var(--red); text-decoration-color: var(--red); }
   margin-left: 2px;
 }
 .crumb .ver::before { content: "·"; padding-right: 6px; color: var(--ink-softer); }
+/* head-meta is itself the pill — light paper surface, hairline rule —
+   holding the install command + separator + /api/onboard. Wrapping both
+   in one container removes the "two different visual weights with a
+   gulf between them" problem the earlier two-pill-vs-bare-link version
+   had. Hidden on mobile via the @media rule below. */
 .head-meta {
-  display: flex; gap: 14px; color: var(--ink-soft);
-  flex-wrap: wrap; flex-shrink: 0;
-}
-.head-meta a { text-decoration: none; }
-.head-meta a:hover { color: var(--red); }
-
-/* CLI install pill in the header. Clicking copies "npm i -g @htmlbin/cli"
-   to the clipboard. Light variant — bg-2 with a hairline rule — to stay
-   in tune with the white-paper header. Dark pills here read as jarring.
-   Hidden on mobile via the existing .head-meta { display: none } rule. */
-.cli-pill {
-  display: inline-flex; align-items: center; gap: 8px;
+  display: inline-flex; align-items: center;
+  gap: 10px;
   background: var(--bg-2);
   border: 1px solid var(--rule);
-  padding: 5px 6px 5px 10px;
-  border-radius: 5px;
-  font-family: var(--mono); font-size: 11.5px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-family: var(--mono); font-size: 12px;
+  color: var(--ink-soft);
+  flex-shrink: 0;
+}
+.head-meta a { text-decoration: none; color: var(--ink-soft); font-size: 12px; }
+.head-meta a:hover { color: var(--red); }
+.head-meta .sep { color: var(--ink-softer); }
+
+/* The install command inside .head-meta. No more chrome of its own —
+   the container provides the pill surface. Click copies. */
+.cli-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-family: var(--mono); font-size: 12px;
   color: var(--ink);
   letter-spacing: 0.01em;
   user-select: none;
   cursor: pointer;
-  transition: border-color 0.12s, background 0.12s;
+  transition: color 0.12s;
 }
 .cli-pill .dollar { color: var(--ink-softer); }
 .cli-pill .pkg { color: var(--red); }
-.cli-pill:hover { border-color: var(--red); background: #fff; }
 .cli-pill .copy-icon {
-  display: inline-flex; padding: 3px; border-radius: 3px;
+  display: inline-flex; padding: 2px;
   color: var(--ink-softer);
-  transition: color 0.12s, background 0.12s;
+  transition: color 0.12s;
 }
-.cli-pill .copy-icon svg { width: 11px; height: 11px; flex: 0 0 auto; }
-.cli-pill:hover .copy-icon { color: var(--red); background: rgba(217,48,37,0.06); }
-.cli-pill.ok { border-color: var(--green-dot); }
+.cli-pill .copy-icon svg { width: 10px; height: 10px; flex: 0 0 auto; }
+.cli-pill:hover .copy-icon { color: var(--red); }
+.cli-pill.ok { color: var(--green-dot); }
 .cli-pill.ok .pkg { color: var(--green-dot); }
-.cli-pill.ok .copy-icon { color: var(--green-dot); background: rgba(31,143,74,0.10); }
+.cli-pill.ok .copy-icon { color: var(--green-dot); }
 
 @media (max-width: 720px) {
   .page-head .row { padding: 10px 22px; }
@@ -149,12 +158,23 @@ a:hover { color: var(--red); text-decoration-color: var(--red); }
   .head-meta { display: none; }   /* on mobile, the breadcrumb stands alone */
 }
 
-/* ---------- main column ---------- */
+/* ---------- main column ----------
+   Default 720px is the long-form / essay width — right for /manifesto,
+   /verify, /404, and the viewer-chrome pages. The landing overrides to
+   880px (see body.landing rule below) so the tabbed prompt slab and the
+   2×2 capability grid get real room. */
 main {
   max-width: 720px;
   margin: 0 auto;
   padding: 28px 28px 96px;   /* tight gap to the breadcrumb above */
 }
+
+/* Landing-scoped width override. Wider container for the prompt slab,
+   the tool section, and the capability grid; the header expands to
+   match so it doesn't look like the modeline floats off-axis from the
+   content below. Other pages stay at the narrower default. */
+body.landing .page-head .row,
+body.landing main { max-width: 880px; }
 @media (max-width: 720px) {
   .page-head .row { padding: 18px 22px 0; }
   main { padding: 22px 22px 80px; }
