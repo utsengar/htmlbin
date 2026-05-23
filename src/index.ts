@@ -31,6 +31,7 @@ import {
 import {
   bumpViewCount,
   getDrop,
+  getDropWithAuthor,
   listVersions,
 } from "./db";
 import { isValidSlug } from "./slug";
@@ -571,7 +572,7 @@ app.on(["GET", "HEAD"], "/p/:slug", async (c) => {
   const slug = c.req.param("slug");
   if (!isValidSlug(slug)) return c.notFound();
 
-  const drop = await getDrop(c.env.DB, slug);
+  const drop = await getDropWithAuthor(c.env.DB, slug);
   if (!drop) return c.notFound();
 
   const locked = !!drop.password_hash;
@@ -625,6 +626,7 @@ app.on(["GET", "HEAD"], "/p/:slug", async (c) => {
         created_at: v.created_at,
       })),
       viewVersion,
+      authorLogin: drop.author_login,
     })
   );
 });

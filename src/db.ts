@@ -88,6 +88,25 @@ export async function getDrop(
   return row ?? null;
 }
 
+// Same as getDrop, but also joins users.github_login so the viewer can
+// attribute the human behind the agent. LEFT JOIN: legacy pre-OAuth
+// accounts have NULL github_login and still resolve.
+export async function getDropWithAuthor(
+  db: D1Database,
+  slug: string
+): Promise<(Drop & { author_login: string | null }) | null> {
+  const row = await db
+    .prepare(
+      `SELECT d.*, u.github_login AS author_login
+         FROM drops d
+         LEFT JOIN users u ON u.id = d.user_id
+        WHERE d.slug = ?`
+    )
+    .bind(slug)
+    .first<Drop & { author_login: string | null }>();
+  return row ?? null;
+}
+
 export type DropSort = "created_at" | "updated_at" | "view_count";
 export type SortOrder = "asc" | "desc";
 
