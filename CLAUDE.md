@@ -251,10 +251,11 @@ endpoint and never silently break them.
 
 ## URL conventions
 
-- Slugs are 7-char base62 random IDs (e.g. `aB3xK7g`). No title prefix.
-- Drop URL: `htmlbin.dev/p/aB3xK7g`
-- Specific version: `htmlbin.dev/p/aB3xK7g?v=2`
-- Raw HTML: `htmlbin.dev/p/aB3xK7g/raw`
+- Slugs are 9-char base62 random IDs (e.g. `aB3xK7gPq`). No title prefix.
+  `isValidSlug()` accepts 6–12 chars so older shorter IDs still work.
+- Drop URL: `htmlbin.dev/p/aB3xK7gPq`
+- Specific version: `htmlbin.dev/p/aB3xK7gPq?v=2`
+- Raw HTML: `htmlbin.dev/p/aB3xK7gPq/raw`
 
 If you change the slug generator, also update the validation regex in
 `src/slug.ts` and the e2e test expectations.
@@ -535,6 +536,12 @@ live on the same Worker.
   the constant rather than hard-coding `/style.css`.
 - **Slack/Twitter unfurl cache.** ~24h TTL per URL. To force a re-fetch
   during development, append a throwaway query string (`?_=2`).
+- **Cloudflare bot block on the production API.** Requests to
+  `htmlbin.dev/api/*` without a `User-Agent` header are rejected by
+  Cloudflare with `403` + error `1010` before they reach the Worker. The
+  CLI, any direct `curl`/`fetch`, and the e2e script must send a UA
+  (we use `htmlbin-cli/<version>`). Local `wrangler dev` doesn't sit
+  behind that ruleset so it only bites against `htmlbin.dev` itself.
 
 ## Observability (Sentry)
 
@@ -581,7 +588,7 @@ src/
   skill.ts          ─ /.well-known/agent-skills/* (Agent Skills RFC v0.2.0)
   patterns.ts       ─ /.well-known/patterns/* (inline mirror of patterns/*.md)
   crypto.ts         ─ Web Crypto wrappers
-  slug.ts           ─ 7-char base62 id generator
+  slug.ts           ─ 9-char base62 id generator
   db.ts             ─ D1 helpers + rate limiter
   discoverability.ts─ robots.txt, llms.txt, sitemap, agent-card, openapi, api-catalog
   styles.ts         ─ THE stylesheet + STYLE_HREF (auto-bumping cache buster)
