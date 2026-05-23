@@ -51,21 +51,24 @@ Publish to htmlbin.dev. Credentials and API at htmlbin.dev/api/onboard.`;
 // Clipboard form — paste-and-run. The visible CLI panel keeps the `$ `
 // prompt prefix and the `→ URL` result line as visual signposts, but
 // neither belongs in what we copy: `$` is the shell prompt indicator,
-// and `→ https://…` is example output, not a command. Comments stay —
-// bash ignores `#` lines so they're harmless on paste and useful as
+// and `→ https://…` is example output, not a command. The echo line
+// creates a tiny sample file so the publish actually succeeds — without
+// it, `publish out.html` would fail with file-not-found. Comments stay:
+// bash ignores `#` lines, so they're harmless on paste and useful for
 // context.
 const CLI_PROMPT = `# one-time — GitHub device-code, ~30s
 npx @htmlbin/cli login
 
-# every publish
-npx @htmlbin/cli publish ./out.html`;
+# create a sample page and publish it
+echo '<h1>hello from htmlbin</h1>' > out.html
+npx @htmlbin/cli publish out.html`;
 
-// Plain copyable form of the tool-section's install → login → publish
-// spine. Stripped of comments and shell prompts so a paste into a
-// terminal executes the three commands directly.
+// Tool-section copy button. Same shape as CLI_PROMPT but the global
+// install path (npm i -g, then bare `htmlbin`). End-to-end paste-and-run.
 const TOOL_SETUP = `npm i -g @htmlbin/cli
 htmlbin login
-htmlbin publish ./out.html`;
+echo '<h1>hello from htmlbin</h1>' > out.html
+htmlbin publish out.html`;
 
 export function landingPage(env: Bindings): string {
   const PUBLIC_URL = env.PUBLIC_URL;
@@ -201,8 +204,9 @@ Publish to <span class="em">htmlbin.dev</span>. Credentials and API at <span cla
 <pre><span class="cmt"># one-time — GitHub device-code, ~30s</span>
 $ npx <span class="em">@htmlbin/cli</span> login
 
-<span class="cmt"># every publish</span>
-$ npx <span class="em">@htmlbin/cli</span> publish ./out.html
+<span class="cmt"># create a sample page and publish it</span>
+$ echo '<span class="em">&lt;h1&gt;hello from htmlbin&lt;/h1&gt;</span>' &gt; out.html
+$ npx <span class="em">@htmlbin/cli</span> publish out.html
 <span class="arr">→</span> <span class="em">https://htmlbin.dev/p/aB3xK7g</span></pre>
         </div>
       </div>
@@ -239,8 +243,9 @@ $ npx <span class="em">@htmlbin/cli</span> publish ./out.html
 <span class="ln"><span class="cmt"># one-time — GitHub device-code, ~30s</span></span>
 <span class="ln">$ htmlbin <span class="key">login</span></span>
 <span class="ln"></span>
-<span class="ln"><span class="cmt"># publish anything</span></span>
-<span class="ln">$ htmlbin <span class="key">publish</span> ./out.html</span>
+<span class="ln"><span class="cmt"># create a sample page and publish it</span></span>
+<span class="ln">$ echo '<span class="em">&lt;h1&gt;hello from htmlbin&lt;/h1&gt;</span>' &gt; out.html</span>
+<span class="ln">$ htmlbin <span class="key">publish</span> out.html</span>
 <span class="ln"><span class="arr">→</span> <span class="em">https://htmlbin.dev/p/aB3xK7g</span></span>
     </div>
 
