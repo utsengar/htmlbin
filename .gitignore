@@ -65,4 +65,3 @@ coverage/
 private/
 TODO.local.md
 .htmlbin/
-cli/src/patterns/bundled-data.ts
