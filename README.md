@@ -49,6 +49,21 @@ npm run test:e2e
 lifecycle, ownership, validation, abuse-report, and cleanup. All should
 pass.
 
+## Local operator dashboard
+
+```bash
+npm run dashboard            # http://127.0.0.1:5173, against remote D1
+npm run dashboard -- --local # against local D1
+```
+
+A tiny Node + vanilla-JS dashboard that proxies read-only SQL through
+`wrangler d1 execute` and renders an interactive overview with
+click-through into any user (drops, tokens, signup date, daily activity)
+or any drop (versions, owner, storage). User detail pulls real name /
+bio / followers / repos from the public GitHub API. Sibling of
+`npm run stats`, just clickable. Local-only — bound to 127.0.0.1, not
+deployed, not part of the product surface.
+
 ## Deploy
 
 ```bash
@@ -198,6 +213,8 @@ wrangler.toml       ─ Cloudflare config (incl. [[rules]] CompiledWasm for OG f
 scripts/
   setup.mjs         ─ one-shot provisioning
   agent-e2e.sh      ─ full functional test
+  stats.mjs         ─ text stats snapshot (npm run stats)
+  dashboard/        ─ local web dashboard (npm run dashboard)
 ```
 
 DB table, URL path, and user-facing copy all align: **drops**.

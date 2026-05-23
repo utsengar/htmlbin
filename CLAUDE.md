@@ -515,6 +515,52 @@ Concurrency cancels superseded PR runs but never cancels a mid-flight
 production; preview versions share the same bindings because they
 live on the same Worker.
 
+## Local operator dashboard (`npm run dashboard`) — not a product surface
+
+`scripts/dashboard/server.mjs` is a tiny Node HTTP server that binds to
+`127.0.0.1:5173` and proxies read-only SQL through `wrangler d1 execute
+--remote --json` (same pattern as `stats.mjs`). The static SPA in
+`scripts/dashboard/{index.html,app.js,style.css}` renders an interactive
+overview with click-through into any user (drops, tokens, signup date,
+daily activity) and any drop (versions, owner, storage). User detail
+pulls real name / bio / followers / repos from the public GitHub API.
+
+```
+npm run dashboard            # remote D1
+npm run dashboard -- --local
+```
+
+**Why this is not a hard-rule-#4 violation.** Rule #4 prohibits adding
+a *user-facing* dashboard / account surface to the deployed Worker at
+htmlbin.dev. This is a local dev tool — same shape as `scripts/stats.mjs`,
+just clickable. It binds to 127.0.0.1, lives in `scripts/`, ships
+nothing to KV/D1, and `src/` is untouched. **Do not** turn it into a
+deployed admin route, add a hosted variant, expose it through the
+Worker, or surface anything like it on htmlbin.dev. If you find
+yourself wanting that, stop and ask the user first.
+
+**Implementation notes:**
+
+- Read-only. The server has no SQL mutation path. Inputs are strict
+  whitelists (`user_id` matches `/^[A-Za-z0-9_-]{1,64}$/`, `slug`
+  matches `/^[A-Za-z0-9]{6,12}$/`, window is a fixed enum) before SQL
+  interpolation because `wrangler d1 execute --command` doesn't accept
+  bind params.
+- 30s in-memory query cache so click-around doesn't re-hit remote D1.
+- **Wrangler invocation:** the server runs
+  `node node_modules/wrangler/bin/wrangler.js` directly, *not* `npx
+  wrangler`. The `.bin/wrangler` shim is installed as a regular file
+  (not a symlink), so its `__dirname`-relative path math resolves
+  `node_modules/wrangler-dist/cli.js` (wrong) instead of
+  `node_modules/wrangler/wrangler-dist/cli.js`. `stats.mjs` still uses
+  `npx wrangler`; if that breaks the same way, copy the direct-invoke
+  pattern from the dashboard.
+- Vanilla HTML/JS/CSS, no build step, no new npm dependencies. SVG bar
+  charts hand-rolled.
+- Routes are hash-based: `#/` overview, `#/u/<user_id>` user detail,
+  `#/d/<slug>` drop detail. `/p/<slug>` links in tables open
+  htmlbin.dev (the live drop) in a new tab; drop titles do the same.
+
 ## Local dev gotchas
 
 - **GitHub OAuth dev mock.** `.dev.vars` sets
@@ -620,6 +666,10 @@ wrangler.toml       ─ Cloudflare config (Worker name, D1, KV, AI, [[rules]] Co
 scripts/
   setup.mjs         ─ provisions D1 + KV, applies schema, sets pepper
   agent-e2e.sh      ─ full functional test
+  stats.mjs         ─ text-based stats snapshot (npm run stats)
+  dashboard/        ─ local-only operator web UI (npm run dashboard)
+    server.mjs        ─ http server + wrangler subprocess proxy
+    index.html / app.js / style.css  ─ vanilla SPA, no build step
 .dev.vars.example   ─ TOKEN_PEPPER + GITHUB_CLIENT_ID/SECRET (dev-mock)
 ```
 
