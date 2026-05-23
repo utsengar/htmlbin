@@ -114,7 +114,7 @@ export function buildOnboardJson(publicUrl: string): object {
         "Content-Type": "application/json",
       },
       body: {
-        title: "string (required, ≤200 chars)",
+        title: "string (optional, ≤200 chars; auto-extracted from <title> tag when omitted, or 'Untitled' if absent)",
         description: "string (optional, ≤500 chars)",
         html: "string (required, full self-contained HTML document, ≤2 MB)",
         passcode: "string (optional, ≥4 chars; soft gate, not encryption — shown on /p/<slug> before the body)",

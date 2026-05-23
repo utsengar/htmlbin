@@ -328,15 +328,32 @@ ANYONE=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/p/$SLUG")
 assert_eq "$ANYONE" "200" "public view works for anyone (drop is unlocked)"
 
 # Validation
-EBAD=$(curl -s -X POST "$BASE/api/drops" \
-  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"title":"","html":"<h1>x</h1>"}')
-assert_contains "$EBAD" "title_required" "empty title rejected"
-
 MBAD=$(curl -s -X POST "$BASE/api/drops" \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{"title":"x"}')
 assert_contains "$MBAD" "html_required" "missing html rejected"
+
+# Title is optional — the server reads <title> from the HTML when omitted,
+# and falls back to "Untitled" if the document has none.
+AUTOTITLE_JSON=$(curl -s -X POST "$BASE/api/drops" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"html":"<!doctype html><title>Auto Extracted</title><p>hi</p>"}')
+assert_contains "$AUTOTITLE_JSON" "\"title\":\"Auto Extracted\"" \
+  "title is auto-extracted from <title> when body omits it"
+AUTOSLUG=$(echo "$AUTOTITLE_JSON" | jq -r .slug)
+[ -n "$AUTOSLUG" ] && [ "$AUTOSLUG" != "null" ] \
+  && curl -s -o /dev/null -X DELETE "$BASE/api/drops/$AUTOSLUG" \
+       -H "Authorization: Bearer $TOKEN"
+
+FALLBACK_JSON=$(curl -s -X POST "$BASE/api/drops" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"title":"","html":"<h1>no title tag</h1>"}')
+assert_contains "$FALLBACK_JSON" "\"title\":\"Untitled\"" \
+  "empty title + no <title> tag falls back to Untitled"
+FBSLUG=$(echo "$FALLBACK_JSON" | jq -r .slug)
+[ -n "$FBSLUG" ] && [ "$FBSLUG" != "null" ] \
+  && curl -s -o /dev/null -X DELETE "$BASE/api/drops/$FBSLUG" \
+       -H "Authorization: Bearer $TOKEN"
 
 ISL=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/p/!!")
 assert_eq "$ISL" "404" "invalid slug → 404"

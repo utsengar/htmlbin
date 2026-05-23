@@ -484,6 +484,20 @@ Spec: https://developers.cloudflare.com/workers/static-assets/
 `truncateWords()` adds `…` if the title was longer. Both `<title>` and
 `og:title` use the same string so the unfurled card matches the tab.
 
+## Title auto-extraction on POST /api/drops
+
+`title` is **optional** on POST. When omitted (or sent as an empty
+string), `extractHtmlTitle()` in `drops.ts` reads the `<title>` tag out
+of the request body's `html` field, decodes common entities, and uses
+it as the drop title. If the HTML has no `<title>` (or it's empty), the
+fallback is the literal string `Untitled`. Auto-extracted titles are
+truncated to `MAX_TITLE` (200 chars) silently — only **explicit**
+client-provided titles trigger `title_too_long`. PUT and PATCH still
+preserve the existing title via `COALESCE(?, title)` when the field is
+omitted; they don't re-extract from a new `<title>` tag. If you change
+the regex or fallback string, also update the e2e auto-extract
+assertions in `scripts/agent-e2e.sh`.
+
 ## CI / continuous deploy — the *only* deploy path
 
 `.github/workflows/deploy.yml` is the **single way** code reaches

@@ -687,11 +687,30 @@ type CreateBody = {
 };
 
 type ValidationError = {
-  code: "title_required" | "title_too_long" | "description_too_long"
+  code: "title_too_long" | "description_too_long"
        | "html_required" | "html_too_large" | "context_too_large";
   message: string;
   details?: Record<string, unknown>;
 };
+
+// Pull a usable title out of an HTML <title> tag. Decodes the handful of
+// entities authors actually write in titles and collapses whitespace.
+// Returns null when there's no usable text — caller decides the fallback.
+function extractHtmlTitle(html: string): string | null {
+  const match = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  const inner = match?.[1];
+  if (!inner) return null;
+  const decoded = inner
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+  return decoded || null;
+}
 
 function validateCreateBody(body: {
   title?: string;
@@ -700,24 +719,42 @@ function validateCreateBody(body: {
   passcode?: string;
   context?: string;
 }): { error?: ValidationError; value: CreateBody } {
-  const title = (body.title ?? "").trim();
+  const providedTitle = (body.title ?? "").trim();
   const description = (body.description ?? "").trim();
   const html = body.html ?? "";
   const passcode = body.passcode ?? "";
   const context = body.context ?? "";
-  const value = { title, description, html, passcode, context };
 
-  if (!title)
-    return { error: { code: "title_required", message: "Title is required." }, value };
-  if (title.length > MAX_TITLE)
+  // html_required must fire before any title fallback so the agent gets a
+  // useful error instead of a drop titled "Untitled" with empty body.
+  if (!html)
+    return {
+      error: { code: "html_required", message: "HTML body is required." },
+      value: { title: providedTitle, description, html, passcode, context },
+    };
+
+  // Explicit client titles still have to fit. Auto-extracted titles get
+  // truncated below — the agent didn't choose that string, so don't 400.
+  if (providedTitle && providedTitle.length > MAX_TITLE)
     return {
       error: {
         code: "title_too_long",
         message: `Title exceeds ${MAX_TITLE} chars.`,
         details: { max: MAX_TITLE },
       },
-      value,
+      value: { title: providedTitle, description, html, passcode, context },
     };
+
+  // Title is optional. When the client omits it (or sends ""), read the
+  // <title> tag from the HTML; fall back to a generic placeholder so the
+  // NOT NULL column is satisfied without blocking the publish.
+  let title = providedTitle;
+  if (!title) {
+    const extracted = extractHtmlTitle(html);
+    title = (extracted ?? "Untitled").slice(0, MAX_TITLE);
+  }
+  const value = { title, description, html, passcode, context };
+
   if (description.length > MAX_DESCRIPTION)
     return {
       error: {
@@ -727,8 +764,6 @@ function validateCreateBody(body: {
       },
       value,
     };
-  if (!html)
-    return { error: { code: "html_required", message: "HTML body is required." }, value };
   if (byteLength(html) > MAX_HTML_BYTES)
     return {
       error: {

@@ -199,10 +199,10 @@ export function agentCard(publicUrl: string): object {
       {
         id: "publish_html",
         description:
-          "Upload self-contained HTML up to 2 MB; receive a permanent public URL. Creates v1. Returns the full Drop with status 201.",
+          "Upload self-contained HTML up to 2 MB; receive a permanent public URL. Creates v1. Returns the full Drop with status 201. `title` is optional — the server reads the HTML's <title> tag when omitted.",
         method: "POST",
         path: "/api/drops",
-        accepts: ["title", "description?", "html", "passcode?", "context?"],
+        accepts: ["html", "title?", "description?", "passcode?", "context?"],
       },
       {
         id: "update_html",
@@ -611,9 +611,13 @@ export function openApiSpec(publicUrl: string): object {
               "application/json": {
                 schema: {
                   type: "object",
-                  required: ["title", "html"],
+                  required: ["html"],
                   properties: {
-                    title: { type: "string", maxLength: 200 },
+                    title: {
+                      type: "string",
+                      maxLength: 200,
+                      description: "Optional. Auto-extracted from the HTML's <title> tag when omitted; falls back to 'Untitled' if absent.",
+                    },
                     description: { type: "string", maxLength: 500 },
                     html: { type: "string" },
                     passcode: { type: "string", minLength: 4, description: "Soft share gate, not encryption" },
