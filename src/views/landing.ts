@@ -48,12 +48,17 @@ const AGENT_PROMPT = `Make a delightful HTML page to explain a concept or a prob
 
 Publish to htmlbin.dev. Credentials and API at htmlbin.dev/api/onboard.`;
 
+// Clipboard form — paste-and-run. The visible CLI panel keeps the `$ `
+// prompt prefix and the `→ URL` result line as visual signposts, but
+// neither belongs in what we copy: `$` is the shell prompt indicator,
+// and `→ https://…` is example output, not a command. Comments stay —
+// bash ignores `#` lines so they're harmless on paste and useful as
+// context.
 const CLI_PROMPT = `# one-time — GitHub device-code, ~30s
-$ npx @htmlbin/cli login
+npx @htmlbin/cli login
 
 # every publish
-$ npx @htmlbin/cli publish ./out.html
-→ https://htmlbin.dev/p/aB3xK7g`;
+npx @htmlbin/cli publish ./out.html`;
 
 // Plain copyable form of the tool-section's install → login → publish
 // spine. Stripped of comments and shell prompts so a paste into a
