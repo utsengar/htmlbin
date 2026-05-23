@@ -15,6 +15,15 @@ Public reinvention of an internal Webflow tool ("wrop"). The Webflow
 codebase lives at `/Users/utkarshsengar/dev/prototypes/Prototypes` for
 reference only — none of it ships in the public version.
 
+**The CLI is `@htmlbin/cli`, hosted at its own public repo
+[utsengar/htmlbin-cli](https://github.com/utsengar/htmlbin-cli)** —
+shares the brand, ships independently, runs on Node, talks to multiple
+backends (htmlbin.dev cloud by default, plus GitHub Pages and Cloudflare
+Pages + Access as opt-in backends for org-internal hosting). The Worker
+and the CLI share no runtime code; `src/errors.ts`'s `ErrorCode` union
+is mirrored in the CLI repo by copy so exit codes match the API's
+`error.code` shape. If you edit either file, sync the other by hand.
+
 ## Stack (and why)
 
 - **Cloudflare Workers + Hono** — single Worker, no Next.js.
@@ -371,11 +380,13 @@ mirror its content into `src/patterns.ts`'s `PATTERNS` array (with a
 No DB migration, no schema change, no new endpoint — the existing
 `/.well-known/patterns/:filename` route picks it up automatically.
 
-**The CLI's `patterns` subcommand** (separate repo, follow-up after the
-CLI's `cli-pluggable-backends` PR lands) will offer `list / init / add`
-for managing local installs. The skill's instructions stand on their
-own without the CLI — agents that don't have it can `curl` the catalog
-directly.
+**The CLI's `patterns` subcommand**
+([utsengar/htmlbin-cli](https://github.com/utsengar/htmlbin-cli))
+offers `list / init / add` for managing local installs. The skill's
+instructions stand on their own without the CLI — agents that don't
+have it can `curl` the catalog directly. The CLI repo vendors its own
+copy of `patterns/*.md` for the offline `init` fallback, so when you
+add/edit a pattern here, mirror it there too.
 
 ## OG card rendering (PNG)
 

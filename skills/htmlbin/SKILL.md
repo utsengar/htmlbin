@@ -368,7 +368,7 @@ brand_sensing: true
 
 **Picking a pattern.** Match the human's request against each installed pattern's `triggers` (case-insensitive substring or near-paraphrase). On multiple matches: project-local beats machine-global beats official; more-specific trigger beats less-specific. On no match: freestyle.
 
-**Authoring your own.** Drop a markdown file in `./.htmlbin/patterns/` (project-local) or `~/.config/htmlbin/patterns/` (machine-global). Share by pushing to a gist or repo; the htmlbin CLI's `patterns add <source>` will install from any URL or shorthand (`github:user/repo/path`, `gist:hash`).
+**Authoring your own.** Drop a markdown file in `./.htmlbin/patterns/` (project-local) or `~/.config/htmlbin/patterns/` (machine-global). Share by pushing to a gist or repo; another agent installs with `curl <url> > .htmlbin/patterns/<name>.md`.
 
 **Why this shape.** Patterns are guidance the *agent* reads and applies — not server-rendered templates the platform serves. htmlbin's server stays thin; the long tail of drop kinds lives in user-space, where it belongs.
 
