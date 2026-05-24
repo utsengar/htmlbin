@@ -447,7 +447,17 @@ Read live values from \`/api/onboard.limits\`; current defaults:
 
 These apply to every drop regardless of pattern or brand context. They're not pluggable — htmlbin's stance on what a good drop is.
 
-- Mobile-OK — single column at <640px.
+- **Mobile-OK at 360px.** The page must not scroll horizontally on a small phone. This is the most common failure mode — agents render at desktop and ship without checking. Concrete floor:
+  - \`<meta name="viewport" content="width=device-width, initial-scale=1">\` in every \`<head>\`. Without it, mobile Safari renders at 980px and pinches to fit.
+  - **Single column** at <640px. No multi-column grids, no side-by-side cards. Collapse \`grid-template-columns\` to \`1fr\` under the breakpoint.
+  - **No fixed widths.** \`width: 800px\` is forbidden on layout containers. Use \`max-width\` paired with \`width: 100%\`. Top-level wrapper: \`max-width: min(720px, 100%)\`.
+  - **Long unbreakable strings wrap.** URLs, file paths, API endpoints, command lines, slugs, hashes — anything without spaces — will blow out the viewport unless you let them break. Apply \`overflow-wrap: anywhere\` (or \`word-break: break-word\`) to prose containers, table cells, and inline \`<code>\`.
+  - **\`<pre>\` / code blocks must not set page width.** Two acceptable patterns: (a) \`white-space: pre-wrap; overflow-wrap: anywhere\` for short snippets where wrapping is fine, or (b) \`overflow-x: auto; max-width: 100%\` on the \`<pre>\` itself for code where line breaks matter (the block scrolls internally, the page doesn't). Pick one per block; never let a \`<pre>\` push the body wider.
+  - **Tables don't set page width either.** Under 640px, either restyle as stacked rows (\`table, tbody, tr, td { display: block }\` with per-cell labels) or wrap the \`<table>\` in a container with \`overflow-x: auto\`. A wide \`<table>\` left alone will push the document wider than the viewport.
+  - **Media is fluid.** \`img, svg, video, iframe { max-width: 100%; height: auto }\` (height auto only for raster — keep aspect ratio for video/iframe with \`aspect-ratio\`).
+  - **Belt and braces:** \`html, body { overflow-x: hidden }\` as a last-resort guard against a stray descendant. Don't rely on this — fix the descendant — but ship with it on.
+  - **Tap targets** (links, buttons, summary toggles) ≥44×44px in interactive chrome.
+  - Mentally test at **360px** (smallest common phone) and **768px** (tablet) before declaring done. If you have a way to actually render and screenshot, do that — it's the single highest-value check.
 - Semantic HTML — real \`<h1>\`, real \`<details>\`, real \`<table>\` when tabular.
 - \`prefers-color-scheme\` aware (light + dark).
 - Inline \`<style>\`; external deps limited to well-known CDNs (Google Fonts, esm.sh, Tailwind CDN).
