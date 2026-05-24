@@ -79,9 +79,15 @@ app.use("*", async (c, next) => {
     if (!c.res.headers.has("content-security-policy")) {
       c.res.headers.set("X-Frame-Options", "SAMEORIGIN");
       const sentryOn = !!c.env.SENTRY_DSN;
+      // Sentry's Loader Script (js.sentry-cdn.com/<key>.min.js) is a tiny
+      // stub that dynamically pulls the full SDK bundle from
+      // browser.sentry-cdn.com — both origins must be allowed.
+      // static.cloudflareinsights.com is the Cloudflare Web Analytics beacon
+      // auto-injected at the edge; the beacon POSTs telemetry to /cdn-cgi/rum
+      // which is same-origin so connect-src 'self' covers it.
       const scriptSrc = sentryOn
-        ? "script-src 'self' 'unsafe-inline' https://js.sentry-cdn.com"
-        : "script-src 'self' 'unsafe-inline'";
+        ? "script-src 'self' 'unsafe-inline' https://js.sentry-cdn.com https://browser.sentry-cdn.com https://static.cloudflareinsights.com"
+        : "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com";
       const connectSrc = sentryOn
         ? "connect-src 'self' https://*.ingest.sentry.io https://*.ingest.us.sentry.io"
         : "connect-src 'self'";

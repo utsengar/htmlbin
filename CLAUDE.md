@@ -730,9 +730,15 @@ URLs work without any DSN.
   HTML at `/p/:slug/raw`** — that's the user's content, served in an
   iframe; we don't touch it.
 - **CSP:** the global middleware in `src/index.ts` conditionally
-  appends `https://js.sentry-cdn.com` to `script-src` and
-  `https://*.ingest.sentry.io` (+ `.us.`) to `connect-src` *only when
-  `SENTRY_DSN` is set*. Policy stays tight when Sentry is off.
+  appends `https://js.sentry-cdn.com` *and* `https://browser.sentry-cdn.com`
+  to `script-src`, and `https://*.ingest.sentry.io` (+ `.us.`) to
+  `connect-src` *only when `SENTRY_DSN` is set*. Both origins are
+  required because the Sentry Loader Script (`js.sentry-cdn.com/<key>.min.js`)
+  is a tiny stub that dynamically pulls the full tracing/replay SDK from
+  `browser.sentry-cdn.com`. Whitelisting only `js.` blocks the second hop.
+  Policy stays tight when Sentry is off. The middleware also unconditionally
+  appends `https://static.cloudflareinsights.com` to `script-src` (see
+  next bullet — Cloudflare Web Analytics).
 - **Config:** `SENTRY_DSN` is a Worker secret. Because this Worker
   uses versioned deploys (CI runs `wrangler versions upload` on PRs),
   use `wrangler versions secret put SENTRY_DSN` — *not* the plain
