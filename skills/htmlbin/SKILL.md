@@ -457,6 +457,27 @@ These apply to every drop regardless of pattern or brand context. They're not pl
 - No emoji unless the user's brand uses them.
 - Footer line: small mono, "published via htmlbin.dev". Keep it understated.
 
+## Visualizing data
+
+When a drop includes charts, tables, or any quantitative graphic, lean on the established canon — don't reinvent it. The references below cover the vast majority of judgment calls:
+
+- **Edward Tufte — _The Visual Display of Quantitative Information_** ([edwardtufte.com/book/the-visual-display-of-quantitative-information](https://www.edwardtufte.com/book/the-visual-display-of-quantitative-information/)). Canonical text. Principles to respect: maximize data-ink ratio, eliminate chartjunk (gridlines, 3D, decoration), prefer small multiples over one cluttered chart, never lie with truncated or dual axes.
+- **[data-to-viz.com](https://www.data-to-viz.com/)** — chart-type chooser. Pick the chart type from your data shape *before* you draw. Bookmark; don't memorize.
+- **["Friends Don't Let Friends Make Bad Graphs"](https://github.com/cxli233/FriendsDontLetFriends)** — punchy practical do/don't list with worked examples. Skim before any data-heavy drop.
+- **[Datawrapper Academy](https://academy.datawrapper.de/)** — short, opinionated articles on color, axes, annotation, and labeling. Closest thing to a working stylebook.
+
+Concrete floor for charts in drops:
+
+- **Label axes with units.** No naked numbers.
+- **Direct-label series** (≤6 series) instead of a separate legend.
+- **Use the brand accent for the data**, neutral grey for axes, gridlines, and chrome.
+- **No 3D**, **no pies with >5 slices**, **no rainbow palettes for ordered data** (use Viridis, Cividis, or a sequential brand-tinted scale).
+- **Provide a fallback `<table>` inside collapsed `<details>`** when the chart is load-bearing — for screen readers and for agents reading the page back.
+- **Cite the source** under each chart in small mono: `source: <url>` or `source: agent synthesis` when the data is the agent's own.
+- **Mobile**: stack legends below, hide non-essential gridlines, ensure tap targets ≥44px if interactive.
+
+If a chart wouldn't survive a "what's wrong with this graphic?" critique, it shouldn't ship.
+
 ## Make it feel like the user's own
 
 Drops should look like they belong to the human publishing them, not like a generic htmlbin template. Read brand signals from the cwd in this order — first non-empty source wins:
