@@ -235,6 +235,8 @@ assert_eq "$VC" "200" "GET /p/$SLUG returns 200 (public viewer)"
 
 RAW=$(curl -s "$BASE/p/$SLUG/raw")
 assert_contains "$RAW" "e2e drop" "GET /p/$SLUG/raw serves the HTML body"
+assert_contains "$RAW" "data-htmlbin-safety" "raw HTML carries the mobile safety-net stylesheet"
+assert_contains "$RAW" "name=\"viewport\"" "raw HTML gets a viewport meta injected when missing"
 RC=$(curl -s -o /dev/null -w "%{content_type}" "$BASE/p/$SLUG/raw")
 assert_contains "$RC" "text/html" "raw is served as text/html"
 

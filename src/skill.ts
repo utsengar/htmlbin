@@ -458,6 +458,7 @@ These apply to every drop regardless of pattern or brand context. They're not pl
   - **Belt and braces:** \`html, body { overflow-x: hidden }\` as a last-resort guard against a stray descendant. Don't rely on this — fix the descendant — but ship with it on.
   - **Tap targets** (links, buttons, summary toggles) ≥44×44px in interactive chrome.
   - Mentally test at **360px** (smallest common phone) and **768px** (tablet) before declaring done. If you have a way to actually render and screenshot, do that — it's the single highest-value check.
+  - **Note:** htmlbin appends a small safety stylesheet at the tail of \`<head>\` on every served drop (\`html,body{overflow-x:clip;max-width:100vw}\` plus fluid \`img/svg/video/iframe\` and \`max-width:100%\` on \`<pre>\`/\`<table>\`). It's a floor against the most common break, not a substitute for designing mobile-first. Your drop should look good without it.
 - Semantic HTML — real \`<h1>\`, real \`<details>\`, real \`<table>\` when tabular.
 - \`prefers-color-scheme\` aware (light + dark).
 - Inline \`<style>\`; external deps limited to well-known CDNs (Google Fonts, esm.sh, Tailwind CDN).

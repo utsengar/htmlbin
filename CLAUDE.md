@@ -279,6 +279,39 @@ current head.
 `?v=N` query param on the viewer + raw routes pins to a specific
 version. Default = latest.
 
+## Mobile safety net (injected into every served drop)
+
+The skill in `skills/htmlbin/SKILL.md` tells agents to author mobile-safe
+HTML, but the skill is advisory. The guard is `src/safety-net.ts` →
+`injectMobileSafetyNet()`, called from the `/p/:slug/raw` handler in
+`src/index.ts`. It appends a small `<style data-htmlbin-safety>` at the
+tail of `<head>` and injects a viewport meta if the drop didn't ship
+one. CSS is intentionally tiny:
+
+```
+html,body{max-width:100vw;overflow-x:clip}
+img,svg{max-width:100%;height:auto}
+video,iframe{max-width:100%}
+pre,table{max-width:100%}
+pre{overflow-x:auto}
+```
+
+Why this is OK to modify user content (we've otherwise been strict
+about "we don't touch /p/:slug/raw — that's the user's content"): the
+appended rules only ever clamp a layout that would have horizontally
+scrolled the body. No drop legitimately wants horizontal scroll on
+`<body>`. `overflow-x: clip` (not `hidden`) so we don't create a scroll
+container that breaks `position: sticky` descendants.
+
+If you ever change the CSS in `safety-net.ts`, also update:
+
+- `src/onboard.ts` → `recommendations.mobile_floor.server_safety_net`
+  (the prose that tells agents what we inject).
+- `skills/htmlbin/SKILL.md` + `src/skill.ts` mobile-floor "Note" bullet.
+
+The e2e test asserts both `data-htmlbin-safety` and the injected
+`name="viewport"` are present on `/p/:slug/raw`.
+
 ## Passcode (soft share gate)
 
 Drops can be gated by a **passcode** (renamed from "password" in May 2026 —
@@ -727,6 +760,7 @@ src/
   slug.ts           ─ 9-char base62 id generator
   db.ts             ─ D1 helpers + rate limiter
   discoverability.ts─ robots.txt, llms.txt, sitemap, agent-card, openapi, api-catalog
+  safety-net.ts     ─ mobile safety-net injector applied to /p/:slug/raw
   styles.ts         ─ THE stylesheet + STYLE_HREF (auto-bumping cache buster)
   types.ts          ─ shared types
   views/

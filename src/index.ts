@@ -23,6 +23,7 @@ import {
 } from "./discoverability";
 import { STYLES_CSS, STYLE_INLINE } from "./styles";
 import { FONTS } from "./fonts";
+import { injectMobileSafetyNet } from "./safety-net";
 import {
   signUnlockToken,
   verifyPassword,
@@ -711,7 +712,11 @@ app.on(["GET", "HEAD"], "/p/:slug/raw", async (c) => {
   const html = await c.env.DROPS_KV.get(`html:${slug}:v${v}`);
   if (!html) return c.notFound();
 
-  return new Response(html, {
+  // Defensive mobile safety net — prevents horizontal scroll on /p/<slug>
+  // when the agent shipped wide content. See src/safety-net.ts.
+  const body = injectMobileSafetyNet(html);
+
+  return new Response(body, {
     headers: {
       "Content-Type": "text/html; charset=utf-8",
       "Cache-Control": drop.password_hash
