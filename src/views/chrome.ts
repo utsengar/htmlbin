@@ -40,6 +40,7 @@ export function pageHead(args: { verb: string; path: string }): string {
       </button>
       <span class="sep" aria-hidden="true">·</span>
       <a href="/api/onboard">/api/onboard</a>
+      <a class="cli-link-mobile" href="https://github.com/utsengar/htmlbin-cli" target="_blank" rel="noopener noreferrer" title="@htmlbin/cli on GitHub"><span class="pkg">@htmlbin/cli</span></a>
     </div>
   </div>
 </header>
