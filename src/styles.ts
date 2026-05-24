@@ -155,7 +155,12 @@ a:hover { color: var(--red); text-decoration-color: var(--red); }
 @media (max-width: 720px) {
   .page-head .row { padding: 10px 22px; }
   .crumb .path { max-width: 18ch; }
-  .head-meta { display: none; }   /* on mobile, the breadcrumb stands alone */
+  /* Keep /api/onboard reachable from the top nav on mobile — the CLI
+     pill is too wide to fit, but the onboard link is the agent-facing
+     entry point and shouldn't require scrolling past the entire prompt
+     block to find. */
+  .head-meta .cli-pill,
+  .head-meta .sep { display: none; }
 }
 
 /* ---------- main column ----------
@@ -667,10 +672,14 @@ code, .mono {
 .examples a:hover .kind { color: var(--red); }
 @media (max-width: 600px) {
   .examples a {
-    grid-template-columns: 11ch 1fr;
+    /* min-content sizes the slug column to the widest slug in the list,
+       so a 9-char id (/p/XXXXXXXXX = 12ch) doesn't push the caption out
+       while shorter 7-char legacy slugs still get tight alignment. */
+    grid-template-columns: min-content 1fr;
     gap: 12px;
     font-size: 12.5px;
   }
+  .examples a .slug { white-space: nowrap; }
   .examples a .kind { display: none; }
 }
 
