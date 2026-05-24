@@ -21,7 +21,7 @@ import {
   robotsTxt,
   sitemapXml,
 } from "./discoverability";
-import { STYLES_CSS, STYLE_HREF } from "./styles";
+import { STYLES_CSS, STYLE_INLINE } from "./styles";
 import { FONTS } from "./fonts";
 import {
   signUnlockToken,
@@ -199,15 +199,17 @@ function acceptsMarkdown(accept: string): boolean {
 
 // ----- Global stylesheet (single source of truth across pages) -----------
 //
-// Cache for an hour at the browser, a week at the edge. The CSS contents
-// can change between deploys; if you need stronger guarantees, switch to
-// a content-hashed filename (e.g. /style.<hash>.css) and bump to
-// immutable.
-app.get("/style.css", (c) => {
+// As of 2026-05, pages inline the stylesheet directly in <head> via
+// STYLE_INLINE (see src/styles.ts) — Lighthouse was flagging the render-
+// blocking external request as ~540ms of LCP on Slow 4G. This route stays
+// mounted for external consumers and direct inspection, and gets a
+// year-long immutable cache since STYLE_HREF auto-busts (?v=<hash>) on
+// any CSS change.
+app.on(["GET", "HEAD"], "/style.css", (c) => {
   return new Response(STYLES_CSS, {
     headers: {
       "Content-Type": "text/css; charset=utf-8",
-      "Cache-Control": "public, max-age=3600, s-maxage=604800",
+      "Cache-Control": "public, max-age=31536000, immutable",
     },
   });
 });
@@ -762,7 +764,7 @@ function notFoundHtml(publicUrl: string): string {
 <html><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>404 · htmlbin</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-<link rel="stylesheet" href="${STYLE_HREF}" />
+${STYLE_INLINE}
 </head>
 <body>
 <header class="page-head">

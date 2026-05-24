@@ -1,6 +1,6 @@
 import type { Bindings } from "../types";
 import { httpMemo, pageHead } from "./chrome";
-import { STYLE_HREF } from "../styles";
+import { STYLE_INLINE } from "../styles";
 
 // Curated "what people are building" list, rendered below the tool
 // section. Edit this array + redeploy to rotate. Captions and `kind`
@@ -114,7 +114,7 @@ export function landingPage(env: Bindings): string {
 <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)" />
 <meta name="theme-color" content="#0A0A0A" media="(prefers-color-scheme: dark)" />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-<link rel="stylesheet" href="${STYLE_HREF}" />
+${STYLE_INLINE}
 <script src="/sentry.js" defer></script>
 <link rel="alternate" type="text/markdown" title="This page as markdown" href="/index.md" />
 <link rel="alternate" type="application/json" title="Agent protocol descriptor" href="/api/onboard" />

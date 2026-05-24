@@ -1,6 +1,6 @@
 import type { Bindings, Drop } from "../types";
 import { httpMemo, pageHead } from "./chrome";
-import { STYLE_HREF } from "../styles";
+import { STYLE_INLINE } from "../styles";
 
 type VersionItem = {
   version: number;
@@ -80,9 +80,9 @@ export function viewerPage(
 <meta name="twitter:description" content="${description || `htmlbin drop · v${total} · updated ${updated}`}" />
 <meta name="twitter:image" content="${escapeHtml(env.PUBLIC_URL)}/p/${slug}/og.png" />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-<link rel="stylesheet" href="${STYLE_HREF}" />
+${STYLE_INLINE}
 <script src="/sentry.js" defer></script>
-<!-- Self-hosted Geist + Geist Mono. @font-face in /style.css. -->
+<!-- Self-hosted Geist + Geist Mono. @font-face is inlined in the <style> above. -->
 <link rel="preload" as="font" type="font/woff2" href="/fonts/Geist-600.woff2" crossorigin="anonymous" />
 <link rel="preload" as="font" type="font/woff2" href="/fonts/GeistMono-500.woff2" crossorigin="anonymous" />
 <style>
@@ -309,7 +309,7 @@ export function passcodeGatePage(
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>${title} · locked · htmlbin</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-<link rel="stylesheet" href="${STYLE_HREF}" />
+${STYLE_INLINE}
 <script src="/sentry.js" defer></script>
 <link rel="preload" as="font" type="font/woff2" href="/fonts/Geist-700.woff2" crossorigin="anonymous" />
 <link rel="preload" as="font" type="font/woff2" href="/fonts/GeistMono-500.woff2" crossorigin="anonymous" />

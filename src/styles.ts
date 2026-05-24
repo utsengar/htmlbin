@@ -123,7 +123,12 @@ a:hover { color: var(--red); text-decoration-color: var(--red); }
 }
 .head-meta a { text-decoration: none; color: var(--ink-soft); font-size: 12px; }
 .head-meta a:hover { color: var(--red); }
+.head-meta a:hover .pkg { color: var(--red); }
 .head-meta .sep { color: var(--ink-softer); }
+/* Desktop hides the mobile-only @htmlbin/cli link — the install pill
+   carries the brand cue here. Mobile rule below flips this. */
+.head-meta .cli-link-mobile { display: none; }
+.head-meta .cli-link-mobile .pkg { color: var(--red); transition: color 0.12s; }
 
 /* The install command inside .head-meta. No more chrome of its own —
    the container provides the pill surface. Click copies. */
@@ -155,12 +160,15 @@ a:hover { color: var(--red); text-decoration-color: var(--red); }
 @media (max-width: 720px) {
   .page-head .row { padding: 10px 22px; }
   .crumb .path { max-width: 18ch; }
-  /* Keep /api/onboard reachable from the top nav on mobile — the CLI
-     pill is too wide to fit, but the onboard link is the agent-facing
-     entry point and shouldn't require scrolling past the entire prompt
-     block to find. */
+  /* On mobile, replace the install pill + /api/onboard link (both
+     irrelevant on a phone — agents are the audience for onboard, and
+     copy-the-install-cmd needs a terminal) with a single @htmlbin/cli
+     link that points at the package's GitHub repo. Keeps brand + a
+     useful target without overflowing the top bar. */
   .head-meta .cli-pill,
-  .head-meta .sep { display: none; }
+  .head-meta .sep,
+  .head-meta > a[href="/api/onboard"] { display: none; }
+  .head-meta .cli-link-mobile { display: inline; }
 }
 
 /* ---------- main column ----------
@@ -1065,3 +1073,13 @@ function styleHash(s: string): string {
 }
 export const STYLE_VER = styleHash(STYLES_CSS);
 export const STYLE_HREF = `/style.css?v=${STYLE_VER}`;
+
+// Inline <style> tag, embedded into every page <head> instead of a
+// render-blocking <link rel="stylesheet">. Eliminates the extra
+// round-trip Lighthouse flagged (~540ms LCP win on Slow 4G). The
+// stylesheet still ships brotli-compressed inside the HTML response,
+// and brotli efficiently deduplicates the CSS bytes across the body.
+//
+// The /style.css route stays mounted as a side door for external
+// consumers (and so the URL keeps resolving) — see src/index.ts.
+export const STYLE_INLINE = `<style>${STYLES_CSS}</style>`;
