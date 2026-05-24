@@ -342,6 +342,23 @@ export function buildOnboardJson(publicUrl: string): object {
         "token_required",
       ],
     },
+    recommendations: {
+      mobile_floor: {
+        summary:
+          "Render at 360px without horizontal scroll. This is the #1 failure mode for agent-authored drops — author mobile-first.",
+        must_have: [
+          "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"> in <head> (server injects if missing).",
+          "No fixed pixel widths >360px on layout containers. Use max-width paired with width: 100%.",
+          "Long unbreakable strings (URLs, paths, hashes) wrap: overflow-wrap: anywhere on prose, table cells, inline code.",
+          "<pre> and wide <table> scroll internally, not the page: overflow-x: auto; max-width: 100%.",
+          "Media is fluid: img, svg, video, iframe { max-width: 100% }.",
+          "Mentally test at 360px and 768px before publishing.",
+        ],
+        server_safety_net:
+          "Every /p/<slug>/raw response gets a small defensive style appended at the tail of <head>: html,body{max-width:100vw;overflow-x:clip}, plus fluid img/svg/video/iframe and max-width:100% on pre/table. It's a guard against the most common break, not a license to skip mobile design.",
+        skill: `${publicUrl}/.well-known/agent-skills/htmlbin/SKILL.md`,
+      },
+    },
     notes: [
       "Drops are rendered in an iframe — HTML must be standalone (CDN imports OK; no build step).",
       "If the human's agent sandbox blocks new domains, allow htmlbin.dev once before running this flow.",
@@ -459,6 +476,11 @@ iframe, so it must look right standalone.
 - All JS in \`<script>\` (CDNs OK)
 - No build step on our side — what you upload is what's served
 - Up to 2 MB per file
+- **Mobile-OK at 360px.** Single column, no fixed pixel widths, long strings
+  wrap (\`overflow-wrap: anywhere\`), \`<pre>\` / wide \`<table>\` scroll
+  internally (\`overflow-x: auto\`). The server injects a tail-of-\`<head>\`
+  safety net (\`html,body{overflow-x:clip}\`, fluid media) on every served
+  drop, but well-authored drops shouldn't rely on it.
 
 ## Step 3: Upload (creates v1)
 
