@@ -27,6 +27,16 @@ When the source is a plan, spec, or design document — forward-looking, structu
 - Open questions, if any
 - Preserve the author's voice — plans have personality; don't sanitize it out
 
+## Prose floor
+
+Every drop is read by a human. Write like one wrote it:
+
+- Name the actor — "the team decided", not "a decision was made"
+- Cut throat-clearing openers ("Here's the thing:", "Let me be clear") — start with the point
+- Delete emphasis crutches: "Full stop.", "Let that sink in.", adverbs like "really" / "literally"
+- Skip binary-contrast drama ("Not because X. Because Y.") — just say Y
+- Vary sentence length — three short staccato fragments in a row reads as manufactured urgency
+
 ## Layout directions
 
 1. **Memo** — short single-section plans (<300 words). Table-of-contents up top, body below, footer with the source file path so a reader can find it locally.

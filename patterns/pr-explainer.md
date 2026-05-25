@@ -26,6 +26,16 @@ When the human asks to share or publish a writeup of a pull request, a merge com
 - (Optional) the full diff in a collapsed `<details>` block at the end
 - (Optional) a single pull-quote from the PR description if there's a great one
 
+## Prose floor
+
+Every drop is read by a human. Write like one wrote it:
+
+- Name the actor — "the team decided", not "a decision was made"
+- Cut throat-clearing openers ("Here's the thing:", "Let me be clear") — start with the point
+- Delete emphasis crutches: "Full stop.", "Let that sink in.", adverbs like "really" / "literally"
+- Skip binary-contrast drama ("Not because X. Because Y.") — just say Y
+- Vary sentence length — three short staccato fragments in a row reads as manufactured urgency
+
 ## Layout directions
 
 1. **Centered memo** — small PRs (≤3 files, no visual change). Tight single column (~680px), HTTP-memo block up top, numbered sections.
