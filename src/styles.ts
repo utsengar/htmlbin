@@ -125,6 +125,38 @@ a:hover { color: var(--red); text-decoration-color: var(--red); }
 .head-meta a:hover { color: var(--red); }
 .head-meta a:hover .pkg { color: var(--red); }
 .head-meta .sep { color: var(--ink-softer); }
+
+/* live · v1 status pill — the only continuous motion on the page.
+   Solid green dot sits inside .head-meta as a "service is running"
+   signal; an ::after layer expands and fades to ping. Slow cadence
+   (2.6s) so it reads as a heartbeat, not a strobe. Disabled under
+   prefers-reduced-motion below. */
+.live-pill {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-family: var(--mono); font-size: 12px;
+  color: var(--ink-soft);
+  letter-spacing: 0.01em;
+  user-select: none;
+  flex-shrink: 0;
+}
+.live-dot {
+  position: relative;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--green-dot);
+  display: inline-block;
+  flex: 0 0 auto;
+}
+.live-dot::after {
+  content: ""; position: absolute; inset: 0;
+  border-radius: 50%;
+  background: var(--green-dot);
+  animation: live-pulse 2.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+@keyframes live-pulse {
+  0%   { transform: scale(1);   opacity: 0.55; }
+  70%  { transform: scale(2.6); opacity: 0; }
+  100% { transform: scale(2.6); opacity: 0; }
+}
 /* Desktop hides the mobile-only @htmlbin/cli link — the install pill
    carries the brand cue here. Mobile rule below flips this. */
 .head-meta .cli-link-mobile { display: none; }
@@ -167,6 +199,7 @@ a:hover { color: var(--red); text-decoration-color: var(--red); }
      useful target without overflowing the top bar. */
   .head-meta .cli-pill,
   .head-meta .sep,
+  .head-meta .live-pill,
   .head-meta > a[href="/api/onboard"] { display: none; }
   .head-meta .cli-link-mobile { display: inline; }
 }
@@ -347,6 +380,44 @@ code, .mono {
   .hero { margin: 24px 0 36px; }
   .hero h1 { font-size: 36px; }
   .hero p  { font-size: 18px; }
+}
+
+/* One-shot entrance for the hero — runs once at first paint, then done.
+   Each word is an inline-block span (.wf) staggered via --i. Subhead
+   trails the last word so the section settles together. Blur drops off
+   so the type re-sharpens as it lands. */
+.hero h1 .wf {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(0.32em);
+  filter: blur(6px);
+  animation: hero-word-in 620ms cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+  animation-delay: calc(var(--i, 0) * 65ms + 80ms);
+  will-change: opacity, transform, filter;
+}
+.hero .hero-sub {
+  opacity: 0;
+  transform: translateY(4px);
+  animation: hero-word-in 620ms cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+  /* land just after the last (6th) word — index 5, +80ms base, +620ms run */
+  animation-delay: 560ms;
+}
+@keyframes hero-word-in {
+  to { opacity: 1; transform: none; filter: none; }
+}
+
+/* Honor system motion preference — kill the entrance animation and the
+   ping ring. The dot itself stays green (it's a status indicator, not
+   motion), but it stops pulsing. */
+@media (prefers-reduced-motion: reduce) {
+  .hero h1 .wf,
+  .hero .hero-sub {
+    animation: none;
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+  .live-dot::after { animation: none; display: none; }
 }
 
 /* ---------- prompt block ----------
