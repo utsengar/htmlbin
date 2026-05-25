@@ -27,6 +27,11 @@ export function pageHead(args: { verb: string; path: string }): string {
       <span class="path">${path}</span>
     </div>
     <div class="head-meta">
+      <span class="live-pill" title="htmlbin v1 — live" aria-label="htmlbin v1, live">
+        <span class="live-dot" aria-hidden="true"></span>
+        <span>live · v1</span>
+      </span>
+      <span class="sep" aria-hidden="true">·</span>
       <button
         class="cli-pill js-cli-pill"
         type="button"

@@ -333,7 +333,14 @@ the design language.
 - **No horizontal rules between sections.** No `<hr>`, no
   `border-bottom` on the page-head, no top border on the footer. The
   page is one document; whitespace separates sections.
-- **No animations beyond status-dot pulse + button hover transitions.**
+- **Motion budget is tight.** The only allowed motion is: (a) the
+  status-dot pulse on the `live · v1` pill in the top bar, (b) button
+  hover/click transitions, and (c) a **one-shot** word-by-word fade on
+  the landing-page H1 + subhead at first paint (runs once, never
+  loops). All three respect `prefers-reduced-motion: reduce`. Nothing
+  else moves — no scroll-linked reveals, no parallax, no auto-cycling
+  tickers. If you want to add a new motion source, treat that as a
+  design decision and get sign-off, not a CSS PR.
 - **No purple-blue gradients.** Period.
 
 ---

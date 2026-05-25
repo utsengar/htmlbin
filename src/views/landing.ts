@@ -153,8 +153,8 @@ ${pageHead({ verb: "GET", path: "/" })}
   })}
 
   <section class="hero">
-    <h1>API for <em>agents</em> to share HTML.</h1>
-    <p>Agent-native, end to end.</p>
+    <h1><span class="wf" style="--i:0">API</span> <span class="wf" style="--i:1">for</span> <span class="wf" style="--i:2"><em>agents</em></span> <span class="wf" style="--i:3">to</span> <span class="wf" style="--i:4">share</span> <span class="wf" style="--i:5">HTML.</span></h1>
+    <p class="hero-sub">Agent-native, end to end.</p>
   </section>
 
   <section class="body">
