@@ -54,12 +54,20 @@ them ships something the user will reject:
 3. **No Webflow.** Off-limits in the public version.
 4. **Don't add signup/login/email/dashboard.** The device-code flow is
    the entire UX. Adding auth surfaces breaks the product thesis.
-   *Documented exception:* GitHub OAuth lives inside the device-code
-   verify step (May 2026) — it replaces Turnstile, doesn't add a new
-   surface. There is still no email, no password, no dashboard, no
-   account page. Sign-in happens once at `/verify` and the agent flow
-   is unchanged from its side. Do not extend this exception to add a
-   user-facing account UI.
+   *Documented exceptions:*
+   - GitHub OAuth lives inside the device-code verify step (May 2026)
+     — it replaces Turnstile, doesn't add a new surface. Sign-in
+     happens once at `/verify` and the agent flow is unchanged from
+     its side.
+   - We collect the user's **verified primary email** from GitHub
+     (May 2026) via the `user:email` scope. Stored on the user row as
+     contact metadata only — used for occasional operator-to-user
+     outreach (incident notice, "are you the StressLessAgency that's
+     publishing X?"). There is **still no password, no dashboard, no
+     account page, no user-facing email surface, no marketing list,
+     no transactional product email.** If you find yourself adding any
+     of those, stop and ask first.
+   Do not extend these exceptions to add a user-facing account UI.
 5. **Don't introduce a new keyword (formerly "HTMD").** The product is
    called htmlbin; the artifact is "a drop"; "drop" is just casual
    English, not a coined term we own. We do not have authority to define
@@ -123,9 +131,11 @@ Modeled on OAuth device-code (think `gh auth login`):
 
 1. `POST /api/auth/start` → `{code, verification_url, poll_token}`
 2. Agent prints code + URL to human
-3. Human opens URL, signs in with **GitHub** — we ask for `read:user`
-   only (public username + numeric id). The Worker upserts a user row
-   by `github_user_id` (UNIQUE) and mints a token in the same callback.
+3. Human opens URL, signs in with **GitHub** — we ask for
+   `read:user user:email`. `read:user` gives public username + numeric
+   id; `user:email` lets us hit `/user/emails` for the primary+verified
+   address. The Worker upserts a user row by `github_user_id` (UNIQUE)
+   and mints a token in the same callback.
 4. `GET /api/auth/poll?token=…` → `{api_token}` revealed exactly once
 5. `Authorization: Bearer hb_…` thereafter
 
@@ -140,6 +150,22 @@ email verification, account age) which is the point.
 device. The callback finds the existing user by `github_user_id` and
 mints a new token attached to the same `user_id`. The old "paste an
 existing hb_… token" UX was deleted in the same change.
+
+**Email column (`users.email`, May 2026):** verified primary email
+from `/user/emails`. **Optional** — sign-in never blocks on it
+(scope denied / no verified email / lookup failed → NULL). **No
+UNIQUE constraint** (two distinct GitHub accounts can legitimately
+share a personal address). **Refreshed on every sign-in** via
+`updateUserEmail()` so pre-`user:email` rows backfill the first time
+the user signs in again. **Backfill caveat:** users who never sign in
+again will keep `email IS NULL` forever — there is no scheduled
+backfill job and no human-facing "please update your email" prompt
+(would violate rule #4). Disclosure is the GitHub OAuth consent
+screen only. **No marketing list, no transactional product email,
+no unsubscribe surface** — current use is operator-to-user reach-out
+only, surfaced as a `mailto:` link in `npm run dashboard`. If you
+ever add automated send, that's a real product change with a privacy
+notice + unsubscribe story — talk to the user first.
 
 **Routes:** `/auth/github/start` and `/auth/github/callback` live in
 `src/github-oauth.ts`. State binding to the verification row uses the

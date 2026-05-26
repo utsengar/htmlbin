@@ -34,7 +34,13 @@ import {
   newApiToken,
   newUserId,
 } from "./crypto";
-import { createUser, getUserByGitHubId, insertToken, rateLimit } from "./db";
+import {
+  createUser,
+  getUserByGitHubId,
+  insertToken,
+  rateLimit,
+  updateUserEmail,
+} from "./db";
 import { verifyPage } from "./views/verify";
 
 const DEV_MOCK = "dev-mock";
@@ -105,7 +111,10 @@ githubOAuthRoutes.get("/auth/github/start", async (c) => {
   const authorize = new URL("https://github.com/login/oauth/authorize");
   authorize.searchParams.set("client_id", c.env.GITHUB_CLIENT_ID);
   authorize.searchParams.set("redirect_uri", redirectUri);
-  authorize.searchParams.set("scope", "read:user");
+  // user:email lets us read /user/emails for the primary+verified address.
+  // Stored on the user row as contact metadata; sign-in still succeeds
+  // when it's null (denied scope / no verified email / lookup failed).
+  authorize.searchParams.set("scope", "read:user user:email");
   authorize.searchParams.set("state", code);
   authorize.searchParams.set("allow_signup", "true");
   return c.redirect(authorize.toString(), 302);
@@ -204,12 +213,17 @@ githubOAuthRoutes.get("/auth/github/callback", async (c) => {
 
   let githubUserId: number;
   let githubLogin: string;
+  let githubEmail: string | null = null;
   try {
     if (c.env.GITHUB_CLIENT_ID === DEV_MOCK) {
       githubLogin = (c.req.query("mock_login") ?? "dev-user").slice(0, 40);
       // Deterministic but per-login id, so two different mock_logins
       // create two different accounts. 32-bit space is plenty for tests.
       githubUserId = await stableMockId(githubLogin);
+      // .test is a reserved TLD, so the synthetic value can't collide
+      // with a real address. Lets the e2e + dashboard exercise the
+      // happy path without ever sending mail.
+      githubEmail = `${githubLogin}@example.test`;
     } else {
       const exchanged = await exchangeCode(
         ghCode,
@@ -220,6 +234,9 @@ githubOAuthRoutes.get("/auth/github/callback", async (c) => {
       const ghUser = await fetchGitHubUser(exchanged.access_token);
       githubUserId = ghUser.id;
       githubLogin = ghUser.login;
+      // Optional: if /user/emails fails or returns nothing usable, we
+      // log and continue. Sign-in never blocks on email.
+      githubEmail = await fetchGitHubPrimaryEmail(exchanged.access_token);
     }
   } catch (e) {
     console.error("github_oauth_failed", String(e));
@@ -240,11 +257,18 @@ githubOAuthRoutes.get("/auth/github/callback", async (c) => {
     // "same human on a new device" path that used to require pasting
     // an existing token.
     linked = true;
+    // Refresh contact email — user may have changed their primary on
+    // GitHub since last sign-in, and pre-user:email accounts get their
+    // first email backfilled on next sign-in.
+    if (githubEmail) {
+      await updateUserEmail(c.env.DB, user.id, githubEmail);
+    }
   } else {
     const newId = newUserId();
     await createUser(c.env.DB, newId, githubLogin, {
       id: githubUserId,
       login: githubLogin,
+      email: githubEmail,
     });
     user = {
       id: newId,
@@ -252,6 +276,7 @@ githubOAuthRoutes.get("/auth/github/callback", async (c) => {
       created_at: Date.now(),
       github_user_id: githubUserId,
       github_login: githubLogin,
+      email: githubEmail,
     };
   }
 
@@ -330,6 +355,39 @@ async function fetchGitHubUser(
     throw new Error("github /user response missing id/login");
   }
   return { id: json.id, login: json.login };
+}
+
+// Pull the user's primary+verified email from /user/emails. Returns null
+// (and only logs) on any failure — the caller treats email as optional.
+async function fetchGitHubPrimaryEmail(
+  accessToken: string
+): Promise<string | null> {
+  try {
+    const res = await fetch("https://api.github.com/user/emails", {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: "application/vnd.github+json",
+        "User-Agent": "htmlbin-oauth",
+      },
+    });
+    if (!res.ok) {
+      console.warn("github_emails_failed", res.status);
+      return null;
+    }
+    const list = (await res.json()) as Array<{
+      email?: string;
+      primary?: boolean;
+      verified?: boolean;
+    }>;
+    if (!Array.isArray(list)) return null;
+    const primary = list.find(
+      (e) => e.primary === true && e.verified === true && typeof e.email === "string"
+    );
+    return primary?.email ?? null;
+  } catch (e) {
+    console.warn("github_emails_threw", String(e));
+    return null;
+  }
 }
 
 // Dev-mock id: SHA-256(login) → first 4 bytes → uint32. Same login always

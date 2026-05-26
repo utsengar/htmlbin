@@ -384,6 +384,12 @@ async function viewUser(userId) {
         ),
         gh?.bio ? el("p", { class: "user-bio" }, gh.bio) : null,
         facts.length > 0 ? el("div", { class: "user-facts" }, facts.join(" · ")) : null,
+        u.email
+          ? el("div", { class: "user-ext-links" },
+              "✉ ",
+              el("a", { href: `mailto:${u.email}`, class: "link" }, u.email),
+            )
+          : null,
         extLinks.length > 0
           ? el("div", { class: "user-ext-links" }, ...extLinks.flatMap((l, i) => i === 0 ? [l] : [" · ", l]))
           : null,

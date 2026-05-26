@@ -245,7 +245,7 @@ function userDetail(userId) {
   if (!RE_USER.test(userId)) throw new Error("invalid user id");
 
   const user = runQuery(`
-    SELECT id, display_name, github_login, github_user_id, created_at
+    SELECT id, display_name, github_login, github_user_id, email, created_at
     FROM users WHERE id = '${userId}'
   `)[0];
   if (!user) return null;

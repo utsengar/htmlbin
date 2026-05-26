@@ -7,7 +7,7 @@ export async function getUserByTokenHash(
   const row = await db
     .prepare(
       `SELECT u.id, u.display_name, u.created_at,
-              u.github_user_id, u.github_login
+              u.github_user_id, u.github_login, u.email
          FROM tokens t
          JOIN users u ON u.id = t.user_id
         WHERE t.token_hash = ? AND t.revoked_at IS NULL`
@@ -23,12 +23,26 @@ export async function getUserByGitHubId(
 ): Promise<User | null> {
   const row = await db
     .prepare(
-      `SELECT id, display_name, created_at, github_user_id, github_login
+      `SELECT id, display_name, created_at, github_user_id, github_login, email
          FROM users WHERE github_user_id = ?`
     )
     .bind(githubUserId)
     .first<User>();
   return row ?? null;
+}
+
+// Refresh the stored email for an existing user on re-auth. Only writes
+// when the value actually changes (avoids a no-op UPDATE on every
+// sign-in). Pass null to clear; pass undefined to leave the column alone.
+export async function updateUserEmail(
+  db: D1Database,
+  userId: string,
+  email: string | null
+): Promise<void> {
+  await db
+    .prepare(`UPDATE users SET email = ? WHERE id = ? AND (email IS NOT ?)`)
+    .bind(email, userId, email)
+    .run();
 }
 
 export async function touchToken(
@@ -45,19 +59,20 @@ export async function createUser(
   db: D1Database,
   id: string,
   displayName: string | null,
-  github: { id: number; login: string } | null = null
+  github: { id: number; login: string; email?: string | null } | null = null
 ): Promise<void> {
   await db
     .prepare(
-      `INSERT INTO users (id, display_name, created_at, github_user_id, github_login)
-       VALUES (?, ?, ?, ?, ?)`
+      `INSERT INTO users (id, display_name, created_at, github_user_id, github_login, email)
+       VALUES (?, ?, ?, ?, ?, ?)`
     )
     .bind(
       id,
       displayName,
       Date.now(),
       github?.id ?? null,
-      github?.login ?? null
+      github?.login ?? null,
+      github?.email ?? null
     )
     .run();
 }
