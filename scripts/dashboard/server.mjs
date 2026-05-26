@@ -171,6 +171,13 @@ function overviewData(win, buckets) {
     ORDER BY d.view_count DESC LIMIT 20
   `);
 
+  const latestDrops = runQuery(`
+    SELECT d.slug, d.title, d.created_at, d.view_count, d.latest_version,
+           d.user_id, u.github_login
+    FROM drops d LEFT JOIN users u ON u.id = d.user_id
+    ORDER BY d.created_at DESC LIMIT 20
+  `);
+
   const topUsers = runQuery(`
     SELECT u.id, u.github_login, u.created_at,
            COUNT(d.slug) AS drops,
@@ -224,6 +231,7 @@ function overviewData(win, buckets) {
     summary: { drops, users, tokens, verify },
     timeseries,
     top_drops: topDrops,
+    latest_drops: latestDrops,
     top_users: topUsers,
     risk: {
       burst, zero,
