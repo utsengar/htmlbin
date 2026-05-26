@@ -229,6 +229,18 @@ async function viewOverview() {
     ),
 
     el("section", { class: "section" },
+      el("h2", {}, "latest drops"),
+      table([
+        { head: "slug", get: (d) => liveDropLink(d.slug) },
+        { head: "title", get: (d) => d.title ? liveDropLink(d.slug, d.title) : "(no title)" },
+        { head: "owner", get: (d) => userLinkFromRow(d) },
+        { head: "created", get: (d) => since(d.created_at) },
+        { head: "v", get: (d) => num(d.latest_version), align: "right" },
+        { head: "views", get: (d) => num(d.view_count), align: "right" },
+      ], data.latest_drops),
+    ),
+
+    el("section", { class: "section" },
       el("h2", {}, "top users by drops"),
       table([
         { head: "user", get: (u) => userLinkFromRow(u) },
