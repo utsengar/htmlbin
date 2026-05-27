@@ -9,6 +9,14 @@
 //   real friction (rate limits, email verification, the slow ramp on a
 //   throwaway account's reputation) which is the point.
 //
+// TODO(auth.md): when at least one major agent runtime (Anthropic,
+//   OpenAI, Cursor, …) actually ships ID-JAG issuance with a public
+//   JWKS, add a second registration path that swaps github_user_id for
+//   the (iss, sub) pair from the attestation. Keep GitHub OAuth as a
+//   fallback for agents whose provider doesn't attest. Spec is fine
+//   (sub is stable per-human, same shape as github_user_id), adoption
+//   is what we're waiting on. See CLAUDE.md "auth.md (not yet)".
+//
 // Flow:
 //   1. Human lands on /verify?code=<verify_code>
 //   2. Clicks "Sign in with GitHub" → GET /auth/github/start?code=<verify_code>

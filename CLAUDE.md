@@ -170,6 +170,25 @@ new account can be created with `github_user_id = NULL`. The UNIQUE
 index uses a partial-index `WHERE github_user_id IS NOT NULL` so the
 legacy rows don't collide.
 
+**auth.md (not yet, May 2026):** considered WorkOS's `auth.md`
+agent-verified flow as a replacement for the human checkpoint at
+`/verify`. The spec is the right shape — every attestation is an
+ID-JAG (audience-scoped JWT) signed by the agent provider with `iss`
++ `sub` claims, where `sub` is *"an opaque user identifier"* stable
+per-human across sessions. That's the same role `github_user_id`
+plays today: one human running N agent sessions resolves to one
+`(iss, sub)` pair, not N accounts. **Decision: don't migrate yet.**
+Adoption is the blocker — no major agent runtime (Anthropic /
+OpenAI / Cursor / Replit Agent) has shipped issuer-side ID-JAG
+issuance as of 2026-05-27. Without an issuer there's nothing to
+verify, so a `/auth.md` + `/agent/auth` endpoint would advertise a
+flow no agent can complete. When at least one runtime ships
+issuer-side, the migration is small: keep `users`, add `(iss, sub)`
+columns alongside `github_user_id`, accept either as identity, keep
+GitHub OAuth as fallback for non-attesting agents. The TODO marker
+in `src/github-oauth.ts` is the trip-wire. Track: Anthropic
+changelog for "ID-JAG" / "agent attestation" / "auth.md."
+
 **Token storage convention (agent-side):**
 1. `./.htmlbin/token` — project-local, preferred (no permission prompt for
    agents that won't write outside cwd)
