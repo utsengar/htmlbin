@@ -240,7 +240,13 @@ app.on(["GET", "HEAD"], "/sentry.js", (c) => {
   const publicKey = m[1];
   const dsnJson = JSON.stringify(dsn);
   const keyJson = JSON.stringify(publicKey);
-  const body = `(function(){var s=document.createElement('script');s.src='https://js.sentry-cdn.com/'+${keyJson}+'.min.js';s.crossOrigin='anonymous';s.onload=function(){if(window.Sentry)window.Sentry.init({dsn:${dsnJson},tracesSampleRate:0.1});};document.head.appendChild(s);})();`;
+  // ignoreErrors filters third-party browser noise that bubbles into our
+  // unhandled-rejection handler:
+  //   - "Object Not Found Matching Id" — MS Office Editor add-in misbehaving
+  //     in the page context on Windows + Edge/Chrome.
+  //   - ResizeObserver loop messages — benign Chrome implementation detail
+  //     fired when an observer callback triggers another layout pass.
+  const body = `(function(){var s=document.createElement('script');s.src='https://js.sentry-cdn.com/'+${keyJson}+'.min.js';s.crossOrigin='anonymous';s.onload=function(){if(window.Sentry)window.Sentry.init({dsn:${dsnJson},tracesSampleRate:0.1,ignoreErrors:["Object Not Found Matching Id","ResizeObserver loop limit exceeded","ResizeObserver loop completed with undelivered notifications"]});};document.head.appendChild(s);})();`;
   return new Response(body, { headers });
 });
 
