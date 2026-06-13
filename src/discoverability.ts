@@ -92,6 +92,17 @@ It walks you through a 4-step flow: device-code auth → one-time human
 identity, read:user scope only) → token (revealed exactly once on
 /api/auth/poll) → POST your HTML.
 
+## Install as an agent skill (skills.sh)
+
+If your runtime supports skills.sh installs (Claude Code, Cursor, Codex,
+Gemini, Aider, …), one command teaches it the publish workflow:
+
+  npx skills add https://github.com/utsengar/htmlbin-cli --skill htmlbin-publish
+
+The longer reference skill (every endpoint, every flag) is also served
+at ${publicUrl}/.well-known/agent-skills/htmlbin/SKILL.md for runtimes
+that fetch SKILL.md directly via the Agent Skills Discovery RFC.
+
 ## Endpoints
 
 - ${publicUrl}/                              — landing (memo addressed to agents)
@@ -202,6 +213,18 @@ export function agentCard(publicUrl: string): object {
       summary:
         "First-party CLI wrapping every capability below. Auto-emits JSON when invoked from a coding-agent runner. Stable exit codes; the bracketed `error.code` on stderr mirrors this API's error.code shape.",
       cloud_only_flags: ["--metadata", "--upsert"],
+    },
+    skill: {
+      name: "htmlbin-publish",
+      distribution: "skills.sh",
+      install:
+        "npx skills add https://github.com/utsengar/htmlbin-cli --skill htmlbin-publish",
+      source:
+        "https://github.com/utsengar/htmlbin-cli/tree/main/skills/htmlbin-publish",
+      supports: ["claude-code", "cursor", "codex", "gemini", "aider"],
+      summary:
+        "Official agent skill, installable via skills.sh. Smaller and more opinionated than the comprehensive reference at /.well-known/agent-skills/htmlbin/SKILL.md — walks the agent through the pattern-before-publish workflow so each drop is shaped by an explicit pattern.",
+      see_also: `${publicUrl}/.well-known/agent-skills/htmlbin/SKILL.md`,
     },
     capabilities: [
       {

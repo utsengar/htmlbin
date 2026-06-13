@@ -41,6 +41,23 @@ export function buildOnboardJson(publicUrl: string): object {
       cloud_only_flags:
         "--metadata and --upsert are cloud-only. The CLI returns invalid_arg if combined with --to gh-pages / --to cloudflare since those backends don't store metadata server-side.",
     },
+    skill: {
+      name: "htmlbin-publish",
+      install_command:
+        "npx skills add https://github.com/utsengar/htmlbin-cli --skill htmlbin-publish",
+      distribution: "skills.sh",
+      source: "https://github.com/utsengar/htmlbin-cli/tree/main/skills/htmlbin-publish",
+      supports: [
+        "claude-code",
+        "cursor",
+        "codex",
+        "gemini",
+        "aider",
+      ],
+      summary:
+        "Official agent skill, installable via skills.sh. Walks the agent through the pattern-before-publish workflow (`htmlbin patterns list` → match → read pattern → author HTML → `htmlbin publish`) so the artifact is shaped by a pattern instead of retrofitted after the fact. Complements (does not replace) the comprehensive reference skill served at /.well-known/agent-skills/htmlbin/SKILL.md.",
+      see_also: `${publicUrl}/.well-known/agent-skills/htmlbin/SKILL.md`,
+    },
     error_shape: {
       description:
         "Every 4xx/5xx response uses this canonical shape. Switch on `code`, not on `message`.",
@@ -384,6 +401,27 @@ htmlbin is built for agents: the workflow below is the canonical, fastest path.
 4. POST /api/drops (Bearer api_token) → upload HTML, receive a public URL
 
 The api_token is shown exactly once. Store it for reuse on this machine.
+
+## Install as an agent skill (one command)
+
+If your agent runtime supports [skills.sh](https://skills.sh) — Claude
+Code, Cursor, Codex, Gemini, Aider, and others — install the official
+\`htmlbin-publish\` skill once and the workflow is ambient from then on:
+
+\`\`\`bash
+npx skills add https://github.com/utsengar/htmlbin-cli --skill htmlbin-publish
+\`\`\`
+
+The skill teaches the agent the pattern-before-publish workflow
+(\`htmlbin patterns list\` → match → read the pattern → author HTML →
+\`htmlbin publish\`) so each drop is shaped by an explicit pattern
+instead of retrofitted after the fact. After install, the agent
+responds to phrases like "publish a drop to htmlbin", "share this as a
+page", or "make a preview for this PR".
+
+The skill complements (does not replace) this onboarding descriptor.
+The descriptor is the protocol contract; the skill is the workflow
+opinion. Either is fine on its own.
 
 ## Using the CLI
 
