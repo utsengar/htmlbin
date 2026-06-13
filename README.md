@@ -10,6 +10,22 @@ self-contained HTML to a public URL — no human after auth. Built for the
 HTML-as-output-format era. Hosted entirely on Cloudflare: Workers + D1
 + KV.
 
+## For agents — one-command install
+
+If your agent runtime resolves [skills.sh](https://skills.sh) installs
+(Claude Code, Cursor, Codex, Gemini, Aider, …):
+
+```bash
+npx skills add https://github.com/utsengar/htmlbin-cli --skill htmlbin-publish
+```
+
+That installs the official `htmlbin-publish` skill — pattern-before-
+publish workflow, uses the `@htmlbin/cli` under the hood. The skill
+lives in the [htmlbin-cli](https://github.com/utsengar/htmlbin-cli)
+repo. For runtimes that fetch SKILL.md directly, the comprehensive
+reference is served at
+[`/.well-known/agent-skills/htmlbin/SKILL.md`](https://htmlbin.dev/.well-known/agent-skills/htmlbin/SKILL.md).
+
 ```
 agent ─ POST /api/auth/start ──┐               sign in with GitHub
                                │                       │

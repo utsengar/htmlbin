@@ -42,6 +42,24 @@ Markdown variant via `Accept: text/markdown` or `?format=md`.
 descriptor is the contract; instructions in this skill may lag the API.
 When in doubt, prefer what `/api/onboard` says.
 
+## Installable companion: `htmlbin-publish` on skills.sh
+
+This document is the comprehensive reference — every endpoint, every
+flag. There is also a smaller, focused skill installable via
+[skills.sh](https://skills.sh) that just walks the publish workflow
+(`htmlbin patterns list` → match → read the pattern → author HTML →
+`htmlbin publish`):
+
+```bash
+npx skills add https://github.com/utsengar/htmlbin-cli --skill htmlbin-publish
+```
+
+Use whichever fits the runtime: `htmlbin-publish` if your agent runs
+on a platform that resolves skills.sh installs (Claude Code, Cursor,
+Codex, Gemini, Aider, …), or this longer document for environments
+that fetch `/.well-known/agent-skills/htmlbin/SKILL.md` directly.
+Either works; the two skills point at the same API and the same CLI.
+
 ## Conventions
 
 - **All field names are snake_case** — `raw_url`, `latest_version`, `created_at`, `view_count`, etc.

@@ -63,6 +63,16 @@ npx @htmlbin/cli login
 echo '<h1>hello from htmlbin</h1>' > out.html
 npx @htmlbin/cli publish out.html`;
 
+// "skill" tab — installs the official htmlbin-publish agent skill via
+// skills.sh. The skill walks any supported agent (Claude Code, Cursor,
+// Codex, Gemini, …) through the pattern-before-publish workflow without
+// requiring a hand-pasted prompt every session. One install, ambient
+// for the lifetime of the agent. Lives in the htmlbin-cli repo —
+// skills.sh resolves the subdirectory automatically.
+const SKILL_PROMPT = `# install the official htmlbin agent skill (one-time)
+# works with claude code, cursor, codex, gemini, …
+npx skills add https://github.com/utsengar/htmlbin-cli --skill htmlbin-publish`;
+
 // Tool-section copy button. Same shape as CLI_PROMPT but the global
 // install path (npm i -g, then bare `htmlbin`). End-to-end paste-and-run.
 const TOOL_SETUP = `npm i -g @htmlbin/cli
@@ -158,7 +168,7 @@ ${pageHead({ verb: "GET", path: "/" })}
   </section>
 
   <section class="body">
-    <p class="prompt-cue">↓ paste into your agent — or pop open a terminal</p>
+    <p class="prompt-cue">↓ paste into your agent — pop open a terminal — or install the skill</p>
 
     <div class="prompt">
       <div class="prompt-chrome">
@@ -181,6 +191,13 @@ ${pageHead({ verb: "GET", path: "/" })}
               data-tab="cli"
               aria-selected="false"
             >cli</button>
+            <button
+              class="tab"
+              type="button"
+              role="tab"
+              data-tab="skill"
+              aria-selected="false"
+            >skill</button>
           </div>
           <button
             class="prompt-mark js-copy-prompt"
@@ -208,6 +225,15 @@ $ npx <span class="em">@htmlbin/cli</span> login
 $ echo '<span class="em">&lt;h1&gt;hello from htmlbin&lt;/h1&gt;</span>' &gt; out.html
 $ npx <span class="em">@htmlbin/cli</span> publish out.html
 <span class="arr">→</span> <span class="em">https://htmlbin.dev/p/aB3xK7g</span></pre>
+        </div>
+        <div class="tab-panel" data-panel="skill" role="tabpanel">
+<pre><span class="cmt"># install the official htmlbin agent skill (one-time)</span>
+<span class="cmt"># works with claude code, cursor, codex, gemini, …</span>
+$ npx <span class="em">skills add</span> https://github.com/utsengar/htmlbin-cli \
+    --skill <span class="em">htmlbin-publish</span>
+
+<span class="cmt"># then just ask the agent</span>
+&gt; <span class="em">publish a drop to htmlbin explaining this PR</span></pre>
         </div>
       </div>
     </div>
@@ -329,7 +355,8 @@ $ htmlbin <span class="key">publish</span> ./out.html \\
   // active. Visible HTML is hand-wired in markup above; keep both in sync.
   var PROMPTS = {
     agent: ${JSON.stringify(AGENT_PROMPT)},
-    cli:   ${JSON.stringify(CLI_PROMPT)}
+    cli:   ${JSON.stringify(CLI_PROMPT)},
+    skill: ${JSON.stringify(SKILL_PROMPT)}
   };
   var tabs = document.querySelectorAll('.tab');
   var panels = document.querySelectorAll('.tab-panel');
@@ -346,7 +373,12 @@ $ htmlbin <span class="key">publish</span> ./out.html \\
       p.classList.toggle('active', p.dataset.panel === name);
     });
     copyBtns.forEach(function (b) { b.dataset.copy = PROMPTS[name] || ''; });
-    if (ctaLbl) ctaLbl.textContent = name === 'cli' ? 'Copy command' : 'Copy prompt';
+    if (ctaLbl) {
+      ctaLbl.textContent =
+        name === 'cli'   ? 'Copy command' :
+        name === 'skill' ? 'Copy install' :
+                           'Copy prompt';
+    }
   }
   tabs.forEach(function (t) {
     t.addEventListener('click', function () { setActive(t.dataset.tab); });

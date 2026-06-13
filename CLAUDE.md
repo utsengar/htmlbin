@@ -448,6 +448,43 @@ them in the same change so they don't drift:
 `src/discoverability.ts` is the source of truth for everything except
 the skill (`src/skill.ts`) and the patterns catalog (`src/patterns.ts`).
 
+## Two skills, one contract
+
+There are **two** htmlbin agent skills in the wild — they must stay
+aligned but they don't share a file. Both point at the same API,
+the same CLI, and the same patterns; updating either should prompt a
+look at the other.
+
+1. **`htmlbin` (comprehensive reference)** — served here at
+   `/.well-known/agent-skills/htmlbin/SKILL.md`. Source lives in
+   `src/skill.ts` with `skills/htmlbin/SKILL.md` as the
+   human-browsable mirror. Every endpoint, every flag, every quality-
+   floor rule. This is what runtimes following the Agent Skills
+   Discovery RFC v0.2.0 fetch.
+2. **`htmlbin-publish` (focused, installable)** — lives in the
+   [`utsengar/htmlbin-cli`](https://github.com/utsengar/htmlbin-cli)
+   repo at `skills/htmlbin-publish/SKILL.md`. Distributed via
+   [skills.sh](https://skills.sh):
+   ```bash
+   npx skills add https://github.com/utsengar/htmlbin-cli --skill htmlbin-publish
+   ```
+   Smaller and opinionated: walks the pattern-before-publish workflow
+   only. Targets Claude Code / Cursor / Codex / Gemini / Aider via
+   skills.sh resolution.
+
+**Cross-references** (keep these mutually pointing):
+- `src/views/landing.ts` — third "skill" tab in the prompt block.
+- `src/onboard.ts` — `skill:` block in `buildOnboardJson()` and an
+  "Install as an agent skill" section in `buildOnboardText()`.
+- `src/skill.ts` + `skills/htmlbin/SKILL.md` — "Installable companion"
+  section right after `## Source of truth: /api/onboard`.
+- `src/discoverability.ts` — `skill:` field on `agentCard()` and an
+  install paragraph in `llmsTxt()`.
+- `README.md` — top-of-file "For agents — one-command install".
+
+When the skills.sh install command, repo, or skill name changes, sweep
+all of the above in one PR. They are not auto-generated.
+
 ## Patterns — pluggable, file-based
 
 Common drop kinds (PR explainers, summary roundups, plan/spec writeups,
