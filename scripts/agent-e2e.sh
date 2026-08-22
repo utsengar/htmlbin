@@ -123,6 +123,16 @@ grep -q "\\./\\.htmlbin/patterns/" "$TMP/skill.md" \
 grep -q "~/.config/htmlbin/patterns/" "$TMP/skill.md" \
   && ok "SKILL.md documents the machine-global patterns path" \
   || fail "skill global path" "missing"
+
+# Every catalog pattern must be named in SKILL.md. The skill teaches the
+# convention, but an agent that skims it without fetching index.json still
+# needs to know what's on offer — a new pattern that lands in the catalog
+# and never reaches the skill is invisible to those agents.
+for name in $(jq -r '.patterns[].name' < "$TMP/patterns.json"); do
+  grep -q "\`$name\`" "$TMP/skill.md" \
+    && ok "SKILL.md names $name" \
+    || fail "skill names $name" "not in SKILL.md"
+done
 grep -q "^## Quality floor" "$TMP/skill.md" \
   && ok "SKILL.md documents the quality floor" \
   || fail "skill quality floor" "missing"

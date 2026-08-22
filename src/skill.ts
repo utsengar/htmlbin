@@ -533,6 +533,8 @@ Common drop kinds (PR explainers, summary roundups, plan/spec writeups, session 
 3. **Official catalog** — fetch from \`https://htmlbin.dev/.well-known/patterns/index.json\` for the list, or \`https://htmlbin.dev/.well-known/patterns/<name>.md\` for a specific one. Cache once per session.
 4. **No pattern at all** — freestyle within the quality floor. Always valid; patterns are starting floors, not requirements.
 
+**The official catalog today** — \`pr-explainer\` (a pull request, merge, or diff), \`summary-roundup\` (discussion threads, weekly status, incident timelines), \`plan-spec-explainer\` (a plan, spec, or design document), \`session-explainer\` (an agent session — the problem, the approach, the dead ends). Treat \`index.json\` as authoritative rather than this list: the catalog can grow between skill revisions.
+
 **Pattern file schema.** YAML front matter + markdown body. Authors write these in any text editor; no tooling required.
 
 \`\`\`markdown
