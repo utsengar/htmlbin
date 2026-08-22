@@ -79,12 +79,12 @@ curl -s "$BASE/.well-known/patterns/index.json" -o "$TMP/patterns.json"
 jq -e . < "$TMP/patterns.json" > /dev/null \
   && ok "patterns/index.json is valid JSON" \
   || fail "patterns/index.json valid" "parse error"
-assert_json "$TMP/patterns.json" '.patterns | length' '3' "manifest lists three starter patterns"
+assert_json "$TMP/patterns.json" '.patterns | length' '4' "manifest lists four starter patterns"
 
 CT_PJ=$(curl -s -o /dev/null -w "%{content_type}" "$BASE/.well-known/patterns/index.json")
 assert_contains "$CT_PJ" "application/json" "patterns/index.json served as application/json"
 
-for name in pr-explainer summary-roundup plan-spec-explainer; do
+for name in pr-explainer summary-roundup plan-spec-explainer session-explainer; do
   assert_json "$TMP/patterns.json" \
     "[.patterns[] | select(.name==\"$name\")] | length" '1' \
     "manifest includes $name"

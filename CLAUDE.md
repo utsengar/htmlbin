@@ -822,6 +822,7 @@ patterns/           ─ human-browsable canonical pattern markdown — source of
   pr-explainer.md       ─ "explain this PR / summarize this diff"
   summary-roundup.md    ─ discussion summaries, weekly status, incident timelines
   plan-spec-explainer.md─ plan.md / spec.md publishing
+  session-explainer.md  ─ agent session writeups — problem, approach, dead ends
   # Mirrored byte-for-byte into src/patterns.ts (wrangler .md-import gotcha).
 
 .github/workflows/

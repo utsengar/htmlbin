@@ -525,7 +525,7 @@ Drops should look like they belong to the human publishing them, not like a gene
 
 ## Patterns — local first, official as fallback
 
-Common drop kinds (PR explainers, summary roundups, plan/spec writeups, …) ship as small markdown files anyone can author. Each pattern names triggers, a content checklist, layout directions, and a "don't" list. Read patterns to decide *structure*; use brand sensing (above) to decide *look*.
+Common drop kinds (PR explainers, summary roundups, plan/spec writeups, session explainers, …) ship as small markdown files anyone can author. Each pattern names triggers, a content checklist, layout directions, and a "don't" list. Read patterns to decide *structure*; use brand sensing (above) to decide *look*.
 
 **Where patterns live.** Resolve in this order — first match wins per pattern name:
 
