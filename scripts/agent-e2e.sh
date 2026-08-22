@@ -106,6 +106,33 @@ for name in pr-explainer summary-roundup plan-spec-explainer session-explainer; 
     || fail "$name.md name" "missing"
 done
 
+# Prescriptive patterns ship a reference skeleton beside the .md. The index must
+# advertise it, and the structure the pattern mandates must actually be in it —
+# an agent that copies a skeleton drifts far less than one authoring from prose.
+assert_json "$TMP/patterns.json" \
+  '.patterns[] | select(.name=="session-explainer") | (.template_url | endswith("/.well-known/patterns/session-explainer.template.html"))' \
+  'true' "session-explainer advertises a template_url"
+
+TPL_URL="$BASE/.well-known/patterns/session-explainer.template.html"
+CT_TPL=$(curl -s -o /dev/null -w "%{content_type}" "$TPL_URL")
+assert_contains "$CT_TPL" "text/html" "template served as text/html"
+curl -s "$TPL_URL" -o "$TMP/session-template.html"
+for landmark in 'class="rail"' 'id="p1"' 'id="p2"' 'id="dead-1"' 'BRAND TOKENS' 'STRUCTURE'; do
+  grep -q "$landmark" "$TMP/session-template.html" \
+    && ok "template contains $landmark" \
+    || fail "template $landmark" "missing"
+done
+# The pattern forbids JS; the skeleton must not smuggle any in.
+if grep -q "<script" "$TMP/session-template.html"; then
+  fail "template script tags" "found <script>"
+else
+  ok "template ships zero script tags"
+fi
+
+# A template filename that belongs to no pattern is still a canonical 404
+NF_TPL=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/.well-known/patterns/nope.template.html")
+assert_eq "$NF_TPL" "404" "unknown template → 404"
+
 # Unknown pattern → canonical 404 error shape, not an HTML 404
 NF_PC=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/.well-known/patterns/does-not-exist.md")
 assert_eq "$NF_PC" "404" "unknown pattern → 404"

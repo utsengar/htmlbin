@@ -514,6 +514,35 @@ mirror its content into `src/patterns.ts`'s `PATTERNS` array (with a
 No DB migration, no schema change, no new endpoint — the existing
 `/.well-known/patterns/:filename` route picks it up automatically.
 
+**Prescriptive patterns (structure fixed, not a menu).** Most patterns
+offer 3–5 layout directions and let the agent pick. `session-explainer`
+does not: it mandates one structure, because these pages are only worth
+comparing to each other if they share a shape. Two mechanics support that:
+
+- **A reference skeleton** at `patterns/<name>.template.html`, mirrored
+  into `src/patterns.ts` as a second string constant and referenced from
+  the pattern's front matter (`template: <name>.template.html`). Served
+  by the same route via `getPatternAsset()`, which returns body +
+  content-type so `.md` goes out as `text/markdown` and `.template.html`
+  as `text/html`. `buildPatternIndex()` adds `template_url` for any
+  pattern that declares one, so agents discover it from the index.
+  The template's CSS is split by a marked comment: a **BRAND TOKENS**
+  block the agent adapts, and a **STRUCTURE** block it must not touch.
+- **`brand_sensing: colors-only`** instead of `true` — adapt palette and
+  type, leave the structure alone. A prescriptive pattern and full brand
+  sensing contradict each other; pick one per pattern.
+
+Enforcement tops out there on purpose. The server does **not** validate
+published HTML (that would break "HTML uploads exactly as posted"), and
+`./.htmlbin/patterns/` still overrides the official catalog. The pattern
+carries a conformance checklist for the agent to self-check instead.
+
+The CLI's offline bundle globs `patterns/*.md` only, so templates are
+**not** vendored — an offline `patterns init` gets the pattern's prose
+fallback ("build the same structure from the requirements below"). If
+that becomes a real gap, teaching `scripts/build-bundled-patterns.mjs`
+and the CLI's install path about a second file per pattern is the fix.
+
 **The CLI's `patterns` subcommand**
 ([utsengar/htmlbin-cli](https://github.com/utsengar/htmlbin-cli))
 offers `list / init / add` for managing local installs. The skill's
@@ -823,6 +852,7 @@ patterns/           ─ human-browsable canonical pattern markdown — source of
   summary-roundup.md    ─ discussion summaries, weekly status, incident timelines
   plan-spec-explainer.md─ plan.md / spec.md publishing
   session-explainer.md  ─ agent session writeups — problem, approach, dead ends
+  session-explainer.template.html ─ required skeleton for the above (prescriptive)
   # Mirrored byte-for-byte into src/patterns.ts (wrangler .md-import gotcha).
 
 .github/workflows/

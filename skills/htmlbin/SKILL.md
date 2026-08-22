@@ -559,6 +559,8 @@ brand_sensing: true
 
 **Picking a pattern.** Match the human's request against each installed pattern's `triggers` (case-insensitive substring or near-paraphrase). On multiple matches: project-local beats machine-global beats official; more-specific trigger beats less-specific. On no match: freestyle.
 
+**Prescriptive patterns.** Most patterns offer layout choices. A few fix the structure instead, because comparability across drops matters more than variety — those carry `template: <name>.template.html` in their front matter, and the catalog index exposes a `template_url` beside the usual `url`. Fetch that skeleton and fill its `SLOT_*` placeholders rather than authoring a layout: it is the pattern's structure expressed as working HTML. Such a pattern may also narrow `brand_sensing` (e.g. `colors-only`), meaning adapt the palette and type but leave the structure alone. `session-explainer` is the current example.
+
 **Authoring your own.** Drop a markdown file in `./.htmlbin/patterns/` (project-local) or `~/.config/htmlbin/patterns/` (machine-global). Share by pushing to a gist or repo; another agent installs with `curl <url> > .htmlbin/patterns/<name>.md`.
 
 **Why this shape.** Patterns are guidance the *agent* reads and applies — not server-rendered templates the platform serves. htmlbin's server stays thin; the long tail of drop kinds lives in user-space, where it belongs.
