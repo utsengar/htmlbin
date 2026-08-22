@@ -120,8 +120,8 @@ function runQuery(sql) {
   let out;
   try {
     out = execFileSync(
-      "npx",
-      ["wrangler", "d1", "execute", "htmlbin-db", ENV_FLAG, "--json", "--command", flat],
+      process.execPath,
+      ["node_modules/wrangler/bin/wrangler.js", "d1", "execute", "htmlbin-db", ENV_FLAG, "--json", "--command", flat],
       { stdio: ["ignore", "pipe", "pipe"] },
     ).toString();
   } catch (e) {

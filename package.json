@@ -5,9 +5,9 @@
   "description": "Agent-first HTML hosting. Drop HTML, get a URL. htmlbin.dev",
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
-    "tail": "wrangler tail",
+    "dev": "node node_modules/wrangler/bin/wrangler.js dev",
+    "deploy": "node node_modules/wrangler/bin/wrangler.js deploy",
+    "tail": "node node_modules/wrangler/bin/wrangler.js tail",
     "db:apply:local": "node node_modules/wrangler/bin/wrangler.js d1 execute htmlbin-db --local --file=./schema.sql",
     "db:apply:remote": "node node_modules/wrangler/bin/wrangler.js d1 execute htmlbin-db --remote --file=./schema.sql",
     "db:migrate:local": "node node_modules/wrangler/bin/wrangler.js d1 migrations apply htmlbin-db --local",
