@@ -27,6 +27,21 @@ export const STYLES_CSS = /* css */ `${FONT_FACE_CSS}
   --code-em: #FF6470;
   --sans: "Geist", -apple-system, "Inter", system-ui, sans-serif;
   --mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* Radius scale. Three steps only — small (inline/controls), medium
+     (blocks), large (the prompt slab). Before this existed the sheet
+     carried nine ad-hoc radii, which reads as unconsidered. */
+  --r-sm: 4px;
+  --r-md: 8px;
+  --r-lg: 14px;
+
+  /* Terminal-syntax colors. Previously hardcoded at each use site, which
+     let a second accent (two different blues) leak into a palette
+     DESIGN.md describes as "black, white, gray, and one red". */
+  --ok: #1F8A3A;          /* success state on light */
+  --ok-on-dark: #34D058;  /* success state inside code surfaces */
+  --syn-key: #3B6EE8;     /* command keyword — light surfaces */
+  --syn-key-dark: #82B1FF;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -116,7 +131,7 @@ a:hover { color: var(--red); text-decoration-color: var(--red); }
   background: var(--bg-2);
   border: 1px solid var(--rule);
   padding: 5px 10px;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   font-family: var(--mono); font-size: 12px;
   color: var(--ink-soft);
   flex-shrink: 0;
@@ -306,7 +321,7 @@ code, .mono {
   background: var(--bg-2);
   border: 1px solid var(--rule);
   padding: 1px 6px;
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   white-space: nowrap;
   font-weight: 500;
   color: var(--ink-2);
@@ -363,13 +378,16 @@ code, .mono {
   margin: 28px 0 10px;
   letter-spacing: 0.01em;
 }
+/* Flat slab. The 28px-blur ambient shadow this used to carry is the
+   generic floating-card look, and DESIGN.md §3 caps shadows at 1px.
+   A near-black surface on white already separates itself. */
 .prompt {
   position: relative;
   background: var(--code-bg);
-  border-radius: 14px;
+  border-radius: var(--r-lg);
   margin: 0 0 18px;
   overflow: hidden;
-  box-shadow: 0 1px 0 rgba(0,0,0,0.04), 0 12px 28px -16px rgba(0,0,0,0.18);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.05);
 }
 .prompt-chrome {
   display: flex;
@@ -392,7 +410,7 @@ code, .mono {
   font: 500 12px/1 var(--mono);
   letter-spacing: 0.02em;
   padding: 5px 10px 5px 8px;
-  border-radius: 5px;
+  border-radius: var(--r-sm);
   border: none;
   background: rgba(255,255,255,0.10);
   color: var(--code-fg);
@@ -416,7 +434,7 @@ code, .mono {
 .prompt-mark .prompt-mark-check { display: none; }
 .prompt-mark.ok {
   background: rgba(40, 200, 64, 0.18);
-  color: #34D058;
+  color: var(--ok-on-dark);
 }
 .prompt-mark.ok .prompt-mark-icon { display: none; }
 .prompt-mark.ok .prompt-mark-check { display: inline-block; }
@@ -425,17 +443,20 @@ code, .mono {
    the previous static "claude" pill — different active panels, same slab.
    Lives to the left of .prompt-mark inside .prompt-chrome-right. */
 .prompt-chrome-right { display: inline-flex; align-items: center; }
+/* No container fill or radius of its own. This used to be a rounded,
+   filled track holding two rounded, filled tabs, sitting inside the
+   rounded prompt card — three nested rounded surfaces, and a third
+   distinct chip cluster in a chrome bar that already carries the
+   traffic-light dots and the copy pill. The active tab's own fill is
+   enough to show which panel is selected. */
 .tabs {
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 3px;
-  background: rgba(255,255,255,0.06);
-  border-radius: 7px;
-  margin-right: 8px;
+  display: inline-flex; align-items: center; gap: 2px;
+  margin-right: 10px;
 }
 .tab {
   font: 500 11.5px/1 var(--mono);
   padding: 5px 11px;
-  border-radius: 5px;
+  border-radius: var(--r-sm);
   color: rgba(250,250,250,0.55);
   background: transparent; border: none;
   cursor: pointer;
@@ -484,15 +505,18 @@ code, .mono {
   font: 600 13px/1 var(--mono);
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   cursor: pointer;
   margin: 0 0 18px;
   transition: background 0.12s, transform 0.04s;
-  box-shadow: 0 1px 0 rgba(0,0,0,0.04), 0 6px 16px -10px rgba(225, 29, 44, 0.55);
 }
-.copy-cta:hover { background: #C8101F; }
+/* No colored drop-shadow. A red glow under a red button is the "glow"
+   tell, and DESIGN.md §3 rules it out explicitly. The solid red fill is
+   already the loudest thing on the page. Hover uses the existing
+   --red-press token instead of a one-off hex. */
+.copy-cta:hover { background: var(--red-press); }
 .copy-cta:active { transform: translateY(1px); }
-.copy-cta.ok { background: #1F8A3A; }
+.copy-cta.ok { background: var(--ok); }
 .copy-cta svg { width: 13px; height: 13px; }
 
 .prompt-aftermath {
@@ -526,23 +550,23 @@ code, .mono {
 .term-block {
   position: relative;
   background: var(--code-bg); color: var(--code-fg);
-  border-radius: 8px; padding: 20px 22px;
+  border-radius: var(--r-md); padding: 20px 22px;
   font-family: var(--mono); font-size: 13px; line-height: 1.85;
   margin: 0 0 32px;
-  box-shadow: 0 1px 0 rgba(0,0,0,0.04), 0 8px 20px -14px rgba(0,0,0,0.22);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.05);
 }
 .term-block .ln { display: block; }
 .term-block .cmt { color: var(--code-dim); }
 .term-block .em  { color: var(--code-em); }
-.term-block .arr { color: #34D058; }
-.term-block .key { color: #82B1FF; }
+.term-block .arr { color: var(--ok-on-dark); }
+.term-block .key { color: var(--syn-key-dark); }
 .term-block .pkg { color: var(--code-em); }
 .term-copy {
   position: absolute; top: 14px; right: 14px;
   display: inline-flex; align-items: center; gap: 6px;
   font: 500 11px/1 var(--mono);
   padding: 5px 10px 5px 8px;
-  border-radius: 5px; border: none;
+  border-radius: var(--r-sm); border: none;
   background: rgba(255,255,255,0.08);
   color: rgba(250,250,250,0.7);
   cursor: pointer; letter-spacing: 0.02em;
@@ -552,7 +576,7 @@ code, .mono {
 .term-copy:hover { background: rgba(255,255,255,0.14); color: #fff; }
 .term-copy:focus-visible { outline: 1px solid var(--code-em); outline-offset: 2px; }
 .term-copy svg { width: 10px; height: 10px; }
-.term-copy.ok { background: rgba(40, 200, 64, 0.18); color: #34D058; }
+.term-copy.ok { background: rgba(40, 200, 64, 0.18); color: var(--ok-on-dark); }
 
 .caps-cue {
   font: 500 11px/1.2 var(--mono);
@@ -560,35 +584,31 @@ code, .mono {
   letter-spacing: 0.08em; text-transform: uppercase;
   margin: 48px 0 14px;
 }
+/* Four capabilities, laid out as a borderless two-column list.
+   Previously this was a 2×2 grid of fully-bordered cells with
+   grid-auto-rows:1fr forcing every tile to identical height, each
+   tile opening with an identical 5px red dot. That combination is three
+   named tells at once — everything-equal, ghost-cards, and (with the
+   bordered .mini inside a bordered cell) cards-in-cards. It also
+   contradicted DESIGN.md §6: "if you're tempted to add a border-bottom
+   to 'section' the document, don't. Use whitespace and type weight."
+   Whitespace does the work now. Rows still align to the tallest item in
+   their own row via the grid's default stretch, so the mini-code blocks
+   share a floor per row without every row being locked to one height. */
 .caps {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  grid-auto-rows: 1fr;
-  gap: 0;
-  border-top: 1px solid var(--rule);
-  border-left: 1px solid var(--rule);
-  margin: 0 0 28px;
+  gap: 38px 44px;
+  margin: 4px 0 32px;
 }
 .cap {
   display: flex; flex-direction: column;
-  padding: 24px 22px;
-  border-right: 1px solid var(--rule);
-  border-bottom: 1px solid var(--rule);
-  background: var(--bg);
-  transition: background 0.12s;
 }
-.cap:hover { background: var(--bg-2); }
 .cap .eb {
   font-family: var(--mono); font-size: 10.5px;
-  color: var(--ink-softer); letter-spacing: 0.1em;
-  text-transform: uppercase; font-weight: 400;
+  color: var(--ink-soft); letter-spacing: 0.1em;
+  text-transform: uppercase; font-weight: 500;
   margin: 0 0 10px;
-  display: inline-flex; align-items: center; gap: 6px;
-}
-.cap .eb::before {
-  content: ""; width: 5px; height: 5px;
-  background: var(--red); border-radius: 50%;
-  display: inline-block;
 }
 .cap h3 {
   font-family: var(--sans); font-size: 17px; font-weight: 600;
@@ -602,17 +622,18 @@ code, .mono {
 .cap p code {
   background: var(--bg-2);
   border: 1px solid var(--rule);
-  padding: 1px 5px; border-radius: 3px;
+  padding: 1px 5px; border-radius: var(--r-sm);
   font-size: 12px; color: var(--ink-2);
   font-family: var(--mono);
 }
+/* Fill, no stroke. A deeper fill reads as a distinct code surface
+   without adding another outlined box to the section. */
 .cap .mini {
   font-family: var(--mono); font-size: 12px; line-height: 1.7;
   color: var(--ink-2);
-  background: var(--bg-2);
-  border: 1px solid var(--rule);
-  border-radius: 4px;
-  padding: 8px 12px;
+  background: var(--bg-3);
+  border-radius: var(--r-sm);
+  padding: 10px 12px;
   margin: auto 0 0;
   white-space: pre;
   overflow-x: auto;
@@ -620,7 +641,7 @@ code, .mono {
 .cap .mini .em  { color: var(--red); }
 .cap .mini .cmt { color: var(--ink-softer); }
 .cap .mini .arr { color: var(--green-dot); }
-.cap .mini .key { color: #3B6EE8; }
+.cap .mini .key { color: var(--syn-key); }
 
 .term-foot {
   display: flex; gap: 18px; padding-top: 12px;
@@ -714,7 +735,7 @@ button.primary {
   border: 1px solid var(--ink);
   font: 500 12px/1 var(--mono);
   letter-spacing: 0.04em; text-transform: uppercase;
-  padding: 12px 20px; border-radius: 5px;
+  padding: 12px 20px; border-radius: var(--r-sm);
   cursor: pointer;
   transition: background 0.12s, border-color 0.12s;
 }
@@ -724,15 +745,17 @@ button.primary:hover { background: var(--red); border-color: var(--red); }
   color: var(--ink-soft); line-height: 1.7; margin: 0;
 }
 
+/* Tint + hairline carry the error state. The 3px red left-edge stripe
+   that used to sit on top of both was a third redundant emphasis
+   mechanism — the "side-tab border" tell. */
 .error {
   background: var(--red-bg);
   border: 1px solid var(--red-bg-stroke);
-  border-left: 3px solid var(--red);
-  color: #7F0E18;
+  color: var(--red-press);
   padding: 11px 14px;
   font-size: 14px; font-family: var(--mono);
   margin-bottom: 20px;
-  border-radius: 4px;
+  border-radius: var(--r-sm);
 }
 
 /* ---------- signoff / footer ---------- */
@@ -813,19 +836,22 @@ h2.section {
   font-weight: 500;
   margin: 48px 0 12px;
 }
+/* Same treatment as .error — the red left-edge stripe is gone; the
+   tinted surface and hairline are enough. */
 .definition {
   background: var(--bg-2);
   border: 1px solid var(--rule);
-  border-left: 3px solid var(--red);
   padding: 20px 24px;
   margin-bottom: 26px;
   font-size: 16px;
-  border-radius: 4px;
+  border-radius: var(--r-sm);
 }
 .definition p { margin: 0 0 12px; max-width: none; }
 .definition p:last-child { margin: 0; }
 .definition .word { font-weight: 600; color: var(--red); }
-.definition em { color: var(--ink-soft); font-style: italic; }
+/* Upright, not italic — DESIGN.md §7 forbids italic display type across
+   the product, and this was the sheet's only violation. */
+.definition em { color: var(--ink-soft); font-style: normal; }
 
 ol.principles, ol.principles li { list-style: none; padding: 0; }
 ol.principles { counter-reset: p; }
@@ -870,7 +896,7 @@ pre.lifecycle {
   line-height: 1.8;
   background: var(--code-bg);
   color: var(--code-fg);
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   padding: 22px 24px;
   overflow-x: auto;
   margin-bottom: 24px;
@@ -914,14 +940,20 @@ pre.lifecycle {
   font-family: var(--sans);
 }
 .viewer-bar .sep { color: var(--ink-softer); font-family: var(--mono); }
+/* Title and description share the leftover space proportionally instead
+   of each being capped at a fixed slice of the viewport. The old
+   max-width:28vw / 24vw pair truncated a short title on a wide
+   screen while there was room to spare — a clipped label with no reason
+   to be clipped. Both still ellipsize, but only once they actually run
+   out of room, and the title gets twice the share of the description. */
 .viewer-bar .title {
   font-weight: 600; font-size: 14px; color: var(--ink);
-  flex: 0 1 auto; min-width: 0; max-width: 28vw;
+  flex: 2 1 auto; min-width: 8ch;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .viewer-bar .desc {
   font-size: 13px; color: var(--ink-soft);
-  flex: 0 1 auto; min-width: 0; max-width: 24vw;
+  flex: 1 1 auto; min-width: 0;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .viewer-bar .right {
@@ -951,7 +983,7 @@ pre.lifecycle {
 .lock-form { display: inline-flex; margin: 0; padding: 0; }
 .lock-pill {
   background: var(--ink); color: var(--bg);
-  padding: 3px 9px; border-radius: 999px;
+  padding: 3px 9px; border-radius: var(--r-sm);
   font: 500 10.5px/1 var(--mono);
   letter-spacing: 0.04em; text-transform: uppercase;
   border: 0;
@@ -1038,7 +1070,7 @@ iframe.canvas { border: 0; width: 100%; background: #fff; flex: 1; }
   border: 1px solid var(--ink);
   font: 500 12px/1 var(--mono);
   letter-spacing: 0.06em; text-transform: uppercase;
-  padding: 12px 32px; border-radius: 5px;
+  padding: 12px 32px; border-radius: var(--r-sm);
   cursor: pointer;
   transition: background 0.12s, border-color 0.12s;
 }
