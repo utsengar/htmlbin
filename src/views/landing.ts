@@ -112,15 +112,14 @@ ${STYLE_INLINE}
 <main>
 
   <section class="lhero">
-    <h1>Your agent writes HTML. You get a URL.</h1>
-    <p class="lede">One human click to start. After that your agent publishes on its own.</p>
+    <h1>Send your agent's work as a link, not a file.</h1>
+    <p class="lede">A URL that survives every revision. Free, no signup, works with any agent.</p>
 
     <div class="lbox">
       <div class="strip" role="tablist" aria-label="Choose how to publish">
         <button class="t on" type="button" role="tab" aria-selected="true"  data-p="agent">agent</button>
         <button class="t"    type="button" role="tab" aria-selected="false" data-p="cli">cli</button>
         <button class="t"    type="button" role="tab" aria-selected="false" data-p="skill">skill</button>
-        <button class="cp js-copy" type="button" aria-label="Copy to clipboard">copy</button>
       </div>
       <div class="body">
 <pre class="on" data-p="agent" role="tabpanel">Explain this as an HTML page — visual, not a wall of text.
@@ -134,6 +133,12 @@ Publish it to <span class="em">htmlbin.dev</span>. Start at <span class="em">htm
 <span class="c"># then just ask your agent to publish anything</span></pre>
       </div>
     </div>
+
+    <button class="lcta js-copy" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="square" aria-hidden="true"><rect x="8" y="8" width="11" height="11"/><path d="M5 14V5h9"/></svg>
+      <span class="lbl">Copy the prompt</span>
+    </button>
+    <p class="lcta-fine">Free · no signup · one human click to start</p>
 
     <div class="works">
       <p class="works-lab">Works with the agent you already use</p>
@@ -182,31 +187,38 @@ Publish it to <span class="em">htmlbin.dev</span>. Start at <span class="em">htm
 
   <section class="lsec" aria-label="What you get">
     <div class="caps">
+      <!-- All four headings are the same grammatical shape on purpose:
+           benefit, stated as a short imperative. They previously ran as
+           a noun phrase, an imperative, a bare noun and a declarative,
+           which reads unconsidered in a scannable list. -->
       <div class="cap">
         <div class="eb">versions</div>
-        <h3>Same URL, every revision.</h3>
+        <h3>Revise without breaking the link.</h3>
         <p>Publish again and it becomes v2. The link you already sent still works, and <code>?v=1</code> still shows the old one.</p>
       </div>
       <div class="cap">
         <div class="eb">tags</div>
-        <h3>Find it again later.</h3>
+        <h3>Find anything you published.</h3>
         <p>Tag a page when you publish it. Search by any combination of tags afterwards.</p>
       </div>
       <div class="cap">
         <div class="eb">patterns</div>
-        <h3>Starting points.</h3>
-        <p>Shared structures for the pages you make often — PR write-ups, plans, roundups. Use ours or write your own.</p>
+        <h3>Start from a real structure.</h3>
+        <p>Shared shapes for the pages you make often — PR write-ups, plans, roundups. Use ours or write your own.</p>
       </div>
       <div class="cap">
         <div class="eb">passcodes</div>
-        <h3>Not everything is public.</h3>
+        <h3>Keep some pages private.</h3>
         <p>Add a passcode and the page asks for it first. A share gate, not encryption — we say so plainly.</p>
       </div>
     </div>
   </section>
 
   <section class="lsec" aria-label="Example drops">
-    <p class="eyebrow">a few drops people have made</p>
+    <!-- "drops" is our word, not the visitor's. Nobody arriving here for
+         the first time knows it yet, so the marketing surface says pages
+         and the API, skill and docs keep the product vocabulary. -->
+    <p class="eyebrow">a few pages people have published</p>
     <div class="examples">
       <ul>
         ${EXAMPLES.map(
@@ -236,10 +248,15 @@ Publish it to <span class="em">htmlbin.dev</span>. Start at <span class="em">htm
     cli:   ${JSON.stringify(CLI_PROMPT)},
     skill: ${JSON.stringify(SKILL_PROMPT)}
   };
+  // The CTA label names what the active tab will actually put on your
+  // clipboard, so the verb stays true when you switch tabs.
+  var LABEL = { agent: 'Copy the prompt', cli: 'Copy the command', skill: 'Copy the install' };
+
   var active = 'agent';
   var tabs  = document.querySelectorAll('.lbox .strip .t');
   var panes = document.querySelectorAll('.lbox pre');
-  var cp    = document.querySelector('.lbox .js-copy');
+  var cta   = document.querySelector('.lcta');
+  var lbl   = cta ? cta.querySelector('.lbl') : null;
 
   tabs.forEach(function (t) {
     t.addEventListener('click', function () {
@@ -250,16 +267,20 @@ Publish it to <span class="em">htmlbin.dev</span>. Start at <span class="em">htm
         x.setAttribute('aria-selected', on ? 'true' : 'false');
       });
       panes.forEach(function (p) { p.classList.toggle('on', p.dataset.p === active); });
+      if (lbl && !cta.classList.contains('ok')) lbl.textContent = LABEL[active];
     });
   });
 
-  if (cp) {
-    cp.addEventListener('click', async function () {
+  if (cta) {
+    cta.addEventListener('click', async function () {
       try {
         await navigator.clipboard.writeText(PAYLOAD[active] || '');
-        cp.classList.add('ok');
-        cp.textContent = 'copied';
-        setTimeout(function () { cp.classList.remove('ok'); cp.textContent = 'copy'; }, 1600);
+        cta.classList.add('ok');
+        if (lbl) lbl.textContent = 'Copied';
+        setTimeout(function () {
+          cta.classList.remove('ok');
+          if (lbl) lbl.textContent = LABEL[active];
+        }, 1600);
       } catch (e) {}
     });
   }

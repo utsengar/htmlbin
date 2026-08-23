@@ -1313,6 +1313,33 @@ body.landing main { max-width: none; margin: 0; padding: 0; }
 .lbox pre .c, .lbox pre .d { color: var(--code-dim); }
 .lbox pre .a { color: var(--ok-on-dark); }
 
+/* ---------- the primary action ---------- */
+/* The page previously had no CTA verb at all: the only action was a
+   small copy pill inside the code box chrome. For a page whose whole
+   job is starting the device-code flow — and which sits at the top of a
+   funnel that loses ~41% at /verify — that was the weakest element on
+   it. Copying the prompt IS the conversion event, so it gets a real
+   button with a real verb, and the in-chrome pill is gone so there is
+   still only one copy affordance. */
+.lcta {
+  display: inline-flex; align-items: center; gap: 9px;
+  margin: 22px auto 0;
+  background: var(--red); color: #fff;
+  border: 1px solid var(--red);
+  font-size: 14.5px; font-weight: 500;
+  padding: 12px 22px; border-radius: var(--r-md);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, transform 0.04s;
+}
+.lcta:hover { background: var(--red-press); border-color: var(--red-press); }
+.lcta:active { transform: translateY(1px); }
+.lcta.ok { background: var(--ok); border-color: var(--ok); }
+.lcta svg { width: 15px; height: 15px; flex: 0 0 auto; }
+.lcta-fine {
+  font-family: var(--mono); font-size: 11.5px;
+  color: var(--ink-softer); margin: 12px 0 0;
+}
+
 /* ---------- works-with ---------- */
 /* No box per item. Seven outlined pills read as a tag list, and an
    empty mark slot inside each one read as an unchecked checkbox. */
