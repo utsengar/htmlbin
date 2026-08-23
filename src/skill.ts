@@ -524,7 +524,7 @@ Drops should look like they belong to the human publishing them, not like a gene
 
 ## Patterns — local first, official as fallback
 
-Common drop kinds (PR explainers, summary roundups, plan/spec writeups, …) ship as small markdown files anyone can author. Each pattern names triggers, a content checklist, layout directions, and a "don't" list. Read patterns to decide *structure*; use brand sensing (above) to decide *look*.
+Common drop kinds (PR explainers, summary roundups, plan/spec writeups, session explainers, …) ship as small markdown files anyone can author. Each pattern names triggers, a content checklist, layout directions, and a "don't" list. Read patterns to decide *structure*; use brand sensing (above) to decide *look*.
 
 **Where patterns live.** Resolve in this order — first match wins per pattern name:
 
@@ -532,6 +532,8 @@ Common drop kinds (PR explainers, summary roundups, plan/spec writeups, …) shi
 2. \`~/.config/htmlbin/patterns/*.md\` — machine-global (same dir as the token fallback).
 3. **Official catalog** — fetch from \`https://htmlbin.dev/.well-known/patterns/index.json\` for the list, or \`https://htmlbin.dev/.well-known/patterns/<name>.md\` for a specific one. Cache once per session.
 4. **No pattern at all** — freestyle within the quality floor. Always valid; patterns are starting floors, not requirements.
+
+**The official catalog today** — \`pr-explainer\` (a pull request, merge, or diff), \`summary-roundup\` (discussion threads, weekly status, incident timelines), \`plan-spec-explainer\` (a plan, spec, or design document), \`session-explainer\` (an agent session — the problem, the approach, the dead ends). Treat \`index.json\` as authoritative rather than this list: the catalog can grow between skill revisions.
 
 **Pattern file schema.** YAML front matter + markdown body. Authors write these in any text editor; no tooling required.
 
@@ -555,6 +557,8 @@ brand_sensing: true
 \`\`\`
 
 **Picking a pattern.** Match the human's request against each installed pattern's \`triggers\` (case-insensitive substring or near-paraphrase). On multiple matches: project-local beats machine-global beats official; more-specific trigger beats less-specific. On no match: freestyle.
+
+**Prescriptive patterns.** Most patterns offer layout choices. A few fix the structure instead, because comparability across drops matters more than variety — those carry \`template: <name>.template.html\` in their front matter, and the catalog index exposes a \`template_url\` beside the usual \`url\`. Fetch that skeleton and fill its \`SLOT_*\` placeholders rather than authoring a layout: it is the pattern's structure expressed as working HTML. Such a pattern may also narrow \`brand_sensing\` (e.g. \`brand_scope: colors-only\`), meaning adapt the palette and type but leave the structure alone. \`session-explainer\` is the current example.
 
 **Authoring your own.** Drop a markdown file in \`./.htmlbin/patterns/\` (project-local) or \`~/.config/htmlbin/patterns/\` (machine-global). Share by pushing to a gist or repo; another agent installs with \`curl <url> > .htmlbin/patterns/<name>.md\`.
 

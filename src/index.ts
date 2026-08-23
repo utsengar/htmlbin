@@ -12,7 +12,7 @@ import { FAVICON_SVG } from "./views/favicon";
 import { OG_SVG, dropOgSvg } from "./views/og-image";
 import { renderDropOgPng, renderLandingOgPng } from "./views/og-png";
 import { agentSkillsIndex, getSkillContent } from "./skill";
-import { buildPatternIndex, getPatternMd } from "./patterns";
+import { buildPatternIndex, getPatternAsset } from "./patterns";
 import {
   agentCard,
   linkHeader,
@@ -486,11 +486,13 @@ app.on(["GET", "HEAD"], "/.well-known/patterns/index.json", (c) => {
 });
 app.on(["GET", "HEAD"], "/.well-known/patterns/:filename", (c) => {
   const filename = c.req.param("filename");
-  const md = getPatternMd(filename);
-  if (!md) return apiError(c, "not_found", "Pattern not found.", 404);
-  return new Response(md, {
+  // Serves both the pattern markdown and, for prescriptive patterns, the
+  // reference skeleton (<name>.template.html).
+  const asset = getPatternAsset(filename);
+  if (!asset) return apiError(c, "not_found", "Pattern not found.", 404);
+  return new Response(asset.body, {
     headers: {
-      "Content-Type": "text/markdown; charset=utf-8",
+      "Content-Type": asset.contentType,
       "Cache-Control": "public, max-age=300, s-maxage=3600",
     },
   });

@@ -79,12 +79,12 @@ curl -s "$BASE/.well-known/patterns/index.json" -o "$TMP/patterns.json"
 jq -e . < "$TMP/patterns.json" > /dev/null \
   && ok "patterns/index.json is valid JSON" \
   || fail "patterns/index.json valid" "parse error"
-assert_json "$TMP/patterns.json" '.patterns | length' '3' "manifest lists three starter patterns"
+assert_json "$TMP/patterns.json" '.patterns | length' '4' "manifest lists four starter patterns"
 
 CT_PJ=$(curl -s -o /dev/null -w "%{content_type}" "$BASE/.well-known/patterns/index.json")
 assert_contains "$CT_PJ" "application/json" "patterns/index.json served as application/json"
 
-for name in pr-explainer summary-roundup plan-spec-explainer; do
+for name in pr-explainer summary-roundup plan-spec-explainer session-explainer; do
   assert_json "$TMP/patterns.json" \
     "[.patterns[] | select(.name==\"$name\")] | length" '1' \
     "manifest includes $name"
@@ -106,6 +106,33 @@ for name in pr-explainer summary-roundup plan-spec-explainer; do
     || fail "$name.md name" "missing"
 done
 
+# Prescriptive patterns ship a reference skeleton beside the .md. The index must
+# advertise it, and the structure the pattern mandates must actually be in it —
+# an agent that copies a skeleton drifts far less than one authoring from prose.
+assert_json "$TMP/patterns.json" \
+  '.patterns[] | select(.name=="session-explainer") | (.template_url | endswith("/.well-known/patterns/session-explainer.template.html"))' \
+  'true' "session-explainer advertises a template_url"
+
+TPL_URL="$BASE/.well-known/patterns/session-explainer.template.html"
+CT_TPL=$(curl -s -o /dev/null -w "%{content_type}" "$TPL_URL")
+assert_contains "$CT_TPL" "text/html" "template served as text/html"
+curl -s "$TPL_URL" -o "$TMP/session-template.html"
+for landmark in 'class="rail"' 'id="p1"' 'id="p2"' 'id="dead-1"' 'BRAND TOKENS' 'STRUCTURE'; do
+  grep -q "$landmark" "$TMP/session-template.html" \
+    && ok "template contains $landmark" \
+    || fail "template $landmark" "missing"
+done
+# The pattern forbids JS; the skeleton must not smuggle any in.
+if grep -q "<script" "$TMP/session-template.html"; then
+  fail "template script tags" "found <script>"
+else
+  ok "template ships zero script tags"
+fi
+
+# A template filename that belongs to no pattern is still a canonical 404
+NF_TPL=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/.well-known/patterns/nope.template.html")
+assert_eq "$NF_TPL" "404" "unknown template → 404"
+
 # Unknown pattern → canonical 404 error shape, not an HTML 404
 NF_PC=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/.well-known/patterns/does-not-exist.md")
 assert_eq "$NF_PC" "404" "unknown pattern → 404"
@@ -123,6 +150,16 @@ grep -q "\\./\\.htmlbin/patterns/" "$TMP/skill.md" \
 grep -q "~/.config/htmlbin/patterns/" "$TMP/skill.md" \
   && ok "SKILL.md documents the machine-global patterns path" \
   || fail "skill global path" "missing"
+
+# Every catalog pattern must be named in SKILL.md. The skill teaches the
+# convention, but an agent that skims it without fetching index.json still
+# needs to know what's on offer — a new pattern that lands in the catalog
+# and never reaches the skill is invisible to those agents.
+for name in $(jq -r '.patterns[].name' < "$TMP/patterns.json"); do
+  grep -q "\`$name\`" "$TMP/skill.md" \
+    && ok "SKILL.md names $name" \
+    || fail "skill names $name" "not in SKILL.md"
+done
 grep -q "^## Quality floor" "$TMP/skill.md" \
   && ok "SKILL.md documents the quality floor" \
   || fail "skill quality floor" "missing"
