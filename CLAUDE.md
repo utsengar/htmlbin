@@ -46,11 +46,12 @@ them ships something the user will reject:
 1. **Don't clone competitors.** The user pointed at getadb.com for "vibe";
    an early landing borrowed too literally. The user called it out as
    unethical. *Take sensibility, invent composition.* Same applies to
-   any future reference shared.
+   any future reference shared — including **traces.com**, which is the
+   closest thing to a direct competitor (session sharing for coding
+   agents), so its composition is especially off-limits.
 2. **Don't over-index on Cloudflare.** It's an implementation detail.
-   Status pill says `live · v1`. Footer says
-   `htmlbin v1 · open source · agent-friendly`. Internal code comments
-   can name Cloudflare; user-facing copy cannot.
+   Internal code comments can name Cloudflare; user-facing copy cannot.
+   No "powered by", no "edge:", no platform names in the UI.
 3. **No Webflow.** Off-limits in the public version.
 4. **Don't add signup/login/email/dashboard.** The device-code flow is
    the entire UX. Adding auth surfaces breaks the product thesis.
@@ -92,13 +93,26 @@ Token prefix is **`hb_`** (short for htmlbin).
 
 ## Design — one-liner
 
-White paper, Geist + Geist Mono, single red accent (`#D93025`, Gmail/Google red), HTTP-style
-memo at the top of every page, vim-modeline-style breadcrumb in the top
-bar, monochrome dark code blocks. **One** deliberate exception to "no
-fake mac chrome": the prompt block on `/` carries traffic-light dots and
-a static `claude` pill in the top-right — it's the primary CTA and earns
-the visual handle. Everywhere else stays flat. The HTTP-memo is a real
-`<details open>` so users can collapse it.
+Geist + Geist Mono, single red accent (`#D93025`, Gmail/Google red),
+monochrome dark code blocks. **Two surfaces, deliberately different —
+read [DESIGN.md](./DESIGN.md) §0 before touching either:**
+
+- **Landing (`/`)** — a real marketing page. Tinted `#F4F5F6` surface
+  with a dot texture, centred 1080px shell, product nav with one solid
+  button, all-black display headline (never an accent-coloured word), and
+  a real drop embedded in an iframe as evidence above the fold. Classes
+  are `.l*` or scoped to `body.landing`.
+- **App chrome (`/verify`, `/p/:slug`, gate, 404)** — a document. Pure
+  white, left-aligned 720px column, vim-modeline breadcrumb, and the
+  HTTP-style memo (a real `<details open>`) as the first thing on the
+  page. Unprefixed classes, so editing one reaches all of these.
+
+**No fake window chrome anywhere any more.** The traffic-light dots on
+the old prompt block were a sanctioned exception; that exception is
+withdrawn. Related and broader: no fake *output* of any kind — the
+landing shows a literal trimmed `GET /api/onboard` response rather than
+a stylised drawing of one, because the old memo rendered `to:`/`from:`/
+`re:` as HTTP headers when they are actually RFC 5322 email headers.
 
 **Single source of truth:** [`src/styles.ts`](./src/styles.ts) →
 served at `/style.css`. Every view imports `STYLE_HREF` (=
@@ -107,12 +121,24 @@ CSS edit, so the edge cache busts on deploy without a manual version
 change. Per-page overrides should stay tiny. Don't hard-code
 `/style.css` in new views; import the constant.
 
-**Landing examples + prompt copy.** The "what people are building"
-list on `/` is hand-curated — edit the `EXAMPLES` array at the top of
-[`src/views/landing.ts`](./src/views/landing.ts) and redeploy to
-rotate. The single prompt-block payload (`AGENT_PROMPT`) lives in the
-same file; we deliberately don't ship a tabbed alternative because we
-don't have a CLI and `curl` gets flagged as unsafe by careful agents.
+**Landing content lives in `src/views/landing.ts`:**
+
+- `EXAMPLES` — the hand-curated "a few pages people have published" list.
+- `AGENT_PROMPT` / `CLI_PROMPT` / `SKILL_PROMPT` — clipboard payloads for
+  the three tabs. **Keep each visible pane to the same number of rendered
+  lines**: the panes share one CSS grid cell so the slab can't jump on tab
+  change, which means it sizes to the tallest, and a shorter pane then
+  shows dead black space. This has regressed twice.
+- `SHOWCASE_SLUG` — the drop embedded as evidence. Uses `/p/<slug>/raw`,
+  which does **not** bump `view_count`, so homepage traffic doesn't
+  inflate that drop's counter. No fallback: delete the drop and the
+  frame goes blank.
+- `src/views/logos.ts` — inlined agent brand marks. Only ship a mark
+  whose identity you verified against the source asset; that file
+  documents which products are deliberately text-only and why.
+
+**Copy has a spec now** — see DESIGN.md §9 for voice and word budgets
+(headline 5–10 words, lede 12–15). Every CTA needs a verb.
 
 The full design doc with rationale, components, and don'ts is in
 [DESIGN.md](./DESIGN.md).
