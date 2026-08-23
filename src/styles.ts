@@ -1162,6 +1162,263 @@ iframe.canvas { border: 0; width: 100%; background: #fff; flex: 1; }
   .gate { margin-top: 36px; max-width: 100%; padding: 0 8px; }
   .gate-input { font-size: 18px; }
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   LANDING REDESIGN
+
+   Everything here is scoped to body.landing (or to classes only the
+   landing emits) so /verify and /p/:slug keep the existing chrome
+   untouched. The old .page-head / details.req / .prompt / .hero rules
+   above are still live for those two pages.
+
+   Why this exists: the previous landing was a left-aligned document on
+   pure white with the HTTP memo as its hero. Against the pages that do
+   this well it read as unstyled rather than restrained. The moves that
+   changed that, roughly in order of effect:
+
+     1. A tinted page with a dot texture, so white surfaces have
+        something to sit on.
+     2. Centred composition and a real nav with one solid action.
+     3. Display type carrying the claim, all black - no accent-coloured
+        word, which is the most templated move in this category.
+     4. A short subhead that states the mechanic. Researched lengths:
+        Vercel 5-word headline, Linear 8 + 13, Resend 8 + 12.
+     5. Evidence above the fold - a real drop in an iframe, plus the
+        marks of the agents the CLI already detects.
+
+   This bends DESIGN.md §1, §3 (pure white, no gradients), §5.2 (memo
+   as hero), §6 (720px left-aligned single column) and §7 (no marketing
+   prose above the fold). DESIGN.md needs amending if this ships.
+   ══════════════════════════════════════════════════════════════════ */
+
+body.landing {
+  --page: #F4F5F6;
+  --card: #FFFFFF;
+  --lshell: 1080px;
+  background: var(--page);
+  /* Texture, not decoration: it renders as dots, not a colour wash.
+     The one gradient on the page. */
+  background-image: radial-gradient(circle, rgba(10,10,10,.055) 1px, transparent 1.1px);
+  background-size: 24px 24px;
+}
+/* the shared 880px <main> does not apply to this layout */
+body.landing main { max-width: none; margin: 0; padding: 0; }
+
+/* ---------- nav ---------- */
+.lnav {
+  position: sticky; top: 0; z-index: 20;
+  background: rgba(244,245,246,.92);
+  border-bottom: 1px solid var(--rule);
+}
+.lnav .in {
+  max-width: var(--lshell); margin: 0 auto;
+  padding: 14px 28px;
+  display: flex; align-items: center; gap: 22px;
+}
+.lnav .wm {
+  font-family: var(--mono); font-weight: 500; font-size: 14.5px;
+  letter-spacing: -0.01em; color: var(--ink); text-decoration: none;
+}
+.lnav .wm::before { content: "<"; color: var(--red); }
+.lnav .wm::after  { content: ">"; color: var(--red); }
+.lnav .links { display: flex; gap: 20px; margin-left: 14px; }
+.lnav .links a {
+  font-size: 14px; color: var(--ink-soft);
+  text-decoration: none; transition: color 0.12s;
+}
+.lnav .links a:hover { color: var(--ink); }
+.lnav .right { margin-left: auto; display: flex; align-items: center; gap: 16px; }
+.lnav .gh {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-family: var(--mono); font-size: 12.5px;
+  color: var(--ink-soft); text-decoration: none;
+}
+.lnav .gh:hover { color: var(--ink); }
+.lnav .gh svg { width: 15px; height: 15px; flex: 0 0 auto; }
+.lnav .btn {
+  background: var(--ink); color: #fff;
+  font-size: 13.5px; font-weight: 500;
+  padding: 9px 16px; border-radius: var(--r-md);
+  border: 1px solid var(--ink);
+  text-decoration: none; white-space: nowrap;
+  transition: background 0.12s;
+}
+.lnav .btn:hover { background: #262626; }
+
+/* ---------- hero ---------- */
+.lhero {
+  max-width: var(--lshell); margin: 0 auto;
+  padding: 96px 28px 0; text-align: center;
+}
+.lhero h1 {
+  font-size: clamp(38px, 5.6vw, 66px);
+  line-height: 1.03; letter-spacing: -0.035em;
+  font-weight: 700; max-width: 17ch;
+  margin: 0 auto 22px;
+}
+.lhero .lede {
+  font-size: 19.5px; line-height: 1.52;
+  color: var(--ink-soft);
+  max-width: 60ch; margin: 0 auto 34px;
+}
+
+/* ---------- the one action ---------- */
+/* No traffic lights. The reference set does not use fake window chrome
+   and it was the most toy-like thing on the old fold. */
+.lbox {
+  max-width: 720px; margin: 0 auto;
+  background: var(--code-bg);
+  border-radius: var(--r-lg);
+  overflow: hidden; text-align: left;
+  box-shadow: 0 1px 2px rgba(10,10,10,.06), 0 8px 24px -18px rgba(10,10,10,.28);
+}
+.lbox .strip {
+  display: flex; align-items: center;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+  padding: 0 6px 0 4px;
+}
+.lbox .strip .t {
+  background: none; border: 0; cursor: pointer;
+  font-family: var(--mono); font-size: 12.5px;
+  color: rgba(239,239,239,.5);
+  padding: 13px 14px;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+  transition: color 0.12s;
+}
+.lbox .strip .t:hover { color: rgba(239,239,239,.85); }
+.lbox .strip .t.on { color: #fff; border-bottom-color: var(--red); }
+.lbox .cp {
+  margin-left: auto;
+  background: rgba(255,255,255,.07); border: 0; cursor: pointer;
+  color: rgba(239,239,239,.72);
+  font-family: var(--mono); font-size: 11.5px;
+  padding: 6px 11px; border-radius: var(--r-sm);
+  transition: background 0.12s, color 0.12s;
+}
+.lbox .cp:hover { background: rgba(255,255,255,.13); color: #fff; }
+.lbox .cp.ok { background: rgba(40,190,70,.18); color: var(--ok-on-dark); }
+/* All panes share one grid cell so the slab never jumps between tabs.
+   That means it sizes to the tallest pane, so keep every payload to
+   the same number of lines or the shorter ones show dead black. */
+.lbox .body { padding: 20px 22px 22px; display: grid; }
+.lbox pre {
+  grid-area: 1 / 1;
+  font-family: var(--mono); font-size: 13.5px; line-height: 1.75;
+  color: var(--code-fg);
+  white-space: pre-wrap; overflow-wrap: anywhere;
+  visibility: hidden; pointer-events: none;
+}
+.lbox pre.on { visibility: visible; pointer-events: auto; }
+.lbox pre .em { color: var(--code-em); }
+.lbox pre .c, .lbox pre .d { color: var(--code-dim); }
+.lbox pre .a { color: var(--ok-on-dark); }
+
+/* ---------- works-with ---------- */
+/* No box per item. Seven outlined pills read as a tag list, and an
+   empty mark slot inside each one read as an unchecked checkbox. */
+.works { max-width: 860px; margin: 38px auto 0; text-align: center; }
+.works-lab { font-size: 13.5px; color: var(--ink-softer); margin-bottom: 20px; }
+.works-row {
+  display: flex; flex-wrap: wrap; justify-content: center;
+  align-items: center; gap: 14px 30px;
+}
+.works-row .lg {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 14.5px; font-weight: 500;
+  color: var(--ink-soft); white-space: nowrap;
+  transition: color 0.14s;
+}
+.works-row .lg:hover { color: var(--ink); }
+.works-row .lg svg {
+  width: 17px; height: 17px; flex: 0 0 auto;
+  opacity: .62; transition: opacity 0.14s;
+}
+.works-row .lg:hover svg { opacity: 1; }
+.works-fine {
+  font-family: var(--mono); font-size: 11.5px; line-height: 1.9;
+  color: var(--ink-softer); margin-top: 22px;
+}
+
+/* ---------- evidence ---------- */
+.lsec { max-width: var(--lshell); margin: 0 auto; padding: 92px 28px 0; }
+.lsec .eyebrow {
+  font-family: var(--mono); font-size: 11px;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--ink-softer); text-align: center; margin-bottom: 16px;
+}
+.frame {
+  background: var(--card); border: 1px solid var(--rule);
+  border-radius: var(--r-lg); overflow: hidden;
+  box-shadow: 0 1px 2px rgba(10,10,10,.05), 0 20px 44px -32px rgba(10,10,10,.3);
+}
+.frame .bar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 16px; border-bottom: 1px solid var(--rule-soft);
+  font-family: var(--mono); font-size: 12.5px; color: var(--ink-soft);
+}
+.frame .bar .u { color: var(--ink); font-weight: 500; }
+.frame .bar .go { margin-left: auto; font-size: 11.5px; color: var(--ink-softer); text-decoration: none; }
+.frame .bar .go:hover { color: var(--red); }
+.shot { position: relative; }
+/* The frame crops mid-sentence, which reads as broken rather than
+   truncated. The fade makes the cut deliberate. Functional, not
+   decorative — but it is a gradient, so DESIGN.md §3 needs the
+   carve-out if this ships. */
+.shot::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0;
+  height: 72px; pointer-events: none;
+  background: linear-gradient(to bottom, rgba(255,255,255,0), #fff 75%);
+}
+.frame iframe { display: block; width: 100%; height: 560px; border: 0; background: #fff; }
+.lnote { text-align: center; font-size: 14px; color: var(--ink-soft); margin: 16px auto 0; max-width: 58ch; }
+.lnote .inl { color: var(--red); text-decoration: none; border-bottom: 1px solid rgba(217,48,37,.3); }
+.lnote .inl:hover { border-bottom-color: var(--red); }
+
+/* ---------- the onboard response, shown not illustrated ---------- */
+.onb {
+  max-width: 760px; margin: 0 auto;
+  background: var(--code-bg);
+  border-radius: var(--r-lg); overflow: hidden;
+  box-shadow: 0 1px 2px rgba(10,10,10,.06), 0 8px 24px -18px rgba(10,10,10,.28);
+}
+.onb .strip {
+  display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+  padding: 12px 18px; border-bottom: 1px solid rgba(255,255,255,.08);
+  font-family: var(--mono); font-size: 12.5px;
+  color: rgba(239,239,239,.9);
+}
+.onb .strip .m { color: var(--code-em); font-weight: 500; }
+.onb .strip .meta { margin-left: auto; color: rgba(239,239,239,.42); font-size: 11.5px; }
+.onb .body { padding: 16px 18px 20px; overflow-x: auto; }
+.onb pre {
+  font-family: var(--mono); font-size: 12.5px; line-height: 1.75;
+  color: var(--code-fg); white-space: pre;
+}
+.onb .k { color: #9CDCFE; }
+.onb .s { color: #CE9178; }
+.onb .n { color: #B5CEA8; }
+.onb .p { color: rgba(239,239,239,.45); }
+.onb .c { color: var(--code-dim); font-style: normal; }
+
+/* ---------- capability list + examples, centred for this layout ---------- */
+body.landing .caps { max-width: 900px; margin: 0 auto; gap: 36px 52px; }
+body.landing .examples { max-width: 760px; margin: 0 auto; }
+body.landing .examples .cue { display: none; }
+body.landing .footer-merged { max-width: 900px; margin: 70px auto 56px; }
+
+@media (max-width: 820px) {
+  .lnav .links { display: none; }
+  .lhero { padding-top: 56px; }
+  body.landing .caps { grid-template-columns: 1fr; gap: 30px; }
+}
+@media (max-width: 600px) {
+  .lnav .in, .lhero, .lsec { padding-left: 20px; padding-right: 20px; }
+  .lhero h1 { font-size: 34px; max-width: none; }
+  .lhero .lede { font-size: 17px; }
+  .lbox pre { font-size: 12px; }
+  .frame iframe { height: 300px; }
+  .shot::after { height: 56px; }
+}
 `;
 
 // Cache-bust the stylesheet automatically on every CSS change. The version
