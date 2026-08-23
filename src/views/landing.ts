@@ -104,7 +104,10 @@ ${STYLE_INLINE}
       <a class="gh" href="https://github.com/utsengar/htmlbin" target="_blank" rel="noopener noreferrer">
         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="${GITHUB_MARK}"/></svg><span>GitHub</span>
       </a>
-      <a class="btn" href="https://github.com/utsengar/htmlbin-cli" target="_blank" rel="noopener noreferrer">Get the CLI</a>
+      <!-- Deep-links to the install section, not the repo root: the button
+           says "Get the CLI", so it should land on the install command
+           rather than a README the reader then has to scan. -->
+      <a class="btn" href="https://github.com/utsengar/htmlbin-cli#install" target="_blank" rel="noopener noreferrer">Get the CLI</a>
     </div>
   </div>
 </nav>
@@ -149,13 +152,19 @@ Publish it to <span class="em">htmlbin.dev</span>. Start at <span class="em">htm
     </div>
   </section>
 
-  <section class="lsec" aria-label="An example drop">
+  <!-- lsec-tight: this block is a continuation of the fold, not a new
+       section, so it gets roughly half the top padding. It also means
+       more of the embedded page is visible without scrolling. -->
+  <section class="lsec lsec-tight" aria-label="An example drop">
     <p class="eyebrow">what you send someone</p>
     <div class="frame">
+      <!-- The action sits next to the version it acts on, not floated to
+           the far right where it read as unrelated chrome. It opens in a
+           new tab, which is what the ↗ promises — so it says so. -->
       <div class="bar">
         <span class="u">${HOST}/p/${SHOWCASE_SLUG}</span>
-        <span>· v1</span>
-        <a class="go" href="/p/${SHOWCASE_SLUG}">open ↗</a>
+        <span class="ver">· v1</span>
+        <a class="go" href="/p/${SHOWCASE_SLUG}" target="_blank" rel="noopener noreferrer">open the live page ↗</a>
       </div>
       <div class="shot">
         <iframe src="/p/${SHOWCASE_SLUG}/raw" title="A real htmlbin drop, rendered live" loading="lazy"></iframe>

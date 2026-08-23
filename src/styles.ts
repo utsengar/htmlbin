@@ -1363,11 +1363,14 @@ body.landing main { max-width: none; margin: 0; padding: 0; }
 .works-row .lg:hover svg { opacity: 1; }
 .works-fine {
   font-family: var(--mono); font-size: 11.5px; line-height: 1.9;
-  color: var(--ink-softer); margin-top: 22px;
+  color: var(--ink-softer); margin-top: 18px;
 }
 
 /* ---------- evidence ---------- */
 .lsec { max-width: var(--lshell); margin: 0 auto; padding: 92px 28px 0; }
+/* The evidence block reads as part of the fold rather than a new
+   section, and starting it higher shows more of the embedded page. */
+.lsec.lsec-tight { padding-top: 48px; }
 .lsec .eyebrow {
   font-family: var(--mono); font-size: 11px;
   letter-spacing: 0.1em; text-transform: uppercase;
@@ -1384,8 +1387,18 @@ body.landing main { max-width: none; margin: 0; padding: 0; }
   font-family: var(--mono); font-size: 12.5px; color: var(--ink-soft);
 }
 .frame .bar .u { color: var(--ink); font-weight: 500; }
-.frame .bar .go { margin-left: auto; font-size: 11.5px; color: var(--ink-softer); text-decoration: none; }
-.frame .bar .go:hover { color: var(--red); }
+.frame .bar .ver { color: var(--ink-softer); }
+/* Was 11.5px in the faintest ink on the page, floated hard right by
+   margin-left:auto — so it sat far from the version it acts on and read
+   as decoration rather than a control. Now it follows the version, wears
+   the accent, and carries an underline so it is legible as a link. */
+.frame .bar .go {
+  margin-left: 6px;
+  color: var(--red); text-decoration: none;
+  border-bottom: 1px solid var(--red-bg-stroke);
+  transition: border-color 0.12s;
+}
+.frame .bar .go:hover { border-bottom-color: var(--red); }
 .shot { position: relative; }
 /* The frame crops mid-sentence, which reads as broken rather than
    truncated. The fade makes the cut deliberate. Functional, not
@@ -1431,7 +1444,18 @@ body.landing main { max-width: none; margin: 0; padding: 0; }
 body.landing .caps { max-width: 900px; margin: 0 auto; gap: 36px 52px; }
 body.landing .examples { max-width: 760px; margin: 0 auto; }
 body.landing .examples .cue { display: none; }
-body.landing .footer-merged { max-width: 900px; margin: 70px auto 56px; }
+/* Bottom spacing is padding, not margin, on purpose. As a margin it
+   collapsed through main (padding:0) and out of body, so it landed
+   outside the tinted background box and html's white showed through as
+   a strip under the footer. Padding cannot collapse. */
+body.landing .footer-merged {
+  max-width: 900px;
+  margin: 70px auto 0;
+  padding-bottom: 56px;
+}
+/* Belt and braces: if any future last-child margin escapes again, the
+   canvas is still the landing surface rather than white. */
+body.landing { min-height: 100vh; }
 
 @media (max-width: 820px) {
   .lnav .links { display: none; }
