@@ -813,6 +813,22 @@ URLs work without any DSN.
   Policy stays tight when Sentry is off. The middleware also unconditionally
   appends `https://static.cloudflareinsights.com` to `script-src` (see
   next bullet — Cloudflare Web Analytics).
+- **Cloudflare Web Analytics injects a beacon into every `text/html`
+  response at the edge — including user drops at `/p/:slug/raw`.** It's
+  automatic zone-level injection, not something the Worker does, and it's
+  only visible when the request sends `Accept: text/html` (a plain
+  `Accept: */*` fetch returns clean bytes, which is why it's easy to miss).
+  **This is accepted deliberately** — the user was asked and chose to keep
+  it. Don't "fix" it, and don't read the Sentry rule above ("we never
+  inject into user content") as covering it; that rule is about what the
+  Worker adds, not what the edge does.
+  **The one place it had to be stopped is the pattern skeleton.** Served
+  as `text/html`, the beacon lands in the template an agent then fills in
+  and *uploads*, so it becomes stored drop content carrying a pinned SRI
+  hash that breaks when the beacon rotates — and it contradicts the
+  pattern's own zero-`<script>` rule. `getPatternAsset()` therefore serves
+  templates as `text/plain`; non-HTML responses aren't rewritten. Keep it
+  that way. The e2e asserts the served bytes, not just the content type.
 - **Config:** `SENTRY_DSN` is a Worker secret. Because this Worker
   uses versioned deploys (CI runs `wrangler versions upload` on PRs),
   use `wrangler versions secret put SENTRY_DSN` — *not* the plain

@@ -805,8 +805,16 @@ export function getPatternAsset(
   const match = PATTERNS.find(
     (p) => p.template && p.meta.template === filename,
   );
+  // Deliberately text/plain, not text/html. Cloudflare's automatic HTML
+  // rewriting appends the Web Analytics beacon to any text/html response, and
+  // an agent that fills in this skeleton would upload that <script> as part of
+  // the drop body — stored user content, with a pinned SRI hash that breaks
+  // when the beacon rotates. It also contradicts the pattern's own rule of
+  // zero script tags. The skeleton is source to copy, not a page to render, so
+  // text/plain is both the fix and the honest content type. (Same reason the
+  // .md above is unaffected: non-HTML responses aren't rewritten.)
   return match?.template
-    ? { body: match.template, contentType: "text/html; charset=utf-8" }
+    ? { body: match.template, contentType: "text/plain; charset=utf-8" }
     : null;
 }
 

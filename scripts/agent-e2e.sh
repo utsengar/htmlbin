@@ -114,20 +114,34 @@ assert_json "$TMP/patterns.json" \
   'true' "session-explainer advertises a template_url"
 
 TPL_URL="$BASE/.well-known/patterns/session-explainer.template.html"
+# text/plain on purpose — see getPatternAsset(). A text/html response gets the
+# Cloudflare Web Analytics beacon appended at the edge, and an agent filling in
+# the skeleton would upload that <script> into the drop body.
 CT_TPL=$(curl -s -o /dev/null -w "%{content_type}" "$TPL_URL")
-assert_contains "$CT_TPL" "text/html" "template served as text/html"
+assert_contains "$CT_TPL" "text/plain" "template served as text/plain (blocks HTML rewriting)"
 curl -s "$TPL_URL" -o "$TMP/session-template.html"
+
+# Fetch again the way a browser or an HTML-expecting agent would. This is the
+# request shape that triggers edge injection, so assert on the *served bytes*
+# rather than on the content type — checking the header alone missed this once.
+curl -s -H "Accept: text/html" "$TPL_URL" -o "$TMP/session-template-htmlaccept.html"
+for variant in "session-template.html" "session-template-htmlaccept.html"; do
+  if grep -q "<script" "$TMP/$variant"; then
+    fail "template scripts ($variant)" "found <script> — pattern requires zero"
+  else
+    ok "template has zero script tags ($variant)"
+  fi
+done
+if cmp -s "$TMP/session-template.html" "$TMP/session-template-htmlaccept.html"; then
+  ok "template bytes identical regardless of Accept header"
+else
+  fail "template stability" "Accept: text/html changed the response body"
+fi
 for landmark in 'class="rail"' 'id="p1"' 'id="p2"' 'id="dead-1"' 'BRAND TOKENS' 'STRUCTURE'; do
   grep -q "$landmark" "$TMP/session-template.html" \
     && ok "template contains $landmark" \
     || fail "template $landmark" "missing"
 done
-# The pattern forbids JS; the skeleton must not smuggle any in.
-if grep -q "<script" "$TMP/session-template.html"; then
-  fail "template script tags" "found <script>"
-else
-  ok "template ships zero script tags"
-fi
 
 # A template filename that belongs to no pattern is still a canonical 404
 NF_TPL=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/.well-known/patterns/nope.template.html")
