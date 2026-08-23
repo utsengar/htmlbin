@@ -7,26 +7,70 @@ and every page in this app reflects the change.
 
 ---
 
+## 0. Two surfaces, one vocabulary
+
+**Read this before editing anything else.** The product has two visual
+systems, on purpose, and they are not interchangeable:
+
+| | **Landing** (`/`) | **App chrome** (everything else) |
+|---|---|---|
+| Job | convince a stranger in ten seconds | get out of the way of the work |
+| Pages | `/` only | `/verify`, `/p/:slug`, the passcode gate, `/404` |
+| Surface | `--page` `#F4F5F6` + dot texture | pure white |
+| Layout | centred, 1080px shell | left-aligned, 720px single column |
+| Header | real nav + one solid button (`.lnav`) | mono breadcrumb (`.page-head`) |
+| Opens with | display headline + subhead | the HTTP memo (`details.req`) |
+| Prefix | `.l*` classes, or scoped to `body.landing` | unprefixed classes |
+
+Shared across both: Geist + Geist Mono, one red accent, no gradients as
+decoration, no glassmorphism, no fake window chrome, no emoji.
+
+**Which one am I editing?** If the class starts with `.l` or the rule is
+scoped to `body.landing`, it is the landing and only the landing. Every
+unprefixed rule still reaches `/verify` and the viewer, so changing one
+changes pages you may not be looking at.
+
+---
+
 ## 1. Philosophy
 
-htmlbin is a **document, not a marketing site**. Every page reads like
-the output of a curl that an agent ran — formal, terse, unembellished.
-The whole product is one paragraph, one URL, and a Bearer token; the
-design should match that economy.
+The **app chrome** is a document, not a marketing site. Every one of
+those pages reads like the output of a curl an agent ran — formal, terse,
+unembellished. The product is one paragraph, one URL and a Bearer token,
+and that economy is the point.
 
-The aesthetic borrows from three places:
-- **Vercel** (geometric sans, sharp hairlines, white-on-white density)
+The **landing** used to follow the same rule, and that was a mistake.
+Held next to pages that do this job well it read as *unstyled* rather
+than restrained: a left-aligned document on pure white, opening with a
+collapsed memo. Fixing it by subtraction — pulling out the accent word,
+the subhead, the motion, the shadows — made it worse. Every one of those
+cuts was defensible in isolation and the sum was a text file.
+
+> **Austerity is not professionalism.** The pages worth learning from are
+> *heavily* designed; they just don't spend the budget on slop
+> vocabulary. They pay for a real surface, composition, typographic
+> scale, and evidence. Diagnose with a checklist, but fix by adding.
+
+So the landing gets to be a landing: a tinted surface, centred
+composition, display type carrying a claim, and a real product shown
+above the fold. The app chrome stays a document.
+
+The aesthetic borrows from:
+- **Vercel** (geometric sans, sharp hairlines, density)
 - **Sentry** (single saturated red as the only color; everything else
   near-monochrome)
-- **HTTP itself** (the memo on every page is literally an HTTP request)
+- **HTTP itself** — but only where it is actually real. See §5.2.
 
 What we **avoid**:
 - Anthropic editorial / italic display serif
 - Warm cream paper, IBM Plex Serif, deep forest greens
 - Generic AI-slop aesthetics (purple-blue gradients, generic Inter, etc.)
-- Marketing hero patterns ("Give your X a Y", subhead-with-period, etc.)
 - Anything that overlaps with [getadb.com](https://getadb.com)'s composition
   — that was an early near-clone we course-corrected away from
+- Anything that overlaps with **traces.com**'s composition. It is the
+  closest thing to a competitor in this space (session sharing for coding
+  agents), so borrowing its layout is both a rule-#1 violation and
+  strategically dumb. Take sensibility, invent composition.
 
 > **The North Star:** if a developer cracks this site open at 11pm and
 > doesn't immediately know whether to take it seriously, we lost.
@@ -46,14 +90,13 @@ What we **avoid**:
 - Lede: 19px
 - Inline code: 0.86em (relative)
 - Mono microcopy (headers, footers, labels): 11–13px
-- Hero headline on `/`: 40–52px, Geist 700, with `<em>` for the red word.
-  This is the one place the landing page does carry a marketing headline
-  ("API for *agents* to share HTML.") — the HTTP-memo sits above it as
-  the document's first line.
+- Landing headline: `clamp(38px, 5.6vw, 66px)`, Geist 700, **all black**.
+  No `<em>`, no accent-coloured word — see §7.
+- Landing lede: 19.5px, `--ink-soft`, max 60ch
 
 **Letter-spacing:**
-- Tight on big sans (`-0.025em` on h1.title)
-- Open on uppercase mono labels (`0.06–0.08em`)
+- Tight on big sans (`-0.035em` on the landing `h1`, `-0.025em` on `h1.title`)
+- Open on uppercase mono labels (`0.06–0.12em`)
 - Default on everything else
 
 ---
@@ -87,14 +130,49 @@ appears sparingly — it's a signal, not a treatment.
 --code-fg:   #FAFAFA
 --code-dim:  #A3A3A3
 --code-em:   #FF6470   /* a slightly desaturated red on dark */
+
+/* radius scale — three steps, nothing else. Before this existed the
+   sheet carried nine ad-hoc radii, which reads as unconsidered. */
+--r-sm: 4px    /* inline code, controls, small buttons */
+--r-md: 8px    /* blocks, nav button */
+--r-lg: 14px   /* the prompt slab, the evidence frame */
+
+/* terminal-syntax colors. Tokenised because they used to be hardcoded
+   at each use site, which let a second accent (two different blues)
+   leak into a palette this doc calls "one red". */
+--ok:            #1F8A3A   /* success on light */
+--ok-on-dark:    #34D058   /* success inside code surfaces */
+--syn-key:       #3B6EE8   /* command keyword, light surfaces */
+--syn-key-dark:  #82B1FF
+```
+
+**Landing-only tokens** (scoped to `body.landing`):
+
+```css
+--page:   #F4F5F6   /* the tinted surface white cards sit on */
+--card:   #FFFFFF
+--lshell: 1080px
 ```
 
 **Rules of thumb:**
-- Red is for **emphasis**, **hover**, and the **angle brackets** in the
-  wordmark. Never for body text. Never for headlines.
-- Green appears as a 6×6px dot on the status pill, that's it.
-- The dark code block is the only inversion on the page — keep it scarce.
-- No gradients. No shadows above 1px. No glow.
+- Red is for **emphasis**, **hover**, the **angle brackets** in the
+  wordmark, and the **primary CTA fill**. Never for body text. **Never
+  for a word inside a headline.**
+- Green appears as a small dot or a success state, never as type.
+- The dark code block is the only inversion — keep it scarce.
+- No shadows above 1px. No glow. Never a coloured shadow under a
+  coloured button.
+- **No gradients, with two named exceptions**, both functional rather
+  than decorative, both landing-only:
+  1. The dot texture on `body.landing` is a `radial-gradient`. It
+     renders as dots, not a colour wash, and it is what gives white
+     cards something to sit on.
+  2. The bottom fade on `.shot` is a `linear-gradient`. Without it the
+     embedded page crops mid-sentence and reads as broken rather than
+     truncated.
+
+  Anything else gradient-shaped is still forbidden. If you want a third
+  exception, it has to be load-bearing in the same way.
 
 ---
 
@@ -119,33 +197,49 @@ appears sparingly — it's a signal, not a treatment.
 
 ## 5. Components
 
-### 5.1 Top bar (`.page-head`)
+### 5.1 Top bar — app chrome (`.page-head`)
+
+Used by `/verify`, the viewer, the gate and `/404`. **Not** the landing.
 
 ```
-┌────────────────────────────────────────────────────────────────────┐
-│  <htmlbin>  ● live · v1            /llms.txt  /api/onboard  /openapi│
-└────────────────────────────────────────────────────────────────────┘
+   <htmlbin> / GET /verify · v1     ● live · v1  ·  $ npm i -g …  ·  /api/onboard
 ```
 
-- 12px vertical padding, monospace 12px text
-- Background `--bg-2` so it sits slightly back from the page
-- Hairline below
-- Status pill: green-dot + `live · v1` (we never write "Cloudflare" or
-  any impl detail here — that's a project rule)
+- Mono 12px, transparent background, no hairline — it reads as the
+  document's first line rather than a chrome strip
+- The install pill and `/api/onboard` link collapse to a single
+  `@htmlbin/cli` link under 720px
+- We never write "Cloudflare" or any impl detail here — project rule
 
-### 5.2 The memo (`.req`)
+### 5.1b Landing nav (`.lnav`)
 
-The most important component. Every public page opens with this. Reads
-exactly like the verbose output of `curl -v`, color-coded:
+The landing gets a real product header instead, because a mono
+breadcrumb reads as terminal output and this page has to look like a
+product to someone who has never heard of it.
 
 ```
-▸ GET / HTTP/1.1
+   <htmlbin>   Docs  Patterns  CLI                  ⃝ GitHub   [ Get the CLI ]
+```
+
+- Sticky, `rgba(244,245,246,.92)`, hairline below
+- Wordmark keeps the red angle brackets (§4) — that is the through-line
+  between the two systems
+- Exactly **one** solid button. It deep-links to the CLI's `#install`
+  anchor, not the repo root: the button names an action, so it should
+  land on the command rather than a README to scan
+- Nav links hide under 820px; the wordmark and both right-hand items stay
+
+### 5.2 The memo (`details.req`) — app chrome only
+
+Opens `/verify` and the viewer. Reads like the verbose output of
+`curl -v`, colour-coded:
+
+```
+▾ GET /verify HTTP/1.1
   host:    htmlbin.dev
   to:      any agent reading this
   from:    htmlbin <htmlbin.dev>
   re:      publishing HTML to a public URL
-  date:    May 9, 2026
-  accept:  text/agent-friendly, text/markdown, application/json
   200 OK   content-type: text/html; charset=utf-8
 ```
 
@@ -154,53 +248,106 @@ exactly like the verbose output of `curl -v`, color-coded:
 - Header keys in `--ink-soft` with a colon suffix in `--ink-softer`
 - Header values in `--ink` weight 500
 - The `re:` value usually highlights one phrase in red (`<span class="em">`)
-- The `▸` prefix sits at `left: -22px` (hidden on mobile)
+- The `▸` prefix sits at `left: -22px` (hidden on mobile), rotating to `▾`
 - The trailing `200 OK` line uses `--green-dot` for the status code
+- **Default it open.** It shipped closed for a while, which meant the
+  page announced its whole conceit as one grey line and then abandoned it
 
-The memo opens every public page. On `/` the hero headline ("API for
-*agents* to share HTML.") sits *below* the memo — the memo is still the
-first line of the document, the hero is just one short sentence under
-it. **Don't** add a third row of marketing prose between them.
+**Why it is not on the landing any more.** `to:`, `from:` and `re:` are
+not HTTP headers — they are RFC 5322 *email* headers. The component built
+to signal protocol-seriousness was displaying invented ones, and the
+engineers most worth impressing are exactly the ones who notice. It is
+the same failure as fake window chrome: decorative output that isn't
+real.
 
-### 5.3 Prompt block (`.prompt`)
+The landing now shows the actual thing instead — a trimmed but literal
+`GET /api/onboard` response in `.onb`, captioned "This is the response,
+trimmed." That endpoint returns ~13 KB across 21 real sections, so
+showing it beats drawing it.
 
-Dark single-pane card holding the prompt the human pastes into their
-agent. This is a deliberate exception to the "no fake mac chrome"
-rule (5.4); it earns its keep because the prompt block is the single
-most important clickable surface on the landing page and needs to
-stand out. The visual rhythm (dots on the left, pill on the right)
-is borrowed loosely from the paperclip onboarding card; the *content*
-is a single real prompt — we deliberately don't fake a CLI we don't
-ship or a `curl` command that careful agents flag as unsafe.
+The memo stays on `/verify` and the viewer because there it sits above
+genuine request context, and those pages are documents by design. If you
+ever restyle it, keep the invented headers out of any *new* surface.
 
-- Background `--code-bg` (`#0A0A0A`), 14px border-radius, soft shadow
-- Title bar (`.prompt-chrome`):
-  - Three traffic-light dots on the left (red `#FF5F57`, yellow
-    `#FEBC2E`, green `#28C840`) — small (11px), purely decorative
-  - `copy` pill on the right (`.prompt-mark`): mono, soft
-    white-on-dark, with a small copy glyph in front of the label.
-    Doubles as the in-chrome copy button — click and the prompt
-    body lands in the clipboard; the pill swaps to a check icon
-    and `copied` for ~1.6s. It's a button, not a static label.
-    The earlier centered `iterm2` title is retired, and the
-    earlier `claude` agent-affinity label is replaced by the
-    plain `copy` label (the function is now the affordance).
-    The large red `Copy prompt` CTA below the card stays for
-    discoverability — both controls share `data-copy` and one
-    event listener (`.js-copy-prompt` in `landing.ts`).
-  - **No** hairline beneath the title bar — title and body share the
-    same surface so the card reads as one continuous slab
-- Body (`.prompt-body`): single `<pre>` with the prompt. 13.5px mono,
-  `--code-fg`, 22px padding.
-- CTA button **below** the block (`.copy-cta`):
-  - Solid red (`--red`), white text, 13px mono uppercase
-  - Label `Copy prompt`, with the copy/clipboard SVG
-  - "Copied" state goes solid green
-- Cue line **above** the block (`.prompt-cue`): muted mono, short:
-  `↓ paste into your agent`.
-- Aftermath line **below** the CTA (`.prompt-aftermath`): explains
-  what happens after copying. Muted regular sans.
-- Emphasis text in `--code-em`.
+### 5.2b The onboard block (`.onb`) — landing
+
+Dark slab, same family as `.lbox`, holding real JSON from
+`GET /api/onboard`. Header strip carries the request line and a count
+(`one document · 21 sections`). Syntax colours come from `--syn-*` and
+`--ok-on-dark`; the body is `overflow-x: auto` so long lines scroll
+inside the block instead of widening the page.
+
+**Every character in it has to be true.** If the API shape changes, this
+block changes. A stale fake is worse than no block.
+
+### 5.3 The action block (`.lbox`) — landing
+
+Dark slab holding whatever the visitor is meant to copy, with three tabs
+(`agent` / `cli` / `skill`) and a primary CTA below it.
+
+- `--code-bg`, `--r-lg`, one 1px shadow. No large ambient blur.
+- **No traffic-light dots.** The old `.prompt` block had them as a
+  deliberate exception; they were the most toy-like thing on the fold,
+  and none of the pages worth learning from use fake window chrome. The
+  exception is withdrawn.
+- Tab strip: mono 12.5px, active tab marked by a red bottom border. The
+  strip has **no fill or radius of its own** — a rounded filled track
+  holding rounded filled tabs inside a rounded card is three nested
+  rounded surfaces, and it made a third chip cluster in one small bar.
+- Body is a CSS grid with all panes in the same cell, so the slab never
+  jumps height when you switch tabs. **The consequence: it sizes to the
+  tallest pane.** Keep every payload to the same number of rendered
+  lines or the shorter ones show dead black space. This has regressed
+  twice; check it after any copy edit.
+
+### 5.3b Primary CTA (`.lcta`)
+
+- Solid `--red`, white, sans 14.5px weight 500, `--r-md`, centred under
+  the block. No coloured shadow (§3).
+- The label names what the active tab will actually put on the
+  clipboard — `Copy the prompt` / `Copy the command` / `Copy the
+  install` — and updates on tab change so the verb stays true.
+- Success state goes `--ok` with the label `Copied` for ~1.6s.
+- Microcopy under it (`.lcta-fine`) carries the risk reducers:
+  `Free · no signup · one human click to start`.
+
+**Exactly one copy affordance.** There used to be two — an in-chrome
+pill and a big button 40px apart — which read as indecision. There also
+used to be *none* with a verb on it, which was worse: the page's whole
+job is starting the device-code flow, and it asked for nothing. One
+button, one verb.
+
+### 5.3c Works-with strip (`.works`) — landing
+
+Agent marks the CLI already auto-detects, as social proof.
+
+- **No box per item.** Outlined pills read as a tag list, and an empty
+  mark slot inside each one reads as an unchecked checkbox. Marks and
+  names sit directly on the page; uniform size and one ink colour is
+  what makes a logo row read as a single unit.
+- Marks are inlined SVG paths from `src/views/logos.ts`, muted to 62%
+  opacity, full ink on hover.
+- **Only ship a mark whose identity you verified.** That file documents
+  which products are deliberately text-only: Aider and Devin are not in
+  simple-icons, and its `amp` slug is Google AMP rather than
+  Sourcegraph's Amp. A wrong logo reads worse than no logo, and these
+  are other companies' trademarks.
+
+### 5.3d Evidence frame (`.frame`) — landing
+
+A real drop, live in an iframe, above the fold.
+
+- White card on the tinted page, `--r-lg`, hairline, one soft shadow
+- Header bar carries the real URL, the version, and an
+  `open the live page ↗` link that sits **next to the version it acts
+  on** and opens in a new tab. It used to be 11.5px in the faintest ink
+  on the page, floated hard right, where it read as decoration.
+- `.shot::after` fades the bottom so the crop is deliberate (§3)
+- Source is `/p/<slug>/raw`, which does **not** bump `view_count`, so
+  homepage traffic doesn't inflate that drop's counter. Check that is
+  still true before changing the route.
+- It is a **real** drop, never a screenshot and never a mockup. Pick a
+  light one: the block above it is already dark.
 
 ### 5.4 Body prose (`.body`)
 
@@ -230,77 +377,153 @@ Two-column mono row at 11.5px in `--ink-soft`:
 Background `--bg-2`, 1px top hairline. **No** "powered by" or implementation
 references. The hosting platform is an implementation detail.
 
-### 5.7 Hero headline (`section.hero`, landing only)
+### 5.7 Landing hero (`.lhero`)
 
-The one place the page carries a marketing-style headline. Sits directly
-under the HTTP-memo, before the prompt block.
+The first thing on the page. No memo above it, no eyebrow pill, nothing
+between the nav and the headline.
 
-- `h1` — Geist 700, 40–52px, tight letter-spacing (`-0.025em`)
-- `<em>` inside the headline shows the emphasized word in red, **upright**
-  (never italic — italics belong to serif design languages we avoid)
-- One short subline (`<p>`) beneath, body sans, `--ink-soft`
+- `h1` — Geist 700, `clamp(38px, 5.6vw, 66px)`, `-0.035em`, max 17ch,
+  centred, **all black**
+- Lede — 19.5px, `--ink-soft`, max 60ch, centred
+- 96px top padding on desktop, 56px under 820px
+
+**No accent-coloured word in the headline.** One red word in a large
+sans headline is the single most templated move in this category, and
+none of the pages worth learning from do it. Emphasis comes from scale
+and weight. If you want to mark one phrase, an underline is the move
+(that is what the one reference doing it well uses) — never coloured
+letters.
+
+**No eyebrow pill above the headline.** There was one reading
+`v1 · LIVE`. "Live" is tautological — the page rendered, so it is live —
+and "v1" is not a version anyone selects. The slot was imported from a
+reference page that uses it for a genuine warning. **Only keep a slot if
+something true goes in it.**
 
 ---
 
-## 6. Page anatomy (single-column, 720px max)
+## 6. Page anatomy
 
-The whole page reads as **one continuous document.** No horizontal rules
-between sections. No chrome strip on top with a fill or a border. The
-breadcrumb at the top is just the document's first line; everything
-flows from there. Whitespace + typography do the sectioning work that
-hairlines normally would.
+### 6a. Landing (`/`) — centred, 1080px shell
+
+Vertical order, top to bottom. Everything is centred.
 
 ```
-                                                                       
-   <htmlbin> / GET / · v1            /llms.txt  /api/onboard  /openapi 
-                                                                       
-   ▸ GET / HTTP/1.1                                                    
-     host:    htmlbin.dev                                              
-     to:      any agent reading this                                   
-     from:    htmlbin <htmlbin.dev>                                    
-     re:      publishing HTML to a public URL                          
-     200 OK   content-type: text/html; charset=utf-8                   
-                                                                       
-   API for *agents* to share HTML.   ◀ hero headline (one line, sans)  
-   Agent-native, end to end.         ◀ subline                         
-                                                                       
-   ↓ paste into your agent                                             
-   ┌──────────────────────────────────────────────────────┐             
-   │  ●●●                                       [ claude ]│             
-   │                                                      │             
-   │  Please publish to htmlbin                           │             
-   │  https://htmlbin.dev/llms.txt                        │             
-   │                                                      │             
-   └──────────────────────────────────────────────────────┘             
-   [ Copy prompt ]   ◀ red CTA, mono uppercase                         
-                                                                       
-   First publish needs one human click; after that, the agent owns it. 
-                                                                       
-   ↓ a few drops people have made                                      
-                                                                       
-     /p/gDMy7Vb   how htmlbin works                                    
-     /p/1Wyf23j   cross-platform gstack — pr #1111                     
-     /p/ztx4J9P   workers nav — three redesigns                        
-     /p/i2taphP   google logo — animation playground                   
-                                                                       
-   — htmlbin                  agent-card  ·  /api/onboard              
-                                                                       
-   htmlbin v1 · open source · agent-friendly        htmlbin.dev        
+   <htmlbin>  Docs Patterns CLI            ⃝ GitHub  [ Get the CLI ]
+   ───────────────────────────────────────────────────────────────────
+
+              Send your agent's work as a link, not a file.
+        A URL that survives every revision. Free, no signup, …
+
+              ┌───────────────────────────────────────┐
+              │ agent   cli   skill                   │
+              │ Explain this as an HTML page — …      │
+              └───────────────────────────────────────┘
+                      [ Copy the prompt ]
+                Free · no signup · one human click
+
+                 Works with the agent you already use
+            ✳ Claude Code   ▣ Cursor   ✿ Codex   ▤ Cline
+              Also Aider, Amp, Devin. Auto-detected …
+
+                       WHAT YOU SEND SOMEONE
+   ┌─────────────────────────────────────────────────────────────┐
+   │ htmlbin.dev/p/ztx4J9P · v1  open the live page ↗            │
+   ├─────────────────────────────────────────────────────────────┤
+   │            [ a real drop, live in an iframe ]               │
+   └─────────────────────────────────────────────────────────────┘
+                    A real drop, not a screenshot.
+
+                     FOR THE AGENT READING THIS
+              ┌───────────────────────────────────────┐
+              │ GET htmlbin.dev/api/onboard           │
+              │ { "summary": …, "publish": { … } }    │
+              └───────────────────────────────────────┘
+
+     versions                        tags
+     Revise without breaking …       Find anything you published.
+     patterns                        passcodes
+     Start from a real structure.    Keep some pages private.
+
+                  A FEW PAGES PEOPLE HAVE PUBLISHED
+     /p/gDMy7Vb   how htmlbin works             EXPLAINER
+     /p/1Wyf23j   cross-platform gstack …       PR WRITEUP
+
+   ───────────────────────────────────────────────────────────────────
+   — htmlbin                      agent-card · /api/onboard · @utsengar
 ```
 
-The viewer page (`/p/:slug`) uses a slim variant of this — a single
-viewer-bar with the breadcrumb in front of the title, then full-bleed
-iframe. The viewer-bar *does* keep one hairline beneath, because there
-the iframe is foreign content and we need the visual demarcation.
+**Section rhythm:** `.lsec` carries 92px top padding. The evidence block
+gets `.lsec-tight` at 48px instead, because it is a continuation of the
+fold rather than a new section — and starting it higher shows more of the
+embedded page.
 
-**Mobile:** 22px gutters, 16px base font, the right-side nav links in
-the breadcrumb collapse away (the breadcrumb itself remains).
+**The four questions the fold has to answer,** in this order. If an edit
+breaks one, it is a regression regardless of how it looks:
 
-**The unification rule:** if you're tempted to add an `<hr>` or a
-`border-bottom` to "section" the document, *don't*. Use whitespace and
-type weight instead. The class `hr.rule` is intentionally `display:none`
-in the global stylesheet so legacy markup keeps working without
-producing a line.
+1. *What is it?* — headline
+2. *What problem does it solve?* — headline's second clause
+3. *Why is it different?* — lede
+4. *What do I do next?* — the CTA, with a verb on it
+
+The page shipped for a while answering only the first, which is how it
+ended up with no call to action at all.
+
+**Bottom spacing must be padding, not margin.** `.footer-merged` is the
+last child of a `<main>` with `padding: 0`, so a bottom *margin* collapses
+through `main` and out of `body` — landing outside the tinted background
+box, where `html`'s white shows through as a strip. `min-height: 100vh`
+on `body.landing` is the backstop.
+
+### 6b. App chrome — one continuous document, 720px max
+
+`/verify`, the gate and `/404` read as **one continuous document.** No
+horizontal rules between sections. No chrome strip with a fill or border.
+The breadcrumb is just the document's first line. Whitespace and
+typography do the sectioning work hairlines normally would.
+
+```
+   ← <htmlbin> / GET /verify · v1     ● live · v1 · $ npm i … · /api/onboard
+
+   ▾ GET /verify HTTP/1.1
+     host:    htmlbin.dev
+     to:      any agent reading this
+     re:      publishing HTML to a public URL
+     200 OK   content-type: text/html; charset=utf-8
+
+   Your agent is asking us to mint a token. …
+
+   VERIFICATION CODE
+   ( ABCD-EFGH )
+
+   ⃝ Sign in with GitHub
+```
+
+The viewer (`/p/:slug`) uses a slim variant: one viewer-bar with the
+breadcrumb in front of the title, then a full-bleed iframe. That bar
+*does* keep a hairline beneath it, because the iframe below is foreign
+content and needs the demarcation.
+
+**Mobile:** 22px gutters, 16px base font, the right-side items in the
+breadcrumb collapse (the breadcrumb itself stays).
+
+**The unification rule:** if you are tempted to add an `<hr>` or a
+`border-bottom` to "section" these pages, *don't*. Use whitespace and
+type weight. `hr.rule` is intentionally `display: none` in the global
+stylesheet so legacy markup keeps working without producing a line.
+
+### 6c. The mobile floor applies to us too
+
+The product tells agents to keep drops readable at 360px
+(`skills/htmlbin/SKILL.md`). Our own pages are held to the same bar: no
+page-level horizontal overflow at 360px or 768px, long lines scrolling
+inside their own container rather than widening the document.
+
+**Testing note:** headless Chrome clamps its own window to a 500px
+minimum, so `--window-size=360,…` silently renders at 500 and crops into
+a 360px canvas. That looks exactly like broken mobile and is not. Render
+the page inside an iframe of the width you actually want, or measure
+`document.documentElement.scrollWidth` against `clientWidth`.
 
 ---
 
@@ -310,38 +533,61 @@ These are not preferences; they're rules. Violating any of them breaks
 the design language.
 
 - **No Anthropic editorial italic serif.** No Instrument Serif. No IBM
-  Plex Serif. No display-italic h1.
-- **No warm cream paper.** Background is pure white.
+  Plex Serif. No display-italic h1. No `font-style: italic` anywhere.
+- **No warm cream paper.** The app chrome is pure white; the landing is
+  the cool grey `--page`. Neither is cream.
 - **No orange.** That belongs to getadb.com. Our accent is red.
 - **No black square logomark with a letterform inside.** Wordmark only.
-- **No fake macOS terminal chrome anywhere except the prompt block.**
-  The prompt block (5.3) gets dots + a static `claude` pill on the right
-  intentionally — it's the primary CTA and needs the visual handle.
-  Everywhere else (HTTP-memo, viewer, raw HTML, passcode gate) stays
-  flat and chromeless. The earlier centered `iterm2` title is retired.
-- **No "Are you an agent?" callout.** That phrasing is getadb's. We
-  address agents through the *whole* memo, not through a sidebar.
+- **No fake window chrome. No exceptions any more.** `.prompt` used to
+  carry traffic-light dots as a sanctioned exception; they were the most
+  toy-like element on the fold and the exception is withdrawn. Tabs and
+  a copy button are enough to say "this is a thing you copy".
+- **No fake output of any kind.** This is the general rule the traffic
+  lights were a special case of. Don't render invented HTTP headers,
+  invented terminal transcripts, invented log lines, or a drawing of an
+  API response. If a block looks like machine output, every character in
+  it has to be real. See §5.2.
+- **No accent-coloured word inside a headline.** Emphasis is scale and
+  weight. An underline is acceptable; coloured letters are not.
+- **No empty imported slots.** If a layout slot came from a reference
+  page, it only stays if something true goes in it. An eyebrow pill with
+  no news, a subhead that restates the headline, and a status dot with
+  no status are all the same mistake.
+- **No status indicator without variance to report.** "Live" on a page
+  that just rendered is tautological.
+- **No "Are you an agent?" callout.** That phrasing is getadb's.
 - **No "powered by" / "built on Cloudflare" / "edge:" / impl details
-  in user-facing copy.** Status pill says `live · v1`. Footer says
-  `htmlbin v1 · open source · agent-friendly`. The platform is an
-  implementation detail.
+  in user-facing copy.** The platform is an implementation detail.
 - **No headline pattern of the form "Give your agent a [X]"** or
   "No [X]. No [Y]." That's getadb's exact rhythm.
-- **No marketing prose above the fold.** The memo is the hero.
 - **No emojis** (unless the user explicitly asks). No icon font.
-  Inline SVG only, used very sparingly.
-- **No horizontal rules between sections.** No `<hr>`, no
-  `border-bottom` on the page-head, no top border on the footer. The
-  page is one document; whitespace separates sections.
-- **Motion budget is tight.** The only allowed motion is: (a) the
-  status-dot pulse on the `live · v1` pill in the top bar, (b) button
-  hover/click transitions, and (c) a **one-shot** word-by-word fade on
-  the landing-page H1 + subhead at first paint (runs once, never
-  loops). All three respect `prefers-reduced-motion: reduce`. Nothing
-  else moves — no scroll-linked reveals, no parallax, no auto-cycling
-  tickers. If you want to add a new motion source, treat that as a
-  design decision and get sign-off, not a CSS PR.
-- **No purple-blue gradients.** Period.
+  Inline SVG only, used sparingly.
+- **No horizontal rules between sections in the app chrome.** Whitespace
+  separates sections. (The landing's nav hairline and the evidence
+  frame's internal rule are structural, not sectioning.)
+- **No approximated third-party logos.** Ship a mark only if you
+  verified its identity against the source asset. Text is the fallback.
+- **Motion budget is tight.** Allowed: button hover/click transitions,
+  and the memo's 0.18s open reveal. Anything beyond that is a design
+  decision needing sign-off, not a CSS PR.
+
+  Current state, verified against the code rather than assumed:
+
+  | Animation | Where | Status |
+  |---|---|---|
+  | button hover / active | both surfaces | keep |
+  | `reqOpen` (memo reveal, 0.18s once) | app chrome | keep |
+  | `live-pulse` (infinite, 2.6s) | **still live** on `/verify` + viewer via `pageHead()` | **should go** |
+  | `hero-word-in` (staggered H1 fade) | **dead CSS** — no view emits `.wf` any more | delete |
+
+  The pulse is gone from the landing only because the landing stopped
+  using `pageHead()`, not because anyone removed it. An infinite pulsing
+  dot is a named AI tell and reports no variance (§7, "no status
+  indicator without variance"). Retiring it means editing
+  `chrome.ts`'s `.live-pill` markup and the `.live-dot::after` rule,
+  which touches two pages — worth doing, not done yet.
+- **No purple-blue gradients.** Period. See §3 for the only two
+  gradients that exist and why.
 
 ---
 
@@ -370,9 +616,59 @@ To restyle the whole product:
 1. Edit `src/styles.ts`
 2. Save — wrangler hot-reloads, hash bumps automatically
 
+> **Gotcha: `STYLES_CSS` is a TypeScript template literal.** A backtick
+> anywhere inside it — including inside a CSS comment — terminates the
+> string and the build fails with a parse error pointing at the comment.
+> Don't quote property names in backticks when explaining a rule. This
+> has broken the build twice.
+
 ---
 
-## 9. Vocabulary
+## 9. Copy
+
+The doc had no copy section for a long time, which is how the landing
+shipped with no call to action on it at all.
+
+**Voice: calm, clinical, no hype.** State the mechanic. No "boost your
+productivity", no "supercharge", no exclamation marks, no em-dash asides
+stacked three deep.
+
+**Lengths**, measured off the pages that do this well rather than
+guessed — Vercel ships a 5-word headline; Linear 8 words + a 13-word
+subhead; Resend 8 + 12:
+
+| Slot | Budget |
+|---|---|
+| Landing headline | 5–10 words |
+| Landing lede | 12–15 words, one or two short sentences |
+| Section eyebrow | 3–5 words |
+| Capability heading | one short sentence |
+| Capability body | ≤ 2 sentences |
+
+**Rules:**
+
+- **The headline states a job, not a mechanic.** "Your agent writes HTML.
+  You get a URL." describes what happens; a reader who does not already
+  feel the pain has no reason to care. "Send your agent's work as a link,
+  not a file." names the job, and the second clause carries the pain.
+- **The lede carries the differentiator, not a risk reducer.** Nobody is
+  blocked on auth, so "one human click" does not belong in the highest
+  value slot on the page. Risk reducers go under the CTA as microcopy.
+- **Every CTA has a verb** and names what actually happens. If the label
+  can go stale when state changes (tabs, modes), update it in JS.
+- **Parallel structure in any scannable list.** Four capability headings
+  in four different grammatical shapes reads as unconsidered.
+- **No internal vocabulary on the marketing surface.** "Mints a new
+  version", "slug stays put" and "drop" are all words we say to each
+  other. `/` says *page*; the API, skill and docs keep the product
+  vocabulary (§10).
+- **Claims have to be checkable.** "Free" is true because there is no
+  billing code. "Works with" lists only agents the CLI actually detects.
+  If you cannot verify a claim, cut it.
+
+---
+
+## 10. Vocabulary
 
 Just two words, used as ordinary English (not coined terms):
 
@@ -386,7 +682,7 @@ that's the whole vocabulary.
 
 ---
 
-## 10. Discoverability surface
+## 11. Discoverability surface
 
 These exist for agents, not humans. They follow the same minimalism rule
 (no fluff, machine-parseable, content-negotiated where useful):
@@ -410,7 +706,7 @@ in the same change. They're a single contract.
 
 ---
 
-## 11. Future taste decisions
+## 12. Future taste decisions
 
 Not every aesthetic call has been made. When the moment comes:
 
@@ -429,3 +725,35 @@ Not every aesthetic call has been made. When the moment comes:
   meta-pile of social tags beyond `og:title`, `og:description`, `og:url`.
 - **Settings UI for humans:** there isn't one. If users want self-serve
   mgmt, an agent does it for them via the API. That's the whole product.
+
+---
+
+## 13. Known drift — fix these before adding anything
+
+Everything below is verified against the code, not guessed. This list
+exists because the doc once described a page that hadn't shipped, and a
+later audit trusted the doc and reached a confidently wrong conclusion.
+
+- **`live-pulse` still runs** on `/verify` and the viewer. §7 explains
+  why it should go; retiring it means editing `chrome.ts` and the
+  `.live-dot::after` rule.
+- **Dead CSS:** `.hero`, `.hero h1 .wf`, `@keyframes hero-word-in`,
+  `.hero-sub`, `.prompt*` (`.prompt-chrome`, `.prompt-mark`,
+  `.prompt-cue`, `.prompt-aftermath`, `.tabs`, `.tab`, `.tab-panel`),
+  `.copy-cta`, `.term-*`, `.caps-cue`, `.examples .cue`. The landing was
+  the only consumer and it no longer emits any of it. Deleting is safe
+  but it is a large diff, so it wants its own PR with a careful grep.
+- **"Open source" is claimed with no LICENSE file to back it.** The
+  landing redesign happened to drop the phrase from the nav and footer,
+  so it is no longer on any HTML page — but `/llms.txt` still opens with
+  "Open source. Edge-hosted." (`discoverability.ts:156`), and there is no
+  LICENSE in this repo. The CLI repo is MIT; this one is unlicensed, and
+  `package.json` has no `license` field either. Either add a license or
+  drop the claim. This is a decision, not a copy edit.
+- **The landing hardcodes one showcase slug** (`SHOWCASE_SLUG` in
+  `landing.ts`). If that drop is deleted the evidence frame goes blank.
+  No fallback.
+
+**When you change a component, change this doc in the same PR.** The
+audit trail in git is not a substitute — nobody greps history before
+trusting a design doc.
