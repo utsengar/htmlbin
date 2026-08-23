@@ -8,7 +8,8 @@ triggers:
   - make a page from this transcript
   - publish my agent session
   - show my thinking on this
-brand_sensing: colors-only
+brand_sensing: true
+brand_scope: colors-only
 template: session-explainer.template.html
 ---
 
@@ -85,7 +86,7 @@ Session transcripts are the most credential-dense artifact on a developer's mach
 
 ## Brand sensing is colors only
 
-`brand_sensing: colors-only` — narrower than other patterns. Apply the user's palette, and type to the BRAND TOKENS block. Keep **one** accent; failures and the active tab are the only elements that wear it. Do not add a second hue to color-code phases: the phase label carries the meaning, and a multi-hue badge set needs a validated categorical palette.
+`brand_scope: colors-only` — narrower than other patterns. Apply the user's palette and type to the BRAND TOKENS block. Keep **one** accent; failures and the active tab are the only elements that wear it. Do not add a second hue to color-code phases: the phase label carries the meaning, and a multi-hue badge set needs a validated categorical palette.
 
 Structure does not adapt to brand. A session explainer should be recognizable as one.
 

@@ -528,9 +528,17 @@ comparing to each other if they share a shape. Two mechanics support that:
   pattern that declares one, so agents discover it from the index.
   The template's CSS is split by a marked comment: a **BRAND TOKENS**
   block the agent adapts, and a **STRUCTURE** block it must not touch.
-- **`brand_sensing: colors-only`** instead of `true` — adapt palette and
-  type, leave the structure alone. A prescriptive pattern and full brand
-  sensing contradict each other; pick one per pattern.
+- **`brand_scope: colors-only`** alongside `brand_sensing: true` — adapt
+  palette and type, leave the structure alone. A prescriptive pattern and
+  full brand sensing contradict each other; pick one per pattern.
+  **Why a second key rather than `brand_sensing: colors-only`:** the
+  CLI's validator (`src/patterns/schema.ts` in the CLI repo) requires
+  `brand_sensing` to be a boolean and throws otherwise. Since `init`
+  loops every pattern inside one `try`, a throw drops the whole run into
+  the offline fallback — an older CLI would silently install 3 patterns
+  and report `offline: true`. Unknown front-matter keys are ignored, so
+  `brand_scope` and `template` are forward-compatible with published
+  CLI versions. Keep new pattern metadata additive for that reason.
 
 Enforcement tops out there on purpose. The server does **not** validate
 published HTML (that would break "HTML uploads exactly as posted"), and
