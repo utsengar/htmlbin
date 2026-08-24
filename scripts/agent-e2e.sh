@@ -137,11 +137,20 @@ if cmp -s "$TMP/session-template.html" "$TMP/session-template-htmlaccept.html"; 
 else
   fail "template stability" "Accept: text/html changed the response body"
 fi
-for landmark in 'class="rail"' 'id="p1"' 'id="p2"' 'id="dead-1"' 'BRAND TOKENS' 'STRUCTURE'; do
+for landmark in 'class="rail"' 'id="p1"' 'id="p2"' 'id="p3"' 'id="dead-1"' 'id="t1"' 'class="trace"' 'BRAND TOKENS' 'STRUCTURE'; do
   grep -q "$landmark" "$TMP/session-template.html" \
     && ok "template contains $landmark" \
     || fail "template $landmark" "missing"
 done
+
+# Adding a tab without adding it to the default-active :not() chain leaves two
+# tabs highlighted, because :not(:has(#id)) inherits the id's specificity and
+# outranks any later override. Assert the chain covers every non-default tab.
+if grep -q 'not(:has(#p2:target)):not(:has(#p3:target)):not(:has(.card:target)) .tabnav a.h' "$TMP/session-template.html"; then
+  ok "template default-tab rule excludes every other tab"
+else
+  fail "template tab specificity" "default a.h rule does not exclude #p3"
+fi
 
 # A template filename that belongs to no pattern is still a canonical 404
 NF_TPL=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/.well-known/patterns/nope.template.html")

@@ -123,17 +123,26 @@ h3{font-size:15px;margin:0;font-weight:600}
 .panels:has(.card:target) #p2{display:block}
 .panels:has(#p1:target) #p1{display:block}
 .panels:has(#p1:target) #p2{display:none}
-.tabs:not(:has(#p2:target)):not(:has(.card:target)) .tabnav a.h,
+.panels:has(#p3:target) #p1{display:none}
+.panels:has(#p3:target) #p2{display:none}
+.panels:has(#p3:target) #p3{display:block}
+.panels:has(#p2:target) #p3{display:none}
+.panels:has(.card:target) #p3{display:none}
+.tabs:not(:has(#p2:target)):not(:has(#p3:target)):not(:has(.card:target)) .tabnav a.h,
 .tabs:has(#p1:target) .tabnav a.h,
+.tabs:has(#p3:target) .tabnav a.r,
 .tabs:has(#p2:target) .tabnav a.d,
 .tabs:has(.card:target) .tabnav a.d{
   color:var(--ink);border-bottom-color:var(--accent);font-weight:500}
-.tabs:not(:has(#p2:target)):not(:has(.card:target)) .tabnav a.h .n,
+.tabs:not(:has(#p2:target)):not(:has(#p3:target)):not(:has(.card:target)) .tabnav a.h .n,
 .tabs:has(#p1:target) .tabnav a.h .n,
+.tabs:has(#p3:target) .tabnav a.r .n,
 .tabs:has(#p2:target) .tabnav a.d .n,
 .tabs:has(.card:target) .tabnav a.d .n{background:var(--accent-bg);color:var(--accent)}
 .tabs:has(#p1:target) .tabnav a.d,
 .tabs:has(.card:target) .tabnav a.h,
+.tabs:has(#p3:target) .tabnav a.h,
+.tabs:has(#p3:target) .tabnav a.d,
 .tabs:has(#p2:target) .tabnav a.h{
   color:var(--ink-soft);border-bottom-color:transparent;font-weight:400}
 
@@ -202,6 +211,61 @@ th{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacin
 td.num{font-family:var(--mono);white-space:nowrap}
 tr.hot td{color:var(--accent);font-weight:500}
 
+/* trace panel — both sides of every turn */
+.tnote{font-size:13.5px;color:var(--ink-soft);border-left:2px solid var(--rule);
+  padding-left:13px;margin:0 0 18px;max-width:70ch}
+.tnote b{color:var(--ink)}
+.trace{border:1px solid var(--rule);border-radius:5px;overflow:hidden}
+.tday{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--ink-softer);background:var(--bg-2);padding:6px 13px;border-bottom:1px solid var(--rule)}
+.turn{display:grid;grid-template-columns:52px minmax(0,1fr);gap:12px;padding:11px 13px;
+  border-bottom:1px solid var(--rule-soft)}
+.turn:last-child{border-bottom:0}
+.turn:hover{background:var(--bg-2)}
+.turn:target{background:var(--accent-bg)}
+.tn{font-family:var(--mono);font-size:11px;color:var(--ink-softer);line-height:1.5}
+.tn a{display:block;color:var(--ink-2);border:0;font-weight:500}
+.tn a:hover{color:var(--accent)}
+.tn span{display:block;font-size:10px}
+.tb{min-width:0}
+.rl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.07em;
+  color:var(--ink-softer);border:1px solid var(--rule);border-radius:3px;padding:1px 4px;
+  margin-right:7px;vertical-align:1px;white-space:nowrap}
+.rl.you{color:var(--ink-2);border-color:var(--ink-softer)}
+.tp{margin:0;font-size:14.5px;color:var(--ink);white-space:pre-wrap;overflow-wrap:anywhere}
+details.tp>summary{cursor:pointer;list-style:none;color:var(--ink);display:block;
+  padding-right:16px;position:relative}
+details.tp>summary::-webkit-details-marker{display:none}
+details.tp>summary::after{content:"+";position:absolute;right:0;top:0;color:var(--ink-softer);
+  font-family:var(--mono);font-size:12px}
+details.tp[open]>summary::after{content:"\2212"}
+details.tp[open]>summary{color:var(--ink-softer);font-size:13px;margin-bottom:7px}
+details.tp>div{white-space:pre-wrap;font-size:14.5px;color:var(--ink)}
+details.tr{margin-top:7px}
+details.tr>summary{cursor:pointer;list-style:none;font-size:13.5px;color:var(--ink-soft);
+  display:block;padding-right:44px;position:relative;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap}
+details.tr>summary::-webkit-details-marker{display:none}
+details.tr>summary i{position:absolute;right:0;top:0;font-style:normal;font-family:var(--mono);
+  font-size:10px;color:var(--ink-softer)}
+details.tr>summary:hover{color:var(--ink)}
+details.tr[open]>summary{white-space:normal;color:var(--ink-softer);margin-bottom:8px}
+details.tr>div{white-space:pre-wrap;font-size:13.5px;line-height:1.6;color:var(--ink-2);
+  background:var(--bg-2);border:1px solid var(--rule);border-radius:4px;padding:11px 13px;
+  overflow-wrap:anywhere;max-height:420px;overflow-y:auto}
+.tnoreply{margin:7px 0 0;font-size:13px;color:var(--ink-softer)}
+.tm2{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin-top:7px}
+.tc,.tf,.ted{font-family:var(--mono);font-size:10px;border-radius:3px;padding:1px 5px;white-space:nowrap}
+.tc{background:var(--bg-3);color:var(--ink-soft)}
+.tc i{font-style:normal;color:var(--ink-softer);margin-left:3px}
+.tc.tnone,.tc.tth{background:transparent;color:var(--ink-softer);padding-left:0}
+.tf{border:1px solid var(--rule);color:var(--ink-softer);max-width:190px;overflow:hidden;
+  text-overflow:ellipsis}
+.ted{border:1px dashed var(--rule);color:var(--ink-softer)}
+.tcut{border:1px solid var(--accent-stroke);background:var(--accent-bg);color:var(--accent);
+  font-family:var(--mono);font-size:10px;border-radius:3px;padding:1px 5px}
+.tdeep{font-family:var(--mono);font-size:10px;color:var(--accent);border:0;margin-left:auto}
+
 @media (max-width:900px){
   :root{--rail:216px}
   .main{padding:24px 22px 36px}
@@ -225,6 +289,10 @@ tr.hot td{color:var(--accent);font-weight:500}
   .row .t{grid-row:2;grid-column:1/-1}
   .tabnav a{padding:9px 9px;font-size:11.5px;gap:5px}
   .brow{grid-template-columns:88px minmax(0,1fr) 34px;font-size:11px;gap:8px}
+  .turn{grid-template-columns:1fr;gap:5px}
+  .tn{display:flex;gap:8px}
+  .tn a,.tn span{display:inline}
+  .tf{max-width:140px}
 }
 @media (max-width:420px){
   .nums .v{font-size:16px}
@@ -293,6 +361,7 @@ tr.hot td{color:var(--accent);font-weight:500}
       <div class="tabnav">
         <a class="h" href="#p1">Highlights <span class="n">SLOT_N</span></a>
         <a class="d" href="#p2">Dead ends <span class="n">SLOT_N</span></a>
+        <a class="r" href="#p3">Trace <span class="n">SLOT_N</span></a>
       </div>
 
       <div class="panels">
@@ -338,6 +407,30 @@ SLOT_EXCERPT</pre>
           <!-- SLOT: 2-4 lesson rows, each pointing back at the card that earned it. -->
           <div class="tl">
             <div class="row"><span class="ph">lesson</span><span class="t">SLOT_LESSON</span><span class="g">#dead-1</span></div>
+          </div>
+        </div>
+
+        <div class="panel" id="p3">
+          <!-- SLOT: one sentence stating the editing rule you applied, and what
+               is not here. Do not call it verbatim if you edited it. -->
+          <p class="tnote">Both sides of every turn, in order. <b>SLOT_EDIT_RULE</b>
+          Tool results are not here, and that is most of the transcript's weight.</p>
+
+          <div class="trace">
+            <!-- SLOT: repeat one .turn per turn, in order. Day separators when the
+                 session spans days. The human's prompt is complete; collapse it
+                 above ~40 words rather than truncating. The agent's reply is
+                 collapsed with its first line as the preview and a word count.
+                 Add <span class="tcut">redacted</span> on any turn you cut from. -->
+            <div class="tday">SLOT_DATE</div>
+            <div class="turn" id="t1">
+              <div class="tn"><a href="#t1">1</a><span>SLOT_TIME</span></div>
+              <div class="tb">
+                <p class="tp"><span class="rl you">you</span>SLOT_PROMPT</p>
+                <details class="tr"><summary><span class="rl">agent</span>SLOT_REPLY_FIRST_LINE<i>SLOT_Nw</i></summary><div>SLOT_REPLY</div></details>
+                <div class="tm2"><span class="tc">Bash<i>SLOT_N</i></span><span class="tf">SLOT_FILE</span><span class="tc tth">thinking<i>SLOT_N</i></span></div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
