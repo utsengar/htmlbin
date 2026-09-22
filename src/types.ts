@@ -46,6 +46,7 @@ export type User = {
   created_at: number;
   github_user_id: number | null;
   github_login: string | null;
+  email: string | null;
 };
 
 export type Drop = {

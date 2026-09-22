@@ -9,7 +9,11 @@ CREATE TABLE IF NOT EXISTS users (
   -- GitHub identity (required for accounts minted after the OAuth migration;
   -- NULL for legacy pre-OAuth accounts that still carry working tokens).
   github_user_id  INTEGER,
-  github_login    TEXT
+  github_login    TEXT,
+  -- Verified primary email from GitHub (user:email scope). Optional —
+  -- NULL when the user denied scope, has no verified email on GitHub,
+  -- or the /user/emails lookup failed. Refreshed on every sign-in.
+  email           TEXT
 );
 
 -- Enforce one user per GitHub identity, but only for rows that have one
