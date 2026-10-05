@@ -28,8 +28,8 @@
     "satori-html": "^0.3.2"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20260426.1",
+    "@cloudflare/workers-types": "^4.20260702.1",
     "typescript": "5.7.2",
-    "wrangler": "^4.86.0"
+    "wrangler": "~4.100.0"
   }
 }
