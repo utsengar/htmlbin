@@ -250,7 +250,7 @@ skills/htmlbin/
 .github/workflows/
   deploy.yml        ─ production deploy on main, versioned preview on PR
 schema.sql          ─ D1 schema
-wrangler.toml       ─ Cloudflare config (incl. [[rules]] CompiledWasm for OG fonts)
+cloudflare.config.ts ─ Cloudflare config for the cf CLI (wrangler.toml kept for tail/d1; wrangler.config.ts holds the CompiledWasm rule)
 scripts/
   setup.mjs         ─ one-shot provisioning
   agent-e2e.sh      ─ full functional test
