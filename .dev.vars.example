@@ -1,7 +1,7 @@
 # Copy to .dev.vars (gitignored) for local development.
-# These override [vars] in wrangler.toml when running `wrangler dev`.
+# These override [vars] in cloudflare.config.ts when running `cf dev`.
 
-# Local dev overrides — production uses the values in wrangler.toml.
+# Local dev overrides — production uses the values in cloudflare.config.ts.
 PUBLIC_URL="http://localhost:8787"
 
 # Random 32+ char string. Generate with:  openssl rand -hex 32

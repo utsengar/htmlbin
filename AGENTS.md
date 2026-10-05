@@ -184,7 +184,7 @@ src/views/             landing, verify, viewer, favicon, OG views
 skills/htmlbin/SKILL.md human-browsable mirror of src/skill.ts
 schema.sql             D1 schema
 migrations/            D1 migrations
-cloudflare.config.ts    Cloudflare config read by cf (wrangler.toml kept for wrangler-only commands)
+cloudflare.config.ts   Cloudflare config read by cf (wrangler.toml kept for wrangler-only commands)
 scripts/setup.mjs      provisioning
 scripts/agent-e2e.sh   full functional test
 scripts/stats.mjs      text-based stats snapshot (npm run stats)

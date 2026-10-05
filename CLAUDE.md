@@ -641,14 +641,16 @@ still a devDependency because `cf` delegates bundling to it and because
 - **`cf` equivalents found:** `cf workers secrets update <name>
   --worker htmlbin --text …` (secrets), `cf d1 migrations apply|list
   <database-id>` (takes the UUID, same `d1_migrations` table as Wrangler),
-  `cf previews deploy` (named previews, untested here).
+  `cf previews deploy` (named previews; untested, and its source has a
+  "Preview uploads from Build Output don't support the `domains` field"
+  error, which our config may trip).
 - **Two logins.** `cf dev` runs the AI binding remotely through its
   bundled Wrangler, which uses its own auth. Run `cf auth login` *and*
   `wrangler login` (or set `CLOUDFLARE_API_TOKEN`), otherwise `cf dev`
   dies with `Failed to fetch auth token` / `[object Object]`.
 - **Local state.** `cf dev` defaults to `~/.config/cloudflare/state`.
-  Use `cf dev --persist-to .wrangler/state` to reuse the DB that
-  `npm run db:apply:local` seeds.
+  `npm run dev` passes `--persist-to .wrangler/state` so it reuses the DB
+  that `npm run db:apply:local` seeds.
 - **Version pins.** `cf` needs Wrangler >= 4.136; we use 4.145 because
   4.136 and 4.140 pull `undici@7.29.0` (high-severity advisory), which fails
   the CI `npm audit` gate through `@sentry/cloudflare`'s wrangler peer.

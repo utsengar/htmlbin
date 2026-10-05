@@ -55,7 +55,9 @@ jobs:
         id: preview
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        # pipefail so a failed upload fails the step instead of tee's exit 0.
         run: |
+          set -o pipefail
           npx cf workers versions create \
             --message "PR #${{ github.event.pull_request.number }} — ${{ github.event.pull_request.head.sha }}" \
             2>&1 | tee "$RUNNER_TEMP/cf-preview.log"
