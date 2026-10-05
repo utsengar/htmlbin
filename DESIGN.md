@@ -614,7 +614,7 @@ because of its full-bleed iframe — that's the kind of override we accept).
 
 To restyle the whole product:
 1. Edit `src/styles.ts`
-2. Save — wrangler hot-reloads, hash bumps automatically
+2. Save — `cf dev` hot-reloads, hash bumps automatically
 
 > **Gotcha: `STYLES_CSS` is a TypeScript template literal.** A backtick
 > anywhere inside it — including inside a CSS comment — terminates the

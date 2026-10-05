@@ -157,7 +157,7 @@ callback with a synthesized identity.
 
 ## Asset Gotchas
 
-Wrangler 4 + ES module Workers has been unreliable for importing
+The bundler (Wrangler 4, which cf builds with) has been unreliable for importing
 non-JS files outside `src/` through `[[rules]]`.
 
 Use established patterns:
@@ -184,7 +184,7 @@ src/views/             landing, verify, viewer, favicon, OG views
 skills/htmlbin/SKILL.md human-browsable mirror of src/skill.ts
 schema.sql             D1 schema
 migrations/            D1 migrations
-cloudflare.config.ts   Cloudflare config read by cf (wrangler.toml kept for wrangler-only commands)
+cloudflare.config.ts   Cloudflare config read by cf (all commands go through cf)
 scripts/setup.mjs      provisioning
 scripts/agent-e2e.sh   full functional test
 scripts/stats.mjs      text-based stats snapshot (npm run stats)

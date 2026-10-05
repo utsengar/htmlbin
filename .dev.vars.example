@@ -18,5 +18,5 @@ GITHUB_CLIENT_SECRET="dev-mock"
 # Sentry observability. Optional in dev. When unset, both the Worker
 # wrapper and the browser /sentry.js route no-op. DSN is public — Sentry
 # expects it in client code. Set in production via:
-#   wrangler secret put SENTRY_DSN
+#   cf workers secrets update SENTRY_DSN --worker htmlbin --type secret_text --text <dsn>
 # SENTRY_DSN="https://<publicKey>@oXXXXX.ingest.sentry.io/<project>"

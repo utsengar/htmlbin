@@ -13,7 +13,7 @@ build/
 .parcel-cache/
 *.tsbuildinfo
 
-# --- Cloudflare / Wrangler ---
+# --- Cloudflare ---
 .wrangler/
 .cloudflare/
 worker-configuration.d.ts

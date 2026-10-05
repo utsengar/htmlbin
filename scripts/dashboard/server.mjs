@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Local visual dashboard for htmlbin.
 //
-// Spawns `wrangler d1 execute --remote --json` for queries (same pattern as
+// Spawns `cf d1 raw` for queries (same pattern as
 // scripts/stats.mjs) and serves a small SPA at http://127.0.0.1:5173 with
 // overview + per-user + per-drop drill-down views.
 //
@@ -20,15 +20,14 @@ import { fileURLToPath } from "node:url";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, "..", "..");
 const PORT = Number(process.env.PORT) || 5173;
-const ENV_FLAG = process.argv.includes("--local") ? "--local" : "--remote";
-const ENV_LABEL = ENV_FLAG === "--local" ? "local" : "remote";
+const LOCAL = process.argv.includes("--local");
+const ENV_ARGS = LOCAL ? ["--local", "--persist-to", ".wrangler/state"] : [];
+const ENV_LABEL = LOCAL ? "local" : "remote";
+const DB_ID = "63632af3-b786-422b-87bd-bf6e13399ec9";
 
-// Invoke wrangler's entry point directly. `npx wrangler` works in
-// theory but the `.bin/wrangler` shim is installed as a regular file
-// (not a symlink) which breaks its `__dirname`-based path math.
-const WRANGLER_ENTRY = resolve(REPO_ROOT, "node_modules", "wrangler", "bin", "wrangler.js");
-if (!existsSync(WRANGLER_ENTRY)) {
-  console.error(`wrangler not found at ${WRANGLER_ENTRY} — run \`npm install\` first.`);
+const CF_BIN = resolve(REPO_ROOT, "node_modules", ".bin", "cf");
+if (!existsSync(CF_BIN)) {
+  console.error(`cf not found at ${CF_BIN} — run \`npm install\` first.`);
   process.exit(1);
 }
 
@@ -42,29 +41,28 @@ function runQuery(sql) {
   let out;
   try {
     out = execFileSync(
-      process.execPath,
-      [
-        WRANGLER_ENTRY, "d1", "execute", "htmlbin-db",
-        ENV_FLAG, "--json", "--command", flat,
-      ],
+      CF_BIN,
+      ["d1", "raw", DB_ID, ...ENV_ARGS, `--sql=${flat}`],
       { stdio: ["ignore", "pipe", "pipe"], cwd: REPO_ROOT },
     ).toString();
   } catch (e) {
     const msg = e.stderr?.toString() || e.message || "unknown";
-    throw new Error(`wrangler failed: ${msg.slice(0, 800)}`);
+    throw new Error(`cf failed: ${msg.slice(0, 800)}`);
   }
   const match = out.match(/\[\s*\{/);
   if (!match) {
     if (out.match(/\[\s*\]/)) return [];
-    throw new Error(`unexpected wrangler output:\n${out.slice(0, 400)}`);
+    throw new Error(`unexpected cf output:\n${out.slice(0, 400)}`);
   }
-  const results = JSON.parse(out.slice(match.index))[0]?.results ?? [];
+  // `cf d1 raw` returns rows as arrays; zip them back into objects.
+  const { columns = [], rows = [] } = JSON.parse(out.slice(match.index))[0]?.results ?? {};
+  const results = rows.map((row) => Object.fromEntries(columns.map((c, i) => [c, row[i]])));
   cache.set(flat, { results, expires: Date.now() + CACHE_TTL_MS });
   return results;
 }
 
 // ── inputs ─────────────────────────────────────────────────────────
-// Strict whitelists. wrangler d1 execute --command does not accept bind
+// Strict whitelists. `cf d1 raw --sql` does not accept bind
 // params, so every interpolated value comes through one of these gates.
 const RE_USER = /^[A-Za-z0-9_-]{1,64}$/;
 const RE_SLUG = /^[A-Za-z0-9]{6,12}$/;

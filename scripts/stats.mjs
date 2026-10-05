@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Local stats + risk-signal CLI for htmlbin.
 //
-// Runs SQL via `wrangler d1 execute` and prints a single screenful:
+// Runs SQL via `cf d1 raw` and prints a single screenful:
 // adoption snapshot, time-series (day/week/month buckets), top
 // drops/users, and risk signals that surface only when something's
 // off (burst writes, zero-view aging, rate-limit hits, etc.).
@@ -10,7 +10,7 @@
 //   npm run stats                   # day buckets, last 14 days, remote
 //   npm run stats -- --window=week  # weekly buckets, last 12 weeks
 //   npm run stats -- --window=month --buckets=6
-//   npm run stats -- --local        # query local .wrangler/state/ D1
+//   npm run stats -- --local        # query local .wrangler/state/ D1 (where cf dev keeps it)
 
 import { execFileSync } from "node:child_process";
 import { parseArgs } from "node:util";
@@ -39,7 +39,8 @@ if (!Number.isFinite(BUCKETS) || BUCKETS < 1) {
   console.error(`--buckets must be a positive integer`);
   process.exit(1);
 }
-const ENV_FLAG = values.local ? "--local" : "--remote";
+const DB_ID = "63632af3-b786-422b-87bd-bf6e13399ec9";
+const ENV_ARGS = values.local ? ["--local", "--persist-to", ".wrangler/state"] : [];
 const ENV_LABEL = values.local ? "local" : "remote";
 
 // ── time helpers ───────────────────────────────────────────────────
@@ -114,14 +115,14 @@ function bucketCutoffMs(w, count) {
   return NOW - count * unit;
 }
 
-// ── wrangler helper ────────────────────────────────────────────────
+// ── cf helper ──────────────────────────────────────────────────────
 function runQuery(sql) {
   const flat = sql.replace(/\s+/g, " ").trim();
   let out;
   try {
     out = execFileSync(
-      process.execPath,
-      ["node_modules/wrangler/bin/wrangler.js", "d1", "execute", "htmlbin-db", ENV_FLAG, "--json", "--command", flat],
+      "node_modules/.bin/cf",
+      ["d1", "raw", DB_ID, ...ENV_ARGS, `--sql=${flat}`],
       { stdio: ["ignore", "pipe", "pipe"] },
     ).toString();
   } catch (e) {
@@ -131,17 +132,18 @@ function runQuery(sql) {
     if (e.stderr?.length) console.error(`  stderr:\n${e.stderr.toString()}`);
     process.exit(1);
   }
-  // Wrangler --json pretty-prints to stdout (`[\n  {…}\n]`), so anchor
-  // on the first `[` followed by whitespace + `{`. Warnings go to stderr.
+  // `cf d1 raw` prints `[{ results: { columns, rows } }]` with rows as
+  // arrays; anchor on the first `[` + `{` and zip rows back into objects.
   const match = out.match(/\[\s*\{/);
   if (!match) {
-    console.error(`\n  unexpected wrangler output (no JSON found):\n${out}`);
+    console.error(`\n  unexpected cf output (no JSON found):\n${out}`);
     process.exit(1);
   }
   try {
-    return JSON.parse(out.slice(match.index))[0]?.results ?? [];
+    const { columns = [], rows = [] } = JSON.parse(out.slice(match.index))[0]?.results ?? {};
+    return rows.map((row) => Object.fromEntries(columns.map((c, i) => [c, row[i]])));
   } catch (e) {
-    console.error(`\n  failed to parse wrangler output: ${e.message}`);
+    console.error(`\n  failed to parse cf output: ${e.message}`);
     console.error(`  raw:\n${out}`);
     process.exit(1);
   }

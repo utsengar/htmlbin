@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-// One-shot setup: provision Cloudflare D1 + KV, patch wrangler.toml,
+// One-shot setup: provision Cloudflare D1 + KV, patch cloudflare.config.ts,
 // apply schema, and prompt for the secrets we need.
 //
 // Usage: npm run setup
 //
-// Requires: wrangler logged in (`wrangler login`), Node 18+.
+// Requires: cf logged in (`cf auth login`), Node 22.18+.
 
-import { execSync } from "node:child_process";
+import { execSync, execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import path from "node:path";
@@ -14,7 +14,7 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
-const wranglerPath = path.join(root, "wrangler.toml");
+const configPath = path.join(root, "cloudflare.config.ts");
 
 function sh(cmd) {
   return execSync(cmd, { stdio: ["inherit", "pipe", "inherit"] }).toString();
@@ -32,37 +32,36 @@ function patch(file, find, replace) {
 console.log("→ Creating D1 database 'htmlbin-db' …");
 let d1Out;
 try {
-  d1Out = sh(`npx wrangler d1 create htmlbin-db`);
+  d1Out = sh(`npx cf d1 create --name htmlbin-db`);
 } catch {
   console.log("  (already exists, fetching id from `d1 list`)");
-  d1Out = sh(`npx wrangler d1 list --json`);
+  d1Out = sh(`npx cf d1 list --name htmlbin-db`);
 }
-const d1Match = d1Out.match(/"uuid":\s*"([a-f0-9-]+)"|database_id\s*=\s*"([a-f0-9-]+)"/);
-const d1Id = d1Match?.[1] ?? d1Match?.[2];
+const d1Id = d1Out.match(/"uuid":\s*"([a-f0-9-]+)"/)?.[1];
 if (!d1Id) {
-  console.error("Couldn't extract D1 id. Set it manually in wrangler.toml.");
+  console.error("Couldn't extract D1 id. Set it manually in cloudflare.config.ts.");
   process.exit(1);
 }
 console.log(`  D1 id: ${d1Id}`);
 
 console.log("→ Creating KV namespace 'DROPS_KV' …");
-const kvOut = sh(`npx wrangler kv namespace create DROPS_KV`);
-const kvMatch = kvOut.match(/id\s*=\s*"([a-f0-9]+)"/);
-const kvId = kvMatch?.[1];
+const kvOut = sh(`npx cf kv namespaces create --title DROPS_KV`);
+const kvId = kvOut.match(/"id":\s*"([a-f0-9]{32})"/)?.[1];
 if (!kvId) {
-  console.error("Couldn't extract KV id. Set it manually in wrangler.toml.");
+  console.error("Couldn't extract KV id. Set it manually in cloudflare.config.ts.");
   process.exit(1);
 }
 console.log(`  KV id: ${kvId}`);
 
-console.log("→ Patching wrangler.toml …");
-patch(wranglerPath, /REPLACE_WITH_D1_ID/g, d1Id);
-patch(wranglerPath, /REPLACE_WITH_KV_ID/g, kvId);
+console.log("→ Patching cloudflare.config.ts …");
+patch(configPath, /REPLACE_WITH_D1_ID/g, d1Id);
+patch(configPath, /REPLACE_WITH_KV_ID/g, kvId);
 
 console.log("→ Applying schema (local + remote) …");
-sh(`npx wrangler d1 execute htmlbin-db --local --file=./schema.sql`);
+const schema = readFileSync(path.join(root, "schema.sql"), "utf8");
+execFileSync("npx", ["cf", "d1", "raw", d1Id, "--local", "--persist-to", ".wrangler/state", `--sql=${schema}`], { stdio: ["inherit", "pipe", "inherit"] });
 try {
-  sh(`npx wrangler d1 execute htmlbin-db --remote --file=./schema.sql`);
+  execFileSync("npx", ["cf", "d1", "raw", d1Id, `--sql=${schema}`], { stdio: ["inherit", "pipe", "inherit"] });
 } catch (e) {
   console.warn("  (remote apply failed — run `npm run db:apply:remote` after deploy)");
 }
@@ -70,11 +69,11 @@ try {
 console.log("→ Setting TOKEN_PEPPER secret …");
 const pepper = randomBytes(32).toString("hex");
 try {
-  execSync(`echo "${pepper}" | npx wrangler secret put TOKEN_PEPPER`, {
-    stdio: "inherit",
+  execFileSync("npx", ["cf", "workers", "secrets", "update", "TOKEN_PEPPER", "--worker", "htmlbin", "--type", "secret_text", "--text", pepper], {
+    stdio: ["inherit", "pipe", "inherit"],
   });
 } catch (e) {
-  console.warn("  (couldn't set secret — set manually with `wrangler secret put TOKEN_PEPPER`)");
+  console.warn("  (couldn't set secret — the Worker must exist first; deploy, then run `cf workers secrets update TOKEN_PEPPER --worker htmlbin --type secret_text --text <value>`)");
 }
 
 console.log("");
@@ -85,8 +84,8 @@ console.log("  1. Register a GitHub OAuth app at");
 console.log("     https://github.com/settings/applications/new");
 console.log("     - Authorization callback URL:");
 console.log("         https://<your-domain>/auth/github/callback");
-console.log("     Paste the Client ID into wrangler.toml as GITHUB_CLIENT_ID,");
-console.log("     then run: wrangler secret put GITHUB_CLIENT_SECRET");
+console.log("     Paste the Client ID into cloudflare.config.ts as GITHUB_CLIENT_ID,");
+console.log("     then run: cf workers secrets update GITHUB_CLIENT_SECRET --worker htmlbin --type secret_text --text <secret>");
 console.log("");
 console.log("  2. For local dev, copy .dev.vars.example to .dev.vars. The");
 console.log("     defaults use a 'dev-mock' sentinel that short-circuits");
