@@ -1,7 +1,7 @@
 # Copy to .dev.vars (gitignored) for local development.
-# These override [vars] in wrangler.toml when running `wrangler dev`.
+# These override [vars] in cloudflare.config.ts when running `cf dev`.
 
-# Local dev overrides — production uses the values in wrangler.toml.
+# Local dev overrides — production uses the values in cloudflare.config.ts.
 PUBLIC_URL="http://localhost:8787"
 
 # Random 32+ char string. Generate with:  openssl rand -hex 32
@@ -18,5 +18,5 @@ GITHUB_CLIENT_SECRET="dev-mock"
 # Sentry observability. Optional in dev. When unset, both the Worker
 # wrapper and the browser /sentry.js route no-op. DSN is public — Sentry
 # expects it in client code. Set in production via:
-#   wrangler secret put SENTRY_DSN
+#   cf workers secrets update SENTRY_DSN --worker htmlbin --type secret_text --text <dsn>
 # SENTRY_DSN="https://<publicKey>@oXXXXX.ingest.sentry.io/<project>"

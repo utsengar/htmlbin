@@ -41,7 +41,7 @@ reference-only and must not ship in the public version.
 5. Do not introduce a new format keyword or relitigate the old HTMD
    naming. Product is `htmlbin`; artifacts are "drops".
 6. Keep the aesthetic aligned with `DESIGN.md`.
-7. Never deploy production directly. No local `wrangler deploy`. No
+7. Never deploy production directly. No local `cf deploy` or `wrangler deploy`. No
    `git push origin main`. Ship through branch -> PR -> preview URL ->
    user approval -> merge to `main`.
 
@@ -87,7 +87,7 @@ The only production path is `.github/workflows/deploy.yml`:
 5. Test the preview URL and wait for explicit user approval.
 6. Merge to `main`; the workflow deploys production.
 
-Do not bypass this with local Wrangler deploys or direct pushes.
+Do not bypass this with local `cf`/Wrangler deploys or direct pushes.
 
 ## API Conventions
 
@@ -157,7 +157,7 @@ callback with a synthesized identity.
 
 ## Asset Gotchas
 
-Wrangler 4 + ES module Workers has been unreliable for importing
+The bundler (Wrangler 4, which cf builds with) has been unreliable for importing
 non-JS files outside `src/` through `[[rules]]`.
 
 Use established patterns:
@@ -184,7 +184,7 @@ src/views/             landing, verify, viewer, favicon, OG views
 skills/htmlbin/SKILL.md human-browsable mirror of src/skill.ts
 schema.sql             D1 schema
 migrations/            D1 migrations
-wrangler.toml          Cloudflare config
+cloudflare.config.ts   Cloudflare config read by cf (all commands go through cf)
 scripts/setup.mjs      provisioning
 scripts/agent-e2e.sh   full functional test
 scripts/stats.mjs      text-based stats snapshot (npm run stats)

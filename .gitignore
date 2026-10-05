@@ -13,8 +13,10 @@ build/
 .parcel-cache/
 *.tsbuildinfo
 
-# --- Cloudflare / Wrangler ---
+# --- Cloudflare ---
 .wrangler/
+.cloudflare/
+worker-configuration.d.ts
 .dev.vars
 .dev.vars.*
 !.dev.vars.example

@@ -73,7 +73,7 @@ npm run dashboard -- --local # against local D1
 ```
 
 A tiny Node + vanilla-JS dashboard that proxies read-only SQL through
-`wrangler d1 execute` and renders an interactive overview with
+`cf d1 raw` and renders an interactive overview with
 click-through into any user (drops, tokens, signup date, daily activity)
 or any drop (versions, owner, storage). User detail pulls real name /
 bio / followers / repos from the public GitHub API. Sibling of
@@ -86,8 +86,8 @@ deployed, not part of the product surface.
 # 1. Real GitHub OAuth app
 #    https://github.com/settings/applications/new
 #    - Authorization callback URL: https://htmlbin.dev/auth/github/callback
-#    Paste the client id into wrangler.toml; the secret is a Worker secret:
-wrangler secret put GITHUB_CLIENT_SECRET
+#    Paste the client id into cloudflare.config.ts; the secret is a Worker secret:
+cf workers secrets update GITHUB_CLIENT_SECRET --worker htmlbin --type secret_text --text <secret>
 
 # 2. Apply schema (fresh DB) or migrations (existing DB) to remote
 npm run db:apply:remote        # fresh DB only
@@ -97,8 +97,8 @@ npm run db:migrate:remote      # existing DB — applies migrations/
 npm run deploy
 ```
 
-Custom domain: in the Cloudflare dashboard, attach `htmlbin.dev` to the
-Worker, then uncomment the `routes` block in `wrangler.toml`.
+Custom domain: list it under `worker.domains` in `cloudflare.config.ts`;
+the next deploy attaches it.
 
 ### Continuous deploy (GitHub Actions)
 
@@ -117,9 +117,8 @@ That's it. PRs automatically get a Cloudflare preview URL commented
 back; merges to `main` deploy to production.
 
 > Bindings (D1, KV, AI) are shared between previews and production.
-> Add an `[env.preview]` block in `wrangler.toml` with separate IDs if
-> you want isolated preview data — see
-> <https://developers.cloudflare.com/workers/wrangler/environments/>.
+> For isolated preview data, give previews their own D1/KV IDs (cf
+> evaluates `cloudflare.config.ts` per `--mode`).
 
 ## API
 
@@ -250,7 +249,8 @@ skills/htmlbin/
 .github/workflows/
   deploy.yml        ─ production deploy on main, versioned preview on PR
 schema.sql          ─ D1 schema
-wrangler.toml       ─ Cloudflare config (incl. [[rules]] CompiledWasm for OG fonts)
+cloudflare.config.ts ─ Cloudflare config for the cf CLI
+wrangler.config.ts  ─ bundler options cf passes to its builder (CompiledWasm rule)
 scripts/
   setup.mjs         ─ one-shot provisioning
   agent-e2e.sh      ─ full functional test

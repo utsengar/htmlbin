@@ -66,16 +66,16 @@ them ships something the user will reject:
    English, not a coined term we own. We do not have authority to define
    a new format spec, so don't act like we do.
 6. **Aesthetic stays in DESIGN.md.** Don't drift.
-7. **Never deploy to production directly.** No `wrangler deploy` from
-   the local shell. No `git push origin main`. Every change ships
+7. **Never deploy to production directly.** No `cf deploy` /
+   `wrangler deploy` from the local shell. No `git push origin main`. Every change ships
    through this exact flow:
      1. Create a new branch (`git checkout -b <name>`).
      2. Commit and `git push -u origin <name>`.
-     3. Open a PR. GitHub Actions runs `wrangler versions upload` and
+     3. Open a PR. GitHub Actions runs `cf workers versions create` and
         posts a Cloudflare preview URL as a sticky comment on the PR.
      4. Test against that preview URL. Wait for the user's approval.
      5. After the user approves, merge the PR. The merge-to-`main`
-        workflow runs `wrangler deploy` for production — that is the
+        workflow runs `cf deploy` for production — that is the
         only path code reaches `htmlbin.dev`.
    Even for a one-line copy fix. No exceptions.
 
@@ -174,8 +174,8 @@ single-use secret. The callback re-checks `verifications.status` after
 GitHub returns, in case the row expired during the round-trip.
 
 **Bindings:** `GITHUB_CLIENT_ID` is a public `[vars]` entry in
-`wrangler.toml`. `GITHUB_CLIENT_SECRET` is a Worker secret
-(`wrangler secret put GITHUB_CLIENT_SECRET`). The OAuth app's
+`cloudflare.config.ts`. `GITHUB_CLIENT_SECRET` is a Worker secret
+(`cf workers secrets update GITHUB_CLIENT_SECRET --worker htmlbin --type secret_text --text …`). The OAuth app's
 "Authorization callback URL" must be `https://htmlbin.dev/auth/github/callback`.
 
 **Dev mock:** when `GITHUB_CLIENT_ID === "dev-mock"` (the value in
@@ -441,7 +441,7 @@ The landing page is also available as Markdown via Workers AI:
 - `GET /?format=md` — querystring fallback
 
 Result is cached in KV (`md:landing`, 1h). Requires Workers AI binding
-(`[ai]` block in wrangler.toml — already set up). See
+(`AI: bindings.ai({})` in cloudflare.config.ts — already set up). See
 https://blog.cloudflare.com/markdown-for-agents/ for the underlying API.
 
 User-uploaded drops at `/p/:id` are **not** auto-converted — agents
@@ -598,7 +598,7 @@ Slack, Twitter, iMessage, and most unfurlers don't render SVG OG cards
 WASM gotchas (don't relitigate):
 - Workers block `WebAssembly.compile`. We use `satori/standalone` and
   call `init(yogaWasmModule)` with a precompiled `WebAssembly.Module`
-  imported via wrangler's `[[rules]] type = "CompiledWasm"` glob. Same
+  imported via the `CompiledWasm` rule in `wrangler.config.ts`. Same
   trick for `@resvg/resvg-wasm/index_bg.wasm`.
 - `satori-html` was removed because it doesn't decode HTML entities
   (the `<htmlbin>` wordmark rendered literally as `&lt;htmlbin&gt;`).
@@ -618,6 +618,74 @@ WASM gotchas (don't relitigate):
 `og-image.ts` (SVG) and `og-png.ts` are **both** in tree on purpose:
 the SVG is the lightweight fallback + per-tab rendering source; the
 PNG is what social platforms actually consume.
+
+## CLI: `cf` (beta) — every command runs through it
+
+Every npm script, CI step and doc command uses Cloudflare's `cf` CLI
+(npm `cf`, open beta since Sept 2026, Node >= 22.18; CI uses Node 22).
+There is no `wrangler.toml` and no script calls Wrangler.
+
+**Wrangler is still an npm dependency, and has to be.** `cf` builds by
+delegating to Wrangler (`cf deploy` prints "Delegating to Wrangler" and
+refuses to run below Wrangler 4.136), and `cf dev` runs its local server
+and remote bindings through it. `@cloudflare/vite-plugin` depends on
+Wrangler too, so switching bundlers doesn't remove it. Treat it as a
+build dependency of `cf`, not a CLI we use.
+
+- **Config.** `cloudflare.config.ts` (from `cf migrate`) holds the Worker,
+  bindings, vars and domains. `wrangler.config.ts` only carries bundler
+  options (the CompiledWasm `rules` for the OG renderer) — that's where
+  `cf` expects them.
+- **Command map.**
+
+  | Task | Command |
+  |---|---|
+  | local dev | `npm run dev` → `cf dev` |
+  | PR preview (CI) | `cf workers versions create --message …` |
+  | prod deploy (CI only) | `cf deploy` |
+  | seed local DB | `npm run db:apply:local` → `cf d1 raw <db-id> --local …` |
+  | migrations | `npm run db:migrate:*` → `cf d1 migrations apply\|list <db-id>` |
+  | stats / dashboard | `cf d1 raw` (rows come back as arrays; the scripts zip them into objects) |
+  | secrets | `cf workers secrets update <NAME> --worker htmlbin --type secret_text --text …` |
+  | logs | `cf observability telemetry query` (queries recent logs; there is no live `tail`) |
+
+- **D1 commands take the database UUID**, not the name
+  (`63632af3-b786-422b-87bd-bf6e13399ec9`). `cf d1 migrations` uses the same
+  `d1_migrations` table Wrangler did, so applied history carries over.
+- **`cf d1 raw` runs locally; `cf d1 query` doesn't** (with `--local` it
+  errors "no local equivalent"). Use `raw` for anything local.
+- **Pass SQL as `--sql=…`, not `--sql …`.** `schema.sql` starts with `--`,
+  which the CLI parser otherwise reads as a flag.
+- **Local state is `.wrangler/state`, and that's fixed.** `cf dev` ignores
+  `--persist-to` (both as its own flag and forwarded after `--`); its
+  bundled Wrangler always writes the Worker's local D1/KV there. So every
+  local `cf d1` command passes `--persist-to .wrangler/state` to hit the
+  same database. The directory name is the only Wrangler-named thing left.
+- **Two logins for `cf dev`.** The AI binding runs remotely through the
+  bundled Wrangler, which keeps its own auth. Run `cf auth login` *and*
+  `npm exec -- wrangler login` once (or set `CLOUDFLARE_API_TOKEN`);
+  otherwise `cf dev` dies with `Failed to fetch auth token` /
+  `[object Object]`.
+- **Version pins.** `cf` needs Wrangler >= 4.136; we use 4.145 because
+  4.136 and 4.140 pull `undici@7.29.0` (high-severity advisory), which fails
+  the CI `npm audit` gate through `@sentry/cloudflare`'s wrangler peer.
+  `@cloudflare/workers-types` is pinned to an exact 5.x release a few days
+  old because the Socket firewall blocks packages published the same day;
+  Sentry >= 10.76 is needed for the workers-types 5 peer range.
+- **Deploys keep secrets.** `cf deploy` and `cf workers versions create`
+  both send `keep_bindings` for secrets (checked in the `cf` source), so
+  `TOKEN_PEPPER` etc. survive a deploy, as with Wrangler.
+- **`cf previews deploy`** exists but is untested; its source has a
+  "Preview uploads from Build Output don't support the `domains` field"
+  error, which our config may trip. CI uses `workers versions create`.
+- **Gitignored output:** `.cloudflare/` (build output) and
+  `worker-configuration.d.ts` (regenerated by `cf dev`).
+- **`cf` help output** includes an "AGENTS: use `cf cli search`" banner;
+  that is a real discovery command and the quickest way to find a
+  command (`cf cli search "<task>"`).
+- `npm run typecheck` can fail locally with `Cannot find module
+  '../lib/tsc.js'` (a broken `.bin` shim); run
+  `node node_modules/typescript/bin/tsc --noEmit`. CI is unaffected.
 
 ## Bundling non-JS assets in the Worker — the wrangler gotcha
 
@@ -673,7 +741,7 @@ When we do migrate (good follow-up, especially if we ever want to
 serve more static files), the steps:
 
 1. `mv assets/fonts public/fonts`
-2. Add `[assets] directory = "./public"` to `wrangler.toml`
+2. Add the static-assets directory to `cloudflare.config.ts`
 3. Delete `src/fonts.ts` and `src/fonts-data.ts`
 4. Remove the `/fonts/:name` route + `FONTS` import in `src/index.ts`
 5. Move `FONT_FACE_CSS` into `src/styles.ts` as an inline string
@@ -695,16 +763,16 @@ Spec: https://developers.cloudflare.com/workers/static-assets/
 ## CI / continuous deploy — the *only* deploy path
 
 `.github/workflows/deploy.yml` is the **single way** code reaches
-production. Hard rule #7 above: never `wrangler deploy` locally and
+production. Hard rule #7 above: never `cf deploy` / `wrangler deploy` locally and
 never push directly to `main`. Both bypass review.
 
 The workflow:
 
-- **PR opened or pushed to** — type-check, `wrangler versions upload`,
+- **PR opened or pushed to** — type-check, `cf workers versions create`,
   post the Cloudflare preview URL as a sticky comment on the PR
   (`https://<version-id>-htmlbin.<account>.workers.dev`).
-- **Merge to `main`** — type-check, `wrangler deploy` to production.
-  Triggered by the merge, never by a human running wrangler.
+- **Merge to `main`** — type-check, `cf deploy` to production.
+  Triggered by the merge, never by a human running `cf deploy`.
 
 Mandatory loop for every change:
 
@@ -719,15 +787,15 @@ Mandatory loop for every change:
 Concurrency cancels superseded PR runs but never cancels a mid-flight
 `main` deploy. The only secret in GitHub is `CLOUDFLARE_API_TOKEN`
 (template "Edit Cloudflare Workers"). Worker secrets (`TOKEN_PEPPER`,
-`GITHUB_CLIENT_SECRET`) are managed via `wrangler secret put` against
+`GITHUB_CLIENT_SECRET`) are managed via `cf workers secrets update` against
 production; preview versions share the same bindings because they
 live on the same Worker.
 
 ## Local operator dashboard (`npm run dashboard`) — not a product surface
 
 `scripts/dashboard/server.mjs` is a tiny Node HTTP server that binds to
-`127.0.0.1:5173` and proxies read-only SQL through `wrangler d1 execute
---remote --json` (same pattern as `stats.mjs`). The static SPA in
+`127.0.0.1:5173` and proxies read-only SQL through `cf d1 raw`
+(same pattern as `stats.mjs`). The static SPA in
 `scripts/dashboard/{index.html,app.js,style.css}` renders an interactive
 overview with click-through into any user (drops, tokens, signup date,
 daily activity) and any drop (versions, owner, storage). User detail
@@ -752,17 +820,11 @@ yourself wanting that, stop and ask the user first.
 - Read-only. The server has no SQL mutation path. Inputs are strict
   whitelists (`user_id` matches `/^[A-Za-z0-9_-]{1,64}$/`, `slug`
   matches `/^[A-Za-z0-9]{6,12}$/`, window is a fixed enum) before SQL
-  interpolation because `wrangler d1 execute --command` doesn't accept
-  bind params.
+  interpolation because `cf d1 raw --sql` doesn't accept bind params.
 - 30s in-memory query cache so click-around doesn't re-hit remote D1.
-- **Wrangler invocation:** the server runs
-  `node node_modules/wrangler/bin/wrangler.js` directly, *not* `npx
-  wrangler`. The `.bin/wrangler` shim is installed as a regular file
-  (not a symlink), so its `__dirname`-relative path math resolves
-  `node_modules/wrangler-dist/cli.js` (wrong) instead of
-  `node_modules/wrangler/wrangler-dist/cli.js`. `stats.mjs` still uses
-  `npx wrangler`; if that breaks the same way, copy the direct-invoke
-  pattern from the dashboard.
+- **`cf` invocation:** both the server and `stats.mjs` run
+  `node_modules/.bin/cf d1 raw <db-id> --sql=…` and zip the returned
+  `columns` + `rows` arrays into objects.
 - Vanilla HTML/JS/CSS, no build step, no new npm dependencies. SVG bar
   charts hand-rolled.
 - Routes are hash-based: `#/` overview, `#/u/<user_id>` user detail,
@@ -777,25 +839,15 @@ yourself wanting that, stop and ask the user first.
   callback with `?mock_login=<x>`. The deterministic mock id derives
   from SHA-256 of the login. Production uses real OAuth app credentials
   from `github.com/settings/applications/new`.
-- **D1** in local mode is in `.wrangler/state/`. Run
-  `npm run db:apply:local` after schema changes. For column-only
+- **D1** in local mode is in `.wrangler/state/` (where `cf dev` keeps it).
+  Run `npm run db:apply:local` after schema changes. For column-only
   changes against an existing DB, write a new file in `migrations/`
   and run `npm run db:migrate:local` / `:remote`. The migration scripts
-  call `wrangler d1 migrations apply` under the hood, which tracks
+  call `cf d1 migrations apply` under the hood, which tracks
   applied migrations in a `d1_migrations` table — drop a new
   `migrations/<n>-<name>.sql` and it gets picked up automatically; no
   npm-script edit needed. `npm run db:migrate:list:local` / `:remote`
   shows what's pending.
-- **Wrangler invocation in npm scripts.** All `db:*` scripts call
-  `node node_modules/wrangler/bin/wrangler.js …` directly rather than
-  bare `wrangler`. Why: the `.bin/wrangler` shim is installed as a
-  regular file (not a symlink), so its `__dirname`-relative path math
-  resolves `node_modules/wrangler-dist/cli.js` (wrong) instead of
-  `node_modules/wrangler/wrangler-dist/cli.js`. Same gotcha the
-  dashboard server hit — see `scripts/dashboard/server.mjs`. The
-  `dev`/`deploy`/`tail` scripts kept the bare form because they happen
-  to work; if they ever break the same way, copy the direct-invoke
-  pattern.
 - **Token prefix is `hb_`.** If you change it, update both
   `src/auth.ts` (regex) AND `src/crypto.ts:newApiToken` AND
   `src/index.ts` (existing-token validation regex).
@@ -809,7 +861,7 @@ yourself wanting that, stop and ask the user first.
   `htmlbin.dev/api/*` without a `User-Agent` header are rejected by
   Cloudflare with `403` + error `1010` before they reach the Worker. The
   CLI, any direct `curl`/`fetch`, and the e2e script must send a UA
-  (we use `htmlbin-cli/<version>`). Local `wrangler dev` doesn't sit
+  (we use `htmlbin-cli/<version>`). Local `cf dev` doesn't sit
   behind that ruleset so it only bites against `htmlbin.dev` itself.
 
 ## Observability (Sentry)
@@ -856,10 +908,14 @@ URLs work without any DSN.
   templates as `text/plain`; non-HTML responses aren't rewritten. Keep it
   that way. The e2e asserts the served bytes, not just the content type.
 - **Config:** `SENTRY_DSN` is a Worker secret. Because this Worker
-  uses versioned deploys (CI runs `wrangler versions upload` on PRs),
-  use `wrangler versions secret put SENTRY_DSN` — *not* the plain
-  `wrangler secret put`, which errors with "latest version of your
-  Worker isn't currently deployed." Local dev: copy `.dev.vars.example`
+  uses versioned deploys (CI runs `cf workers versions create` on PRs),
+  the plain secrets endpoint errored under Wrangler with "latest version
+  of your Worker isn't currently deployed" (`wrangler secret put`), and
+  `cf workers secrets update` calls that same endpoint. If it errors,
+  attach the secret to a version instead with `cf workers versions create
+  --secrets-file <file>` (untested; Wrangler's answer was `versions secret
+  put`). Never `cf deploy` from the shell to do this — hard rule #7.
+  Local dev: copy `.dev.vars.example`
   and uncomment the `SENTRY_DSN` line. The DSN is *public* by Sentry's
   design — embedding it in client JS is intended.
 - **CLI:** `sentry-cli` is for source-map upload + release tagging.
@@ -910,13 +966,14 @@ patterns/           ─ human-browsable canonical pattern markdown — source of
 
 schema.sql          ─ D1 schema (idempotent for fresh installs)
 migrations/         ─ ALTER-style migrations against an existing D1
-wrangler.toml       ─ Cloudflare config (Worker name, D1, KV, AI, [[rules]] CompiledWasm)
+cloudflare.config.ts ─ Cloudflare config read by cf (Worker name, D1, KV, AI, domains)
+wrangler.config.ts  ─ bundler options cf hands to its builder ([[rules]] CompiledWasm)
 scripts/
   setup.mjs         ─ provisions D1 + KV, applies schema, sets pepper
   agent-e2e.sh      ─ full functional test
   stats.mjs         ─ text-based stats snapshot (npm run stats)
   dashboard/        ─ local-only operator web UI (npm run dashboard)
-    server.mjs        ─ http server + wrangler subprocess proxy
+    server.mjs        ─ http server + `cf d1 raw` subprocess proxy
     index.html / app.js / style.css  ─ vanilla SPA, no build step
 .dev.vars.example   ─ TOKEN_PEPPER + GITHUB_CLIENT_ID/SECRET (dev-mock)
 ```
