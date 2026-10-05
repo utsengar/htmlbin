@@ -5,8 +5,8 @@
   "description": "Agent-first HTML hosting. Drop HTML, get a URL. htmlbin.dev",
   "type": "module",
   "scripts": {
-    "dev": "node node_modules/wrangler/bin/wrangler.js dev",
-    "deploy": "node node_modules/wrangler/bin/wrangler.js deploy",
+    "dev": "cf dev",
+    "deploy": "cf deploy",
     "tail": "node node_modules/wrangler/bin/wrangler.js tail",
     "db:apply:local": "node node_modules/wrangler/bin/wrangler.js d1 execute htmlbin-db --local --file=./schema.sql",
     "db:apply:remote": "node node_modules/wrangler/bin/wrangler.js d1 execute htmlbin-db --remote --file=./schema.sql",
@@ -22,14 +22,15 @@
   },
   "dependencies": {
     "@resvg/resvg-wasm": "^2.6.2",
-    "@sentry/cloudflare": "^10.53.1",
+    "@sentry/cloudflare": "^10.76.0",
     "hono": "^4.13.3",
     "satori": "^0.26.0",
     "satori-html": "^0.3.2"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20260702.1",
+    "@cloudflare/workers-types": "5.20260929.1",
+    "cf": "^1.0.0-beta.12",
     "typescript": "5.7.2",
-    "wrangler": "~4.100.0"
+    "wrangler": "~4.136.0"
   }
 }
